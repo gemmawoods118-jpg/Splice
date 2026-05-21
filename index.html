@@ -29,6 +29,21 @@
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input.math-input { -moz-appearance: textfield; }
 
+        /* Masquer la barre de défilement horizontale pour les filtres */
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Transition d'onglet iOS fluide */
+        .tab-view {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tab-view.active-tab {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         @keyframes pop {
             0% { transform: scale(0.5); opacity: 0; }
             70% { transform: scale(1.1); opacity: 1; }
@@ -102,23 +117,23 @@
                     
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
-                            <p class="text-[9px] text-indigo-400 font-black uppercase tracking-wider mb-2" id="dash-name-p1">Toi</p>
-                            <div class="space-y-1 mb-2">
-                                <p class="text-[10px] text-slate-400 flex justify-between"><span>Payé</span> <span class="font-bold text-slate-200" id="dash-paid-p1">0.00 <span class="currency-display">€</span></span></p>
-                                <p class="text-[10px] text-slate-400 flex justify-between"><span>Part</span> <span class="font-bold text-slate-200" id="dash-share-p1">0.00 <span class="currency-display">€</span></span></p>
+                            <p class="text-[10px] text-indigo-400 font-black uppercase tracking-wider mb-2" id="dash-name-p1">Toi</p>
+                            <div class="space-y-1.5 mb-2">
+                                <p class="text-xs text-slate-400 flex justify-between items-center"><span>Payé</span> <span class="text-sm font-black text-slate-100" id="dash-paid-p1">0.00 <span class="currency-display">€</span></span></p>
+                                <p class="text-xs text-slate-400 flex justify-between items-center"><span>Part</span> <span class="text-sm font-black text-slate-100" id="dash-share-p1">0.00 <span class="currency-display">€</span></span></p>
                             </div>
                             <div class="pt-2 border-t border-slate-800/50 text-center">
-                                <p class="text-xs font-black text-slate-400" id="dash-balance-p1">Bilan : 0.00 €</p>
+                                <p class="text-sm font-black text-slate-400" id="dash-balance-p1">Bilan : 0.00 €</p>
                             </div>
                         </div>
                         <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
-                            <p class="text-[9px] text-indigo-400 font-black uppercase tracking-wider mb-2" id="dash-name-p2">Partenaire</p>
-                            <div class="space-y-1 mb-2">
-                                <p class="text-[10px] text-slate-400 flex justify-between"><span>Payé</span> <span class="font-bold text-slate-200" id="dash-paid-p2">0.00 <span class="currency-display">€</span></span></p>
-                                <p class="text-[10px] text-slate-400 flex justify-between"><span>Part</span> <span class="font-bold text-slate-200" id="dash-share-p2">0.00 <span class="currency-display">€</span></span></p>
+                            <p class="text-[10px] text-indigo-400 font-black uppercase tracking-wider mb-2" id="dash-name-p2">Partenaire</p>
+                            <div class="space-y-1.5 mb-2">
+                                <p class="text-xs text-slate-400 flex justify-between items-center"><span>Payé</span> <span class="text-sm font-black text-slate-100" id="dash-paid-p2">0.00 <span class="currency-display">€</span></span></p>
+                                <p class="text-xs text-slate-400 flex justify-between items-center"><span>Part</span> <span class="text-sm font-black text-slate-100" id="dash-share-p2">0.00 <span class="currency-display">€</span></span></p>
                             </div>
                             <div class="pt-2 border-t border-slate-800/50 text-center">
-                                <p class="text-xs font-black text-slate-400" id="dash-balance-p2">Bilan : 0.00 €</p>
+                                <p class="text-sm font-black text-slate-400" id="dash-balance-p2">Bilan : 0.00 €</p>
                             </div>
                         </div>
                     </div>
@@ -133,7 +148,7 @@
             </section>
 
             <!-- VIEW 1: MANUAL TRANSACTION ENTRY (Saisie) -->
-            <div id="view-saisie" class="space-y-4">
+            <div id="view-saisie" class="tab-view active-tab space-y-4">
                 
                 <!-- Saisie Magique en 1-Clic -->
                 <section class="bg-slate-950/20 border border-slate-850 p-3.5 rounded-2xl space-y-2">
@@ -145,8 +160,7 @@
                         <button type="button" onclick="applyPreset('Café / Goûter', 'Resto & Café', 'fa-utensils')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>☕</span> Café</button>
                         <button type="button" onclick="applyPreset('Resto McDo', 'Resto & Café', 'fa-utensils')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>🍔</span> McDo</button>
                         <button type="button" onclick="applyPreset('Billet Train SNCF', 'Transport', 'fa-car')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>🚗</span> Train SNCF</button>
-                        <button type="button" onclick="applyPreset('Loyer Mensuel', 'Factures & Loyer', 'fa-house-user')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>🏠</span> Loyer</button>
-                        <button type="button" onclick="applyPreset('Plein Essence', 'Transport', 'fa-car')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>⛽</span> Essence</button>
+                        <button type="button" onclick="applyPreset('Loyer Loyer', 'Factures & Loyer', 'fa-house-user')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>🏠</span> Loyer</button>
                         <button type="button" onclick="applyPreset('Abonnement Sport', 'Sport', 'fa-dumbbell')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95"><span>🏋️‍♂️</span> Sport</button>
                     </div>
                 </section>
@@ -184,7 +198,7 @@
                             <div class="p-3.5 flex justify-between items-center cursor-pointer select-none" onclick="toggleCategorySection()">
                                 <div class="space-y-0.5">
                                     <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block">3. Catégorie & Raccourcis</span>
-                                    <div id="active-category-display" class="flex items-center gap-2 mt-1 hidden">
+                                    <div id="active-category-display" class="flex items-center gap-2 mt-1">
                                         <!-- Injecté par JS -->
                                     </div>
                                 </div>
@@ -267,7 +281,7 @@
             </div>
 
             <!-- VIEW 2: AUTOMATIC WEBHOOK INBOX -->
-            <div id="view-inbox" class="hidden space-y-4">
+            <div id="view-inbox" class="tab-view hidden space-y-4">
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner text-center space-y-4">
                     <div class="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto"><i class="fa-solid fa-mobile-screen-button text-lg"></i></div>
                     <div class="space-y-1"><h3 class="text-sm font-bold text-white">Flux Bancaire Automatique</h3><p class="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">Les transactions arrivent ici en temps réel pour validation et personnalisation.</p></div>
@@ -280,7 +294,7 @@
             </div>
 
             <!-- VIEW 3: ANALYSE -->
-            <div id="view-analyse" class="hidden space-y-5">
+            <div id="view-analyse" class="tab-view hidden space-y-5">
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 shadow-inner space-y-3">
                     <div class="flex justify-between items-center"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold"><i class="fa-solid fa-filter mr-1 text-indigo-400"></i>Filtres Temporels</span><button onclick="resetAnalyseFilters()" class="text-[10px] text-indigo-400 hover:underline font-bold">Ce mois-ci</button></div>
                     <div class="grid grid-cols-2 gap-2">
@@ -303,8 +317,24 @@
             </div>
 
             <!-- VIEW 4: HISTORIQUE VIEW -->
-            <div id="view-history" class="hidden space-y-4">
-                <div class="flex justify-between items-center"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Historique</h3><span class="text-[11px] font-semibold text-slate-500" id="history-count">0 dépense</span></div>
+            <div id="view-history" class="tab-view hidden space-y-4">
+                
+                <!-- Barre de Recherche & Filtres horizontaux -->
+                <div class="space-y-3 bg-slate-950/20 p-3 rounded-2xl border border-slate-850/60 shrink-0">
+                    <div class="relative">
+                        <input type="text" id="history-search" oninput="onHistorySearchInput(this.value)" placeholder="Rechercher une dépense..." 
+                            class="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 rounded-xl py-2 pl-9 pr-4 text-sm text-slate-200 focus:outline-none transition-colors">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </span>
+                    </div>
+                    <!-- Filtres de Catégories Horizontaux -->
+                    <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-none" id="history-cat-filters">
+                        <!-- Généré par JS -->
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Transactions</h3><span class="text-[11px] font-semibold text-slate-500" id="history-count">0 dépense</span></div>
                 <div class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1" id="history-list">
                     <div class="text-center py-12 text-xs text-slate-600 font-medium" id="empty-state">
                         Aucune dépense enregistrée. Utilisez le premier onglet !
@@ -316,10 +346,10 @@
 
         <!-- Bottom Navigation Bar -->
         <nav class="shrink-0 bg-[#090d16] flex justify-around items-center py-3.5 z-40 shadow-[0_-12px_40px_rgba(0,0,0,0.95)] border-t border-slate-800/40">
-            <button onclick="switchView('saisie')" id="nav-btn-saisie" class="flex flex-col items-center gap-1 text-indigo-400 font-bold transition-all p-1.5"><i class="fa-solid fa-pen-nib text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Saisie</span></button>
-            <button onclick="switchView('inbox')" id="nav-btn-inbox" class="flex flex-col items-center gap-1 text-slate-500 font-medium transition-all p-1.5 relative"><i class="fa-solid fa-mobile-screen-button text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Inbox</span><span id="nav-inbox-badge" class="hidden absolute top-1 right-4 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">0</span></button>
-            <button onclick="switchView('analyse')" id="nav-btn-analyse" class="flex flex-col items-center gap-1 text-slate-500 font-medium transition-all p-1.5"><i class="fa-solid fa-chart-pie text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Analyse</span></button>
-            <button onclick="switchView('history')" id="nav-btn-history" class="flex flex-col items-center gap-1 text-slate-500 font-medium transition-all p-1.5"><i class="fa-solid fa-receipt text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Historique</span></button>
+            <button onclick="switchView('saisie')" id="nav-btn-saisie" class="flex flex-col items-center gap-1.5 text-indigo-400 font-bold transition-all p-1.5"><i class="fa-solid fa-pen-nib text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Saisie</span></button>
+            <button onclick="switchView('inbox')" id="nav-btn-inbox" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5 relative"><i class="fa-solid fa-mobile-screen-button text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Inbox</span><span id="nav-inbox-badge" class="hidden absolute top-1 right-4 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">0</span></button>
+            <button onclick="switchView('analyse')" id="nav-btn-analyse" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5"><i class="fa-solid fa-chart-pie text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Analyse</span></button>
+            <button onclick="switchView('history')" id="nav-btn-history" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5"><i class="fa-solid fa-receipt text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Historique</span></button>
         </nav>
     </div>
 
@@ -369,6 +399,109 @@
         </div>
     </div>
 
+    <!-- FEUILLE DE MODIFICATION (Dedicated bottom sheet modal) -->
+    <div id="edit-tx-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92vh] sm:max-h-[85vh] p-5 space-y-4 shadow-2xl flex flex-col justify-between overflow-hidden">
+            <!-- Header -->
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800 shrink-0">
+                <h3 class="text-sm font-black text-white uppercase tracking-wider"><i class="fa-solid fa-pen-to-square mr-2 text-indigo-400"></i>Modifier la transaction</h3>
+                <button onclick="closeEditTxModal()" class="text-slate-400 hover:text-white transition-colors p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Fields -->
+            <div class="space-y-4 overflow-y-auto flex-1 pr-1 py-1">
+                <!-- Description -->
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
+                    <input type="text" id="modal-edit-desc" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
+                </div>
+                
+                <!-- Spaced row layout -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
+                        <input type="date" id="modal-edit-date" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none [color-scheme:dark]">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
+                        <input type="number" step="0.01" id="modal-edit-amount" oninput="onModalEditAmountInput(this.value)" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Qui a payé (Names) -->
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5" id="modal-edit-payer-label">Qui a payé ?</label>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <button type="button" id="modal-edit-payer-p1" onclick="selectModalEditPayer('p1')" class="py-2.5 rounded-xl border text-xs font-bold transition-all"></button>
+                        <button type="button" id="modal-edit-payer-p2" onclick="selectModalEditPayer('p2')" class="py-2.5 rounded-xl border text-xs font-bold transition-all"></button>
+                    </div>
+                </div>
+
+                <!-- Catégorie -->
+                <div id="modal-edit-cat-section" class="space-y-1.5">
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block">Catégorie</label>
+                    <div class="flex flex-wrap gap-2" id="modal-edit-cat-grid"></div>
+                </div>
+
+                <!-- Partage / Splits (Slider + custom boxes) -->
+                <div id="modal-edit-split-section" class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-850/50 space-y-3">
+                    <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                        <span>Partage</span>
+                        <span class="text-xs text-indigo-400 font-extrabold" id="modal-edit-split-title">50% / 50%</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button type="button" id="modal-edit-split-50" onclick="selectModalEditSplitType('50_50')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">50 / 50</button>
+                        <button type="button" id="modal-edit-split-100" onclick="selectModalEditSplitType('100_other')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">L'autre</button>
+                        <button type="button" id="modal-edit-split-custom" onclick="selectModalEditSplitType('custom')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">Précis</button>
+                    </div>
+
+                    <div id="modal-edit-custom-panel" class="hidden space-y-3 pt-1">
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                                <span class="text-[9px] text-slate-500 block mb-1 font-bold" id="modal-edit-name-p1">Alex</span>
+                                <div class="relative font-bold text-slate-100">
+                                    <input type="number" id="modal-edit-custom-amt-p1" step="0.01" oninput="onModalEditCustomAmtInput('p1')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
+                                    <span class="absolute right-0 top-0 text-slate-500 text-xs currency-display">€</span>
+                                </div>
+                                <span id="modal-edit-custom-pct-p1" class="text-[9px] text-slate-500 font-bold block text-right mt-1">50%</span>
+                            </div>
+                            <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                                <span class="text-[9px] text-slate-500 block mb-1 font-bold" id="modal-edit-name-p2">Sam</span>
+                                <div class="relative font-bold text-slate-100">
+                                    <input type="number" id="modal-edit-custom-amt-p2" step="0.01" oninput="onModalEditCustomAmtInput('p2')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
+                                    <span class="absolute right-0 top-0 text-slate-500 text-xs currency-display">€</span>
+                                </div>
+                                <span id="modal-edit-custom-pct-p2" class="text-[9px] text-slate-500 font-bold block text-right mt-1">50%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-1">
+                            <input type="range" id="modal-edit-slider" min="0" max="100" value="50" oninput="onModalEditSliderInput(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                            <div class="flex justify-between text-[10px] font-bold text-slate-500 px-1">
+                                <span>Glisser le ratio :</span>
+                                <span id="modal-edit-slider-summary">50% / 50%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800 shrink-0">
+                <button type="button" onclick="saveModalEdit()" class="py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-xs shadow-lg shadow-indigo-950/40">
+                    Enregistrer
+                </button>
+                <button type="button" onclick="closeEditTxModal()" class="py-3 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-xs transition-colors">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script Engine -->
     <script>
         const smartCategories = [
             { keywords: ['course', 'courses', 'supermarche', 'aldi', 'lidl', 'carrefour', 'leclerc', 'auchan', 'nourriture', 'boucherie', 'monop', 'monoprix', 'franprix'], label: 'Courses', icon: 'fa-cart-shopping', color: 'text-amber-400', bgClass: 'bg-amber-500/10', borderClass: 'border-amber-500/20' },
@@ -391,6 +524,7 @@
             { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-400', presets: ['Retrait Cash', 'Coiffeur', 'Pharmacie', 'Bricolage'] }
         ];
 
+        // Core App State
         let state = {
             expenses: [],
             categories: [],
@@ -402,10 +536,101 @@
             selectedIcon: 'fa-asterisk',
             supabaseClient: null,
             syncQueue: [],
-            txType: 'depense'
+            txType: 'depense',
+            historySearchQuery: '',
+            selectedHistoryCategory: 'all',
+            editingTransaction: null 
         };
 
         function safeSetInnerText(id, text) { const el = document.getElementById(id); if (el) el.innerText = text; }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast-banner');
+            const toastMsg = document.getElementById('toast-message');
+            if (toastMsg) toastMsg.innerText = message;
+            if (toast) { 
+                toast.classList.remove('hidden'); 
+                setTimeout(() => toast.classList.add('hidden'), 3000); 
+            }
+        }
+
+        function toggleSettingsModal(show) {
+            const modal = document.getElementById('settings-modal');
+            if (show) modal.classList.remove('hidden'); 
+            else modal.classList.add('hidden');
+        }
+
+        function saveConfiguration() {
+            state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
+            state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
+            state.config.sbUrl = document.getElementById('config-sb-url').value.trim() || '';
+            state.config.sbKey = document.getElementById('config-sb-key').value.trim() || '';
+            state.config.currency = document.getElementById('config-currency').value || '€';
+
+            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            
+            safeSetInnerText('label-btn-p1', state.config.p1Name);
+            safeSetInnerText('label-btn-p2', state.config.p2Name);
+            safeSetInnerText('split-input-label-p1', `Part de ${state.config.p1Name}`);
+            safeSetInnerText('split-input-label-p2', `Part de ${state.config.p2Name}`);
+            
+            updateSplitSliderLabels();
+            updateCurrencyUI();
+            initializeSupabase();
+            toggleSettingsModal(false);
+            updateUI();
+        }
+
+        async function initializeSupabase() {
+            if (state.config.sbUrl && state.config.sbKey && typeof supabase !== 'undefined') {
+                try {
+                    state.supabaseClient = supabase.createClient(state.config.sbUrl, state.config.sbKey);
+                    handleNetworkChange();
+                    await fetchSupabaseExpenses();
+                    state.supabaseClient.channel('any')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => { fetchSupabaseExpenses(); })
+                        .subscribe();
+                } catch (e) { state.supabaseClient = null; }
+            } else { 
+                state.supabaseClient = null; 
+                handleNetworkChange(); 
+            }
+        }
+
+        async function fetchSupabaseExpenses() {
+            if (!state.supabaseClient || !navigator.onLine) return;
+            try {
+                const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
+                if (!error && data) { 
+                    state.expenses = data; 
+                    localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); 
+                    
+                    let projectAdded = false;
+                    state.expenses.forEach(exp => {
+                        if (exp.project && exp.project !== 'Principal') {
+                            const exists = state.config.projects.find(p => (p.id === exp.project) || (p === exp.project));
+                            if (!exists) {
+                                state.config.projects.push({id: exp.project, name: exp.project, icon: '📂'});
+                                projectAdded = true;
+                            }
+                        }
+                    });
+                    if (projectAdded) {
+                        localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                        populateProjectSelector();
+                    }
+
+                    updateUI(); 
+                }
+            } catch (e) {}
+        }
+
+        function loadLocalExpenses() {
+            const saved = localStorage.getItem('us_expenses'); 
+            if (saved) state.expenses = JSON.parse(saved);
+            const queue = localStorage.getItem('us_sync_queue'); 
+            if (queue) state.syncQueue = JSON.parse(queue);
+        }
 
         function initApp() {
             setTimeout(() => {
@@ -432,6 +657,7 @@
 
             try { renderCategorySelector(); } catch(e) {}
             try { setManualCategory('Courses', 'fa-cart-shopping'); } catch(e) {}
+            try { renderHistoryCategoryFilters(); } catch(e) {}
             try { updateUI(); } catch(e) {}
             
             window.addEventListener('online', handleNetworkChange);
@@ -602,44 +828,95 @@
             grid.appendChild(triggerBtn);
         }
 
-        function toggleCustomCategoryInput(show) {
-            const block = document.getElementById('custom-cat-input-block');
-            const inputField = document.getElementById('custom-category-name');
-            if (show) { block.classList.remove('hidden'); if(inputField) inputField.focus(); } 
-            else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
+        function renderHistoryCategoryFilters() {
+            const container = document.getElementById('history-cat-filters');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const allPill = document.createElement('button');
+            allPill.type = 'button';
+            allPill.onclick = () => selectHistoryCategoryFilter('all', allPill);
+            allPill.className = "history-filter-pill flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-indigo-500 bg-indigo-600/20 text-indigo-300";
+            allPill.innerText = "Tous";
+            container.appendChild(allPill);
+
+            state.categories.forEach(cat => {
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.onclick = () => selectHistoryCategoryFilter(cat.label, pill);
+                pill.className = "history-filter-pill flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white hover:border-slate-750";
+                pill.innerHTML = `<i class="fa-solid ${cat.icon} mr-1 opacity-70"></i> ${cat.label}`;
+                container.appendChild(pill);
+            });
         }
 
-        function applyCustomCategoryName() {
-            const inputVal = document.getElementById('custom-category-name').value.trim();
-            if (!inputVal) return;
-            const formattedName = inputVal.charAt(0).toUpperCase() + inputVal.slice(1);
-            if (state.categories.some(c => c.label.toLowerCase() === formattedName.toLowerCase())) { showToast("Catégorie existante"); return; }
-
-            const newCat = { label: formattedName, icon: 'fa-tag', color: 'text-violet-400', presets: [formattedName] };
-            state.categories.push(newCat);
-            localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
-            renderCategorySelector(); setManualCategory(newCat.label, newCat.icon); toggleCustomCategoryInput(false);
-            showToast(`Catégorie "${formattedName}" ajoutée !`);
-        }
-
-        function toggleAddPresetInput(show) {
-            const block = document.getElementById('add-preset-input-block');
-            const inputField = document.getElementById('new-preset-name');
-            if (show) { block.classList.remove('hidden'); if(inputField) inputField.focus(); } 
-            else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
-        }
-
-        function addNewPresetLabel() {
-            const newLabel = document.getElementById('new-preset-name').value.trim();
-            if (!newLabel) return;
-            const catIndex = state.categories.findIndex(c => c.label === state.selectedCategory);
-            if (catIndex !== -1) {
-                if (!state.categories[catIndex].presets) state.categories[catIndex].presets = [];
-                if (state.categories[catIndex].presets.includes(newLabel)) return;
-                state.categories[catIndex].presets.push(newLabel);
-                localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
-                renderCategorySubSuggestions(state.selectedCategory); toggleAddPresetInput(false);
+        function selectHistoryCategoryFilter(label, activePillElement) {
+            state.selectedHistoryCategory = label;
+            document.querySelectorAll('.history-filter-pill').forEach(el => {
+                el.className = "history-filter-pill flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white";
+            });
+            if (activePillElement) {
+                activePillElement.className = "history-filter-pill flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-indigo-500 bg-indigo-600/20 text-indigo-300";
             }
+            updateUI();
+        }
+
+        function onHistorySearchInput(val) {
+            state.historySearchQuery = val.toLowerCase().trim();
+            updateUI();
+        }
+
+        function selectPayer(payer) {
+            state.currentPayer = payer;
+            const btn1 = document.getElementById('btn-p1'); const btn2 = document.getElementById('btn-p2');
+            const activeClass = "py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm shadow-sm";
+            const inactiveClass = "py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm";
+            
+            if (payer === 'p1') { btn1.className = activeClass; btn2.className = inactiveClass; }
+            else { btn2.className = activeClass; btn1.className = inactiveClass; }
+            if (state.splitType === '100_other') updateSplitBadgeText();
+        }
+
+        function handleDescriptionTyping(text) {
+            const query = text.toLowerCase().trim();
+            if (!query) { setManualCategory('Autre', 'fa-asterisk'); return; }
+            let found = false;
+            for (const cat of smartCategories) {
+                for (const kw of cat.keywords) { if (query.includes(kw)) { setManualCategory(cat.label, cat.icon); found = true; break; } }
+                if (found) break;
+            }
+            if (!found) setManualCategory('Autre', 'fa-asterisk');
+        }
+
+        function applyPreset(name, category, icon) {
+            const desc = document.getElementById('description'); if (desc) desc.value = name;
+            setManualCategory(category, icon);
+            const amt = document.getElementById('amount'); if (amt) amt.focus();
+        }
+
+        function selectTxType(type) {
+            state.txType = type;
+            ['depense', 'revenu', 'transfert'].forEach(t => {
+                const btn = document.getElementById(`type-btn-${t}`);
+                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all";
+            });
+            const activeBtn = document.getElementById(`type-btn-${type}`);
+            if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white transition-all";
+
+            const catBlock = document.getElementById('category-selector-container');
+            const splitBlock = document.getElementById('split-selector-container');
+            if (type === 'transfert') {
+                if (catBlock) catBlock.classList.add('hidden'); if (splitBlock) splitBlock.classList.add('hidden');
+                safeSetInnerText('payer-toggle-label', "Qui a envoyé l'argent ? (De)");
+                safeSetInnerText('step-amount-label', "1. Montant du transfert");
+                const desc = document.getElementById('description'); if (desc && !desc.value) desc.value = "Remboursement direct";
+            } else {
+                if (catBlock) catBlock.classList.remove('hidden'); if (splitBlock) splitBlock.classList.remove('hidden');
+                safeSetInnerText('payer-toggle-label', type === 'revenu' ? "Qui a reçu l'argent ?" : "Qui a payé ?");
+                safeSetInnerText('step-amount-label', type === 'revenu' ? "1. Montant reçu" : "1. Saisir le montant");
+                const desc = document.getElementById('description'); if (desc && desc.value === "Remboursement direct") desc.value = "";
+            }
+            updateSplitBadgeText();
         }
 
         function setManualCategory(categoryName, iconClass) {
@@ -689,107 +966,60 @@
             } else { container.classList.add('hidden'); }
         }
 
-        function switchView(viewName) {
-            ['view-saisie', 'view-inbox', 'view-analyse', 'view-history'].forEach(v => {
-                const el = document.getElementById(v); if(el) el.classList.add('hidden');
-            });
-            ['nav-btn-saisie', 'nav-btn-inbox', 'nav-btn-analyse', 'nav-btn-history'].forEach(v => {
-                const el = document.getElementById(v); if(el) el.className = "flex flex-col items-center gap-1.5 text-slate-500 font-medium p-1.5 relative";
-            });
-            const tEl = document.getElementById(`view-${viewName}`); if(tEl) tEl.classList.remove('hidden');
-            const tBtn = document.getElementById(`nav-btn-${viewName}`); if(tBtn) tBtn.className = "flex flex-col items-center gap-1.5 text-indigo-400 font-bold p-1.5 relative";
-            if (viewName === 'analyse') { populateYearFilterOptions(); renderAnalyseTab(); }
+        function toggleCustomCategoryInput(show) {
+            const block = document.getElementById('custom-cat-input-block');
+            const inputField = document.getElementById('custom-category-name');
+            if (show) { block.classList.remove('hidden'); if(inputField) inputField.focus(); } 
+            else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
         }
 
-        function showToast(message) {
-            const toast = document.getElementById('toast-banner');
-            const toastMsg = document.getElementById('toast-message');
-            if (toastMsg) toastMsg.innerText = message;
-            if (toast) { toast.classList.remove('hidden'); setTimeout(() => toast.classList.add('hidden'), 3000); }
+        function toggleAddPresetInput(show) {
+            const block = document.getElementById('add-preset-input-block');
+            const inputField = document.getElementById('new-preset-name');
+            if (show) { block.classList.remove('hidden'); if(inputField) inputField.focus(); } 
+            else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
         }
 
-        function toggleSettingsModal(show) {
-            const modal = document.getElementById('settings-modal');
-            if (show) modal.classList.remove('hidden'); else modal.classList.add('hidden');
-        }
-
-        function saveConfiguration() {
-            state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
-            state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
-            state.config.sbUrl = document.getElementById('config-sb-url').value.trim() || '';
-            state.config.sbKey = document.getElementById('config-sb-key').value.trim() || '';
-            state.config.currency = document.getElementById('config-currency').value || '€';
-
-            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
-            
-            safeSetInnerText('label-btn-p1', state.config.p1Name);
-            safeSetInnerText('label-btn-p2', state.config.p2Name);
-            safeSetInnerText('split-input-label-p1', `Part de ${state.config.p1Name}`);
-            safeSetInnerText('split-input-label-p2', `Part de ${state.config.p2Name}`);
-
-            updateSplitSliderLabels();
-            updateCurrencyUI();
-            initializeSupabase();
-            toggleSettingsModal(false);
-            updateUI();
-        }
-
-        async function initializeSupabase() {
-            if (state.config.sbUrl && state.config.sbKey && typeof supabase !== 'undefined') {
-                try {
-                    state.supabaseClient = supabase.createClient(state.config.sbUrl, state.config.sbKey);
-                    handleNetworkChange();
-                    await fetchSupabaseExpenses();
-                    state.supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => { fetchSupabaseExpenses(); }).subscribe();
-                } catch (e) { state.supabaseClient = null; }
-            } else { state.supabaseClient = null; handleNetworkChange(); }
-        }
-
-        async function fetchSupabaseExpenses() {
-            if (!state.supabaseClient || !navigator.onLine) return;
-            try {
-                const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
-                if (!error && data) { state.expenses = data; localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); }
-            } catch (e) {}
-        }
-
-        function loadLocalExpenses() {
-            const saved = localStorage.getItem('us_expenses'); if (saved) state.expenses = JSON.parse(saved);
-            const queue = localStorage.getItem('us_sync_queue'); if (queue) state.syncQueue = JSON.parse(queue);
+        function addNewPresetLabel() {
+            const newLabel = document.getElementById('new-preset-name').value.trim();
+            if (!newLabel) return;
+            const catIndex = state.categories.findIndex(c => c.label === state.selectedCategory);
+            if (catIndex !== -1) {
+                if (!state.categories[catIndex].presets) state.categories[catIndex].presets = [];
+                if (state.categories[catIndex].presets.includes(newLabel)) return;
+                state.categories[catIndex].presets.push(newLabel);
+                localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
+                renderCategorySubSuggestions(state.selectedCategory); toggleAddPresetInput(false);
+            }
         }
 
         function selectSplit(type) {
             state.splitType = type;
             ['split-btn-50', 'split-btn-100', 'split-btn-custom'].forEach(id => {
-                const btn = document.getElementById(id); if (btn) btn.className = "py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all";
+                const btn = document.getElementById(id);
+                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all";
             });
-            const cBlock = document.getElementById('custom-split-block'); if (cBlock) cBlock.classList.add('hidden');
+            const customBlock = document.getElementById('custom-split-block');
+            if (customBlock) customBlock.classList.add('hidden');
 
             const activeBtn = document.getElementById(type === '50_50' ? 'split-btn-50' : type === '100_other' ? 'split-btn-100' : 'split-btn-custom');
             if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all";
-            if (type === 'custom' && cBlock) { cBlock.classList.remove('hidden'); syncCustomSplitUI(); }
+            
+            if (type === 'custom') {
+                if (customBlock) customBlock.classList.remove('hidden');
+                syncCustomSplitUI();
+            }
             updateSplitBadgeText();
-        }
-
-        function onTotalAmountChanged() { if (state.splitType === 'custom') syncCustomSplitUI(); }
-
-        function syncCustomSplitUI() {
-            const amountEl = document.getElementById('amount'); if (!amountEl) return;
-            const totalVal = parseFloat(amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''));
-            const warningEl = document.getElementById('custom-split-warning');
-            const controlsEl = document.getElementById('custom-split-controls');
-            if (isNaN(totalVal) || totalVal <= 0) { warningEl.classList.remove('hidden'); controlsEl.classList.add('hidden'); return; }
-            warningEl.classList.add('hidden'); controlsEl.classList.remove('hidden');
-            recalcAmountsFromPct(totalVal);
         }
 
         function onSplitSliderInput(val) {
             state.p1SplitPercent = parseInt(val);
-            updateSplitSliderLabels(); updateSplitBadgeText();
+            updateSplitSliderLabels();
+            updateSplitBadgeText();
             const amountEl = document.getElementById('amount');
             if (amountEl) {
                 const totalVal = parseFloat(amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''));
-                if(!isNaN(totalVal) && totalVal > 0) recalcAmountsFromPct(totalVal);
+                if (!isNaN(totalVal) && totalVal > 0) recalcAmountsFromPct(totalVal);
             }
         }
 
@@ -831,55 +1061,14 @@
             safeSetInnerText('split-badge', txt);
         }
 
-        function selectPayer(payer) {
-            state.currentPayer = payer;
-            const btn1 = document.getElementById('btn-p1'); const btn2 = document.getElementById('btn-p2');
-            if (payer === 'p1') { btn1.className = "py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm shadow-sm"; btn2.className = "py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm"; }
-            else { btn2.className = "py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm shadow-sm"; btn1.className = "py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm"; }
-            if (state.splitType === '100_other') updateSplitBadgeText();
-        }
-
-        function handleDescriptionTyping(text) {
-            if (state.isCustomCategoryActive) return;
-            const query = text.toLowerCase().trim();
-            if (!query) { setManualCategory('Autre', 'fa-asterisk'); return; }
-            let found = false;
-            for (const cat of smartCategories) {
-                for (const kw of cat.keywords) { if (query.includes(kw)) { setManualCategory(cat.label, cat.icon); found = true; break; } }
-                if (found) break;
-            }
-            if (!found) setManualCategory('Autre', 'fa-asterisk');
-        }
-
-        function applyPreset(name, category, icon) {
-            const desc = document.getElementById('description'); if (desc) desc.value = name;
-            setManualCategory(category, icon);
-            const amt = document.getElementById('amount'); if (amt) amt.focus();
-        }
-
-        function selectTxType(type) {
-            state.txType = type;
-            ['depense', 'revenu', 'transfert'].forEach(t => {
-                const btn = document.getElementById(`type-btn-${t}`);
-                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all";
-            });
-            const activeBtn = document.getElementById(`type-btn-${type}`);
-            if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white transition-all";
-
-            const catBlock = document.getElementById('category-selector-container');
-            const splitBlock = document.getElementById('split-selector-container');
-            if (type === 'transfert') {
-                if (catBlock) catBlock.classList.add('hidden'); if (splitBlock) splitBlock.classList.add('hidden');
-                safeSetInnerText('payer-toggle-label', "Qui a envoyé l'argent ? (De)");
-                safeSetInnerText('step-amount-label', "1. Montant du transfert");
-                const desc = document.getElementById('description'); if (desc && !desc.value) desc.value = "Remboursement direct";
-            } else {
-                if (catBlock) catBlock.classList.remove('hidden'); if (splitBlock) splitBlock.classList.remove('hidden');
-                safeSetInnerText('payer-toggle-label', type === 'revenu' ? "Qui a reçu l'argent ?" : "Qui a payé ?");
-                safeSetInnerText('step-amount-label', type === 'revenu' ? "1. Montant reçu" : "1. Saisir le montant");
-                const desc = document.getElementById('description'); if (desc && desc.value === "Remboursement direct") desc.value = "";
-            }
-            updateSplitBadgeText();
+        function syncCustomSplitUI() {
+            const amountEl = document.getElementById('amount'); if (!amountEl) return;
+            const totalVal = parseFloat(amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''));
+            const warningEl = document.getElementById('custom-split-warning');
+            const controlsEl = document.getElementById('custom-split-controls');
+            if (isNaN(totalVal) || totalVal <= 0) { warningEl.classList.remove('hidden'); controlsEl.classList.add('hidden'); return; }
+            warningEl.classList.add('hidden'); controlsEl.classList.remove('hidden');
+            recalcAmountsFromPct(totalVal);
         }
 
         async function handleFormSubmission(event) {
@@ -929,6 +1118,267 @@
             } else { queueSync(newExpense); }
         }
 
+        // ==========================================
+        // SPACIOUS & SMOOTH EDIT MODAL LOGIC 
+        // ==========================================
+        function toggleHistoryEdit(id, show) {
+            if (show) {
+                const index = state.expenses.findIndex(t => t.id === id);
+                if (index === -1) return;
+                state.editingTransaction = JSON.parse(JSON.stringify(state.expenses[index]));
+                openEditTxModal();
+            } else {
+                closeEditTxModal();
+            }
+        }
+
+        function openEditTxModal() {
+            const modal = document.getElementById('edit-tx-modal');
+            const tx = state.editingTransaction;
+            if (!modal || !tx) return;
+
+            document.getElementById('modal-edit-desc').value = tx.description;
+            document.getElementById('modal-edit-date').value = new Date(tx.created_at).toISOString().split('T')[0];
+            document.getElementById('modal-edit-amount').value = tx.amount;
+
+            const p1Btn = document.getElementById('modal-edit-payer-p1');
+            const p2Btn = document.getElementById('modal-edit-payer-p2');
+            p1Btn.innerText = state.config.p1Name;
+            p2Btn.innerText = state.config.p2Name;
+
+            const catSection = document.getElementById('modal-edit-cat-section');
+            const splitSection = document.getElementById('modal-edit-split-section');
+
+            if (tx.type === 'transfert') {
+                catSection.classList.add('hidden');
+                splitSection.classList.add('hidden');
+                document.getElementById('modal-edit-payer-label').innerText = "Qui a envoyé l'argent ? (De)";
+            } else {
+                catSection.classList.remove('hidden');
+                splitSection.classList.remove('hidden');
+                document.getElementById('modal-edit-payer-label').innerText = tx.type === 'revenu' ? "Qui a reçu l'argent ?" : "Qui a payé ?";
+                renderModalCategorySelector();
+            }
+
+            selectModalEditPayer(tx.payer);
+            
+            let defaultSplitType = 'custom';
+            if (tx.p1SharePercent === 50 && tx.p2SharePercent === 50) defaultSplitType = '50_50';
+            else if (tx.p1SharePercent === 0 || expP1PercentIs100(tx.p1SharePercent, tx.payer)) defaultSplitType = '100_other';
+            
+            selectModalEditSplitType(tx.splitTypeLocal || defaultSplitType);
+
+            modal.classList.remove('hidden');
+        }
+
+        function expP1PercentIs100(p1Pct, payer) {
+            if (payer === 'p1' && p1Pct === 0) return true;
+            if (payer === 'p2' && p1Pct === 100) return true;
+            return false;
+        }
+
+        function closeEditTxModal() {
+            document.getElementById('edit-tx-modal').classList.add('hidden');
+            state.editingTransaction = null;
+        }
+
+        function selectModalEditPayer(payer) {
+            state.editingTransaction.payer = payer;
+            const btn1 = document.getElementById('modal-edit-payer-p1');
+            const btn2 = document.getElementById('modal-edit-payer-p2');
+            
+            const act = "py-2.5 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
+            const inact = "py-2.5 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
+            
+            if (payer === 'p1') { btn1.className = act; btn2.className = inact; }
+            else { btn2.className = act; btn1.className = inact; }
+
+            document.getElementById('modal-edit-name-p1').innerText = state.config.p1Name;
+            document.getElementById('modal-edit-name-p2').innerText = state.config.p2Name;
+
+            updateModalEditSplitLabels();
+        }
+
+        function selectModalEditSplitType(type) {
+            state.editingTransaction.splitTypeLocal = type;
+            const b50 = document.getElementById('modal-edit-split-50');
+            const b100 = document.getElementById('modal-edit-split-100');
+            const bCust = document.getElementById('modal-edit-split-custom');
+            const panel = document.getElementById('modal-edit-custom-panel');
+
+            const act = "py-2 text-[10px] font-bold rounded-lg border border-indigo-500 bg-indigo-500/10 text-indigo-300";
+            const inact = "py-2 text-[10px] font-bold rounded-lg border border-slate-800 text-slate-400 hover:text-white";
+
+            b50.className = type === '50_50' ? act : inact;
+            b100.className = type === '100_other' ? act : inact;
+            bCust.className = type === 'custom' ? act : inact;
+
+            if (type === 'custom') {
+                panel.classList.remove('hidden');
+                syncModalEditCustomSplitNumbers();
+            } else {
+                panel.classList.add('hidden');
+                if (type === '50_50') {
+                    state.editingTransaction.p1SharePercent = 50;
+                    state.editingTransaction.p2SharePercent = 50;
+                } else if (type === '100_other') {
+                    state.editingTransaction.p1SharePercent = state.editingTransaction.payer === 'p1' ? 0 : 100;
+                    state.editingTransaction.p2SharePercent = state.editingTransaction.payer === 'p2' ? 0 : 100;
+                }
+            }
+
+            updateModalEditSplitLabels();
+        }
+
+        function onModalEditAmountInput(val) {
+            state.editingTransaction.amount = parseFloat(val) || 0;
+            if (state.editingTransaction.splitTypeLocal === 'custom') {
+                syncModalEditCustomSplitNumbers();
+            }
+        }
+
+        function onModalEditSliderInput(val) {
+            const pct = parseInt(val);
+            state.editingTransaction.p1SharePercent = pct;
+            state.editingTransaction.p2SharePercent = 100 - pct;
+
+            const total = state.editingTransaction.amount || 0;
+            const p1Amt = (total * (pct / 100)).toFixed(2);
+            const p2Amt = (total - parseFloat(p1Amt)).toFixed(2);
+
+            document.getElementById('modal-edit-custom-amt-p1').value = p1Amt;
+            document.getElementById('modal-edit-custom-amt-p2').value = p2Amt;
+            
+            document.getElementById('modal-edit-custom-pct-p1').innerText = `${pct}%`;
+            document.getElementById('modal-edit-custom-pct-p2').innerText = `${100 - pct}%`;
+            document.getElementById('modal-edit-slider-summary').innerText = `${pct}% / ${100 - pct}%`;
+
+            updateModalEditSplitLabels();
+        }
+
+        function onModalEditCustomAmtInput(target) {
+            const total = state.editingTransaction.amount || 0;
+            if (total <= 0) return;
+
+            const p1Input = document.getElementById('modal-edit-custom-amt-p1');
+            const p2Input = document.getElementById('modal-edit-custom-amt-p2');
+
+            let p1Val = parseFloat(p1Input.value) || 0;
+            let p2Val = parseFloat(p2Input.value) || 0;
+
+            if (target === 'p1') {
+                p1Val = Math.min(Math.max(p1Val, 0), total);
+                p1Input.value = p1Val.toFixed(2);
+                p2Val = total - p1Val;
+                p2Input.value = p2Val.toFixed(2);
+            } else {
+                p2Val = Math.min(Math.max(p2Val, 0), total);
+                p2Input.value = p2Val.toFixed(2);
+                p1Val = total - p2Val;
+                p1Input.value = p1Val.toFixed(2);
+            }
+
+            const calculatedPct = Math.round((p1Val / total) * 100);
+            state.editingTransaction.p1SharePercent = calculatedPct;
+            state.editingTransaction.p2SharePercent = 100 - calculatedPct;
+
+            document.getElementById('modal-edit-slider').value = calculatedPct;
+            document.getElementById('modal-edit-custom-pct-p1').innerText = `${calculatedPct}%`;
+            document.getElementById('modal-edit-custom-pct-p2').innerText = `${100 - calculatedPct}%`;
+            document.getElementById('modal-edit-slider-summary').innerText = `${calculatedPct}% / ${100 - calculatedPct}%`;
+
+            updateModalEditSplitLabels();
+        }
+
+        function syncModalEditCustomSplitNumbers() {
+            const tx = state.editingTransaction;
+            const pct = tx.p1SharePercent ?? 50;
+            const total = tx.amount || 0;
+
+            const p1Amt = (total * (pct / 100)).toFixed(2);
+            const p2Amt = (total - parseFloat(p1Amt)).toFixed(2);
+
+            document.getElementById('modal-edit-custom-amt-p1').value = p1Amt;
+            document.getElementById('modal-edit-custom-amt-p2').value = p2Amt;
+            document.getElementById('modal-edit-slider').value = pct;
+            
+            document.getElementById('modal-edit-custom-pct-p1').innerText = `${pct}%`;
+            document.getElementById('modal-edit-custom-pct-p2').innerText = `${100 - pct}%`;
+            document.getElementById('modal-edit-slider-summary').innerText = `${pct}% / ${100 - pct}%`;
+        }
+
+        function updateModalEditSplitLabels() {
+            const tx = state.editingTransaction;
+            const label = document.getElementById('modal-edit-split-title');
+            if (tx.splitTypeLocal === '50_50') label.innerText = "Égal (50/50)";
+            else if (tx.splitTypeLocal === '100_other') {
+                const recipient = tx.payer === 'p1' ? state.config.p2Name : state.config.p1Name;
+                label.innerText = `100% pour ${recipient}`;
+            } else {
+                label.innerText = `Précis (${tx.p1SharePercent}% / ${tx.p2SharePercent}%)`;
+            }
+        }
+
+        function renderModalCategorySelector() {
+            const grid = document.getElementById('modal-edit-cat-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            state.categories.forEach(c => {
+                const active = state.editingTransaction.category === c.label;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.onclick = () => {
+                    state.editingTransaction.category = c.label;
+                    state.editingTransaction.icon = c.icon;
+                    renderModalCategorySelector(); // Redessine les focus
+                };
+                btn.className = `flex-1 min-w-[75px] h-12 rounded-xl flex flex-col items-center justify-center border text-xs gap-1 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
+                btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${c.icon}"></i></span> <span class="text-[9px] font-black">${c.label}</span>`;
+                grid.appendChild(btn);
+            });
+        }
+
+        async function saveModalEdit() {
+            const tx = state.editingTransaction;
+            if (!tx) return;
+
+            const dateVal = document.getElementById('modal-edit-date').value;
+            if (dateVal) {
+                const [y, m, d] = dateVal.split('-');
+                const cDate = new Date(tx.created_at);
+                cDate.setFullYear(y);
+                cDate.setMonth(m - 1);
+                cDate.setDate(d);
+                tx.created_at = cDate.toISOString();
+            }
+
+            tx.description = document.getElementById('modal-edit-desc').value.trim();
+            tx.amount = parseFloat(document.getElementById('modal-edit-amount').value) || 0;
+            tx.isEditing = false;
+            tx.approved = true;
+
+            const index = state.expenses.findIndex(e => e.id === tx.id);
+            if (index !== -1) {
+                state.expenses[index] = tx;
+            } else {
+                state.expenses.unshift(tx);
+            }
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+            closeEditTxModal();
+
+            showToast("Enregistré avec succès !");
+
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    await state.supabaseClient.from('expenses').upsert([tx]);
+                } catch(e) {}
+            }
+        }
+        // ==========================================
+
         function duplicateExpense(id) {
             const index = state.expenses.findIndex(t => t.id === id); if (index === -1) return;
             const clone = { ...state.expenses[index], id: Date.now() + '_' + Math.random().toString(36).substr(2,5), isEditing: false, created_at: new Date().toISOString() };
@@ -937,51 +1387,10 @@
             if (state.supabaseClient && navigator.onLine) state.supabaseClient.from('expenses').insert([clone]).then(()=>{});
         }
 
-        function toggleHistoryEdit(id, show) { const idx = state.expenses.findIndex(t => t.id === id); if (idx !== -1) { state.expenses[idx].isEditing = show; updateUI(); } }
-
-        function updateHistoryField(id, field, value) {
-            const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
-            const exp = state.expenses[idx];
-            if (field === 'description') { exp.description = value.trim(); const m = scanCategory(value); exp.category = m.label; exp.icon = m.icon; }
-            else if (field === 'amount') exp.amount = parseFloat(value.replace(/,/g, '.').replace(/[^0-9.]/g, '')) || 0;
-            else if (field === 'category') { exp.category = value; const m = state.categories.find(c => c.label === value); exp.icon = m ? m.icon : 'fa-asterisk'; }
-            else if (field === 'payer') exp.payer = value;
-            else if (field === 'date' && value) { const [y, m, d] = value.split('-'); const cDate = new Date(exp.created_at); cDate.setFullYear(y); cDate.setMonth(m-1); cDate.setDate(d); exp.created_at = cDate.toISOString(); }
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-        }
-
-        function updateHistorySplitType(id, type) {
-            const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return; const exp = state.expenses[idx]; exp.splitTypeLocal = type;
-            if (type === '50_50') { exp.p1SharePercent = 50; exp.p2SharePercent = 50; } else if (type === '100_other') { exp.p1SharePercent = exp.payer === 'p1' ? 0 : 100; exp.p2SharePercent = exp.payer === 'p2' ? 0 : 100; }
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-        }
-
-        function onHistorySplitSliderInput(id, val) {
-            const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return; const exp = state.expenses[idx];
-            exp.p1SharePercent = parseInt(val); exp.p2SharePercent = 100 - exp.p1SharePercent;
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-        }
-
-        function onHistoryCustomAmountInput(id, target, val) {
-            const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return; const exp = state.expenses[idx];
-            const tot = exp.amount || 0; if (tot <= 0) return;
-            const i1 = document.getElementById(`history-amt-p1-${id}`); const i2 = document.getElementById(`history-amt-p2-${id}`);
-            let v1 = parseFloat(i1.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')) || 0; let v2 = parseFloat(i2.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')) || 0;
-            if (target === 'p1') { v1 = Math.min(Math.max(v1, 0), tot); v2 = tot - v1; } else { v2 = Math.min(Math.max(v2, 0), tot); v1 = tot - v2; }
-            exp.p1SharePercent = Math.round((v1 / tot) * 100); exp.p2SharePercent = 100 - exp.p1SharePercent;
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-        }
-
-        async function saveHistoryEdit(id) {
-            const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
-            state.expenses[idx].isEditing = false; localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-            if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').upsert([state.expenses[idx]]); showToast("Sauvegardé cloud"); } catch(e){} } else showToast("Sauvegardé local");
-        }
-
         function scanCategory(desc) {
             const query = desc.toLowerCase().trim();
             for (const cat of smartCategories) { for (const kw of cat.keywords) { if (query.includes(kw)) return cat; } }
-            return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'border-transparent' };
+            return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'transparent' };
         }
 
         function simulateIncomingWebhook() {
@@ -989,11 +1398,9 @@
             state.expenses.unshift(mock); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); switchView('inbox');
         }
 
-        function toggleInboxEdit(id, show) { const idx = state.expenses.findIndex(t => t.id === id); if (idx !== -1) { state.expenses[idx].isEditing = show; updateUI(); } }
-        function updateInboxField(id, field, value) { updateHistoryField(id, field, value); }
-        function updateInboxSplitType(id, type) { updateHistorySplitType(id, type); }
-        function onInboxSplitSliderInput(id, val) { onHistorySplitSliderInput(id, val); }
-        function onInboxCustomAmountInput(id, target, val) { onHistoryCustomAmountInput(id, target, val); }
+        function toggleInboxEdit(id, show) {
+            toggleHistoryEdit(id, show);
+        }
 
         async function approveTransaction(id) {
             const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
@@ -1029,10 +1436,12 @@
         }
 
         function queueSync(expense) { state.syncQueue.push(expense); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
+        
         async function processOfflineQueue() {
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
             try { const { error } = await state.supabaseClient.from('expenses').insert([state.syncQueue[0]]); if (!error) { state.syncQueue.shift(); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); processOfflineQueue(); } } catch (e) {}
         }
+        
         function handleNetworkChange() {
             const dot = document.getElementById('status-dot'); const txt = document.getElementById('status-text');
             if (navigator.onLine) { if (state.supabaseClient) { dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"; if(txt) txt.innerText = "Connecté"; processOfflineQueue(); } else { dot.className = "w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"; if(txt) txt.innerText = "Local"; } } 
@@ -1045,11 +1454,17 @@
             state.expenses.forEach(exp => { if(exp.created_at && (exp.project === state.config.activeProject || (!exp.project && state.config.activeProject === 'Principal'))) { const y = new Date(exp.created_at).getFullYear(); if(!isNaN(y)) existingYears.add(y); } });
             const currentSelected = filterYear.value || new Date().getFullYear().toString();
             filterYear.innerHTML = '<option value="all">Toutes les années</option>';
-            Array.from(existingYears).sort((a,b)=>b-a).forEach(year => { const opt = document.createElement('option'); opt.value = year; opt.innerText = year; filterYear.appendChild(opt); });
+            Array.from(existingYears).sort((a,b)=>b-a).forEach(year => { 
+                const opt = document.createElement('option'); 
+                opt.value = year; 
+                opt.innerText = year; 
+                filterYear.appendChild(opt); 
+            });
             filterYear.value = currentSelected;
         }
 
         function onAnalyseFilterChanged() { renderAnalyseTab(); }
+        
         function resetAnalyseFilters() {
             const now = new Date(); const m = document.getElementById('filter-month'); const y = document.getElementById('filter-year');
             if (m) m.value = now.getMonth().toString(); if (y) y.value = now.getFullYear().toString(); renderAnalyseTab();
@@ -1112,21 +1527,59 @@
             }
         }
 
+        function switchView(viewName) {
+            ['view-saisie', 'view-inbox', 'view-analyse', 'view-history'].forEach(v => {
+                const el = document.getElementById(v); 
+                if(el) {
+                    el.classList.add('hidden');
+                    el.classList.remove('active-tab');
+                }
+            });
+            ['nav-btn-saisie', 'nav-btn-inbox', 'nav-btn-analyse', 'nav-btn-history'].forEach(v => {
+                const el = document.getElementById(v); 
+                if(el) el.className = "flex flex-col items-center gap-1.5 text-slate-500 font-medium p-1.5 relative";
+            });
+            const tEl = document.getElementById(`view-${viewName}`); 
+            if(tEl) {
+                tEl.classList.remove('hidden');
+                setTimeout(() => {
+                    tEl.classList.add('active-tab');
+                }, 50);
+            }
+            const tBtn = document.getElementById(`nav-btn-${viewName}`); 
+            if(tBtn) tBtn.className = "flex flex-col items-center gap-1.5 text-indigo-400 font-bold p-1.5 relative";
+            if (viewName === 'analyse') { populateYearFilterOptions(); renderAnalyseTab(); }
+        }
+
         function updateUI() {
             try {
+                let projectAdded = false;
+                state.expenses.forEach(exp => {
+                    if (exp.project && exp.project !== 'Principal') {
+                        const exists = state.config.projects.find(p => (p.id === exp.project) || (p === exp.project));
+                        if (!exists) {
+                            state.config.projects.push({id: exp.project, name: exp.project, icon: '📂'});
+                            projectAdded = true;
+                        }
+                    }
+                });
+                if (projectAdded) {
+                    localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                    populateProjectSelector();
+                }
+
                 updateCurrencyUI();
                 const actProj = state.config.activeProject;
                 const proExps = state.expenses.filter(exp => exp.project === actProj || (!exp.project && actProj === 'Principal'));
                 const approvedExpenses = proExps.filter(exp => exp.approved !== false);
                 const unapprovedExpenses = proExps.filter(exp => exp.approved === false);
 
-                // Dashboard
                 let d1 = 0; let d2 = 0; let t1 = 0; let t2 = 0; let s1 = 0; let s2 = 0; let totalGroup = 0;
                 approvedExpenses.forEach(exp => {
                     const sp1 = exp.p1SharePercent ?? 50; const sp2 = exp.p2SharePercent ?? 50;
                     const o1 = exp.amount * (sp1/100); const o2 = exp.amount * (sp2/100);
                     
-                    if (exp.type === 'depense') {
+                    if (exp.type === 'depense' || !exp.type) {
                         totalGroup += exp.amount; s1 += o1; s2 += o2;
                         if(exp.payer === 'p1') { t1 += exp.amount; d2 += o2; } else { t2 += exp.amount; d1 += o1; }
                     } else if (exp.type === 'revenu') {
@@ -1140,19 +1593,19 @@
                 const b1 = diff > 0 ? `+${diff.toFixed(2)}` : diff < 0 ? `${diff.toFixed(2)}` : `0.00`;
                 const b2 = diff < 0 ? `+${Math.abs(diff).toFixed(2)}` : diff > 0 ? `-${diff.toFixed(2)}` : `0.00`;
 
-                safeSetInnerText('dashboard-total', `${totalGroup.toFixed(2)} `);
+                safeSetInnerText('dashboard-total', `${totalGroup.toFixed(2)} ${state.config.currency}`);
                 safeSetInnerText('dash-name-p1', state.config.p1Name);
                 safeSetInnerText('dash-name-p2', state.config.p2Name);
                 
-                safeSetInnerText('dash-paid-p1', `${t1.toFixed(2)} `);
-                safeSetInnerText('dash-share-p1', `${s1.toFixed(2)} `);
+                safeSetInnerText('dash-paid-p1', `${t1.toFixed(2)} ${state.config.currency}`);
+                safeSetInnerText('dash-share-p1', `${s1.toFixed(2)} ${state.config.currency}`);
                 document.getElementById('dash-balance-p1').innerText = `Bilan : ${b1} ${state.config.currency}`;
-                document.getElementById('dash-balance-p1').className = diff > 0 ? "text-xs font-black text-emerald-400" : diff < 0 ? "text-xs font-black text-rose-400" : "text-xs font-black text-slate-400";
+                document.getElementById('dash-balance-p1').className = diff > 0 ? "text-sm font-black text-emerald-400" : diff < 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-slate-400";
 
-                safeSetInnerText('dash-paid-p2', `${t2.toFixed(2)} `);
-                safeSetInnerText('dash-share-p2', `${s2.toFixed(2)} `);
+                safeSetInnerText('dash-paid-p2', `${t2.toFixed(2)} ${state.config.currency}`);
+                safeSetInnerText('dash-share-p2', `${s2.toFixed(2)} ${state.config.currency}`);
                 document.getElementById('dash-balance-p2').innerText = `Bilan : ${b2} ${state.config.currency}`;
-                document.getElementById('dash-balance-p2').className = diff < 0 ? "text-xs font-black text-emerald-400" : diff > 0 ? "text-xs font-black text-rose-400" : "text-xs font-black text-slate-400";
+                document.getElementById('dash-balance-p2').className = diff < 0 ? "text-sm font-black text-emerald-400" : diff > 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-slate-400";
 
                 const sDisp = document.getElementById('dashboard-summary');
                 const sBtn = document.getElementById('settle-btn');
@@ -1168,7 +1621,6 @@
                 }
                 updateCurrencyUI();
 
-                // Inbox
                 const inBadge = document.getElementById('nav-inbox-badge'); const inCount = document.getElementById('inbox-badge-count'); const inList = document.getElementById('inbox-list');
                 if (unapprovedExpenses.length > 0) {
                     if (inBadge) { inBadge.classList.remove('hidden'); inBadge.innerText = unapprovedExpenses.length; }
@@ -1177,35 +1629,14 @@
                         inList.innerHTML = '';
                         unapprovedExpenses.forEach(exp => {
                             const c = document.createElement('div');
-                            if (exp.isEditing) {
-                                const p1P = exp.p1SharePercent ?? 50; const p2P = exp.p2SharePercent ?? 50;
-                                const p1A = (exp.amount * (p1P/100)).toFixed(2); const p2A = (exp.amount - parseFloat(p1A)).toFixed(2);
-                                const spl = exp.splitTypeLocal || (p1P === 50 ? '50_50' : 'custom'); const dt = new Date(exp.created_at).toISOString().split('T')[0];
-                                let btns = ''; state.categories.forEach(ct => { let act = exp.category===ct.label?'border-indigo-500 text-indigo-400':'border-slate-850 text-slate-400'; btns += `<button onclick="updateInboxField('${exp.id}','category','${ct.label}')" class="flex items-center justify-center w-11 h-11 rounded-xl text-lg bg-slate-900 border ${act}"><i class="fa-solid ${ct.icon}"></i></button>`; });
-                                c.className = "bg-slate-950/40 border-2 border-indigo-500/30 rounded-2xl p-5 space-y-4 shadow-lg";
-                                let splitTitle = ''; if (spl === '50_50') splitTitle = '50% / 50%'; else if (spl === '100_other') splitTitle = "100% l'autre"; else splitTitle = `Précis (${p1P}% / ${p2P}%)`;
-                                let s50 = spl==='50_50'?'border-indigo-500 text-indigo-300':'border-slate-800 text-slate-400';
-                                let s100 = spl==='100_other'?'border-indigo-500 text-indigo-300':'border-slate-800 text-slate-400';
-                                let sC = spl==='custom'?'border-indigo-500 text-indigo-300':'border-slate-800 text-slate-400';
-
-                                c.innerHTML = `
-                                    <div class="flex justify-between items-center border-b border-slate-850 pb-2"><span class="text-[10px] font-bold text-indigo-400 uppercase">Édition Inbox</span><button onclick="toggleInboxEdit('${exp.id}',false)" class="text-xs text-slate-500">Fermer</button></div>
-                                    <input type="text" value="${exp.description}" oninput="updateInboxField('${exp.id}','description',this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200">
-                                    <div class="grid grid-cols-2 gap-3"><input type="date" value="${dt}" onchange="updateInboxField('${exp.id}','date',this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 [color-scheme:dark]"><input type="number" step="0.01" value="${exp.amount}" oninput="updateInboxField('${exp.id}','amount',this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200"></div>
-                                    <div class="flex flex-wrap gap-2">${btns}</div>
-                                    <div class="bg-slate-950/50 p-4 rounded-xl space-y-4">
-                                        <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest"><span>Partage</span><span class="text-xs text-indigo-400 font-extrabold">${splitTitle}</span></div>
-                                        <div class="grid grid-cols-3 gap-1.5"><button onclick="updateInboxSplitType('${exp.id}','50_50')" class="py-2 text-[10px] font-bold rounded-lg border ${s50}">50/50</button><button onclick="updateInboxSplitType('${exp.id}','100_other')" class="py-2 text-[10px] font-bold rounded-lg border ${s100}">L'autre</button><button onclick="updateInboxSplitType('${exp.id}','custom')" class="py-2 text-[10px] font-bold rounded-lg border ${sC}">Précis</button></div>
-                                        <div class="${spl==='custom'?'':'hidden'} grid grid-cols-2 gap-3"><div class="bg-slate-900 p-2 rounded"><input type="number" id="inbox-amt-p1-${exp.id}" value="${p1A}" oninput="onInboxCustomAmountInput('${exp.id}','p1',this.value)" class="w-full bg-transparent text-base text-slate-200"></div><div class="bg-slate-900 p-2 rounded"><input type="number" id="inbox-amt-p2-${exp.id}" value="${p2A}" oninput="onInboxCustomAmountInput('${exp.id}','p2',this.value)" class="w-full bg-transparent text-base text-slate-200"></div></div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-2"><button onclick="approveTransaction('${exp.id}')" class="py-3 bg-emerald-600 text-white rounded-xl text-xs font-black">Valider</button><button onclick="toggleInboxEdit('${exp.id}',false)" class="py-3 bg-slate-800 text-slate-400 rounded-xl text-xs font-bold">Annuler</button></div>
-                                `;
-                            } else {
-                                c.className = "bg-slate-950/20 border-2 border-dashed border-indigo-500/20 rounded-xl p-4 space-y-3";
-                                const m = scanCategory(exp.description);
-                                c.innerHTML = `<div class="flex justify-between items-start"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div><p class="text-sm font-bold text-slate-100">${exp.description}</p></div></div><span class="text-sm font-black text-indigo-400">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
-                                <div class="grid grid-cols-3 gap-2 border-t border-slate-850 pt-2"><button onclick="approveTransaction('${exp.id}')" class="py-2 bg-emerald-500/10 text-emerald-400 rounded-xl text-[10px] font-black">Valider</button><button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2 bg-indigo-600/10 text-indigo-400 rounded-xl text-[10px] font-black">Éditer</button><button onclick="rejectTransaction('${exp.id}')" class="py-2 bg-slate-800/40 text-slate-500 rounded-xl text-[10px]">Ignorer</button></div>`;
-                            }
+                            c.className = "bg-slate-950/20 border-2 border-dashed border-indigo-500/20 rounded-xl p-4 space-y-3";
+                            const m = scanCategory(exp.description);
+                            c.innerHTML = `<div class="flex justify-between items-start"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div><p class="text-sm font-bold text-slate-100">${exp.description}</p></div></div><span class="text-sm font-black text-indigo-400">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            <div class="grid grid-cols-3 gap-2 border-t border-slate-850 pt-2">
+                                <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
+                                <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
+                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-rose-400 border border-slate-750/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
+                            </div>`;
                             inList.appendChild(c);
                         });
                     }
@@ -1215,55 +1646,30 @@
                     if (inList) inList.innerHTML = `<div class="text-center py-12 border border-slate-850 bg-slate-950/10 rounded-xl text-xs text-slate-500">🎉 Aucune dépense en attente.</div>`;
                 }
 
-                // Historique
                 const list = document.getElementById('history-list'); const mt = document.getElementById('empty-state'); const ct = document.getElementById('history-count');
-                if (approvedExpenses.length === 0) {
-                    if (mt) mt.style.display = 'block'; if (ct) ct.innerText = '0 tranasction'; if (list) list.innerHTML = '';
+                
+                const displayedExps = approvedExpenses.filter(exp => {
+                    const matchesSearch = exp.description.toLowerCase().includes(state.historySearchQuery);
+                    const matchesCat = state.selectedHistoryCategory === 'all' || exp.category === state.selectedHistoryCategory;
+                    return matchesSearch && matchesCat;
+                });
+
+                if (displayedExps.length === 0) {
+                    if (mt) mt.style.display = 'block'; 
+                    if (ct) ct.innerText = '0 transaction'; 
+                    if (list) list.innerHTML = `<div class="text-center py-12 text-xs text-slate-600 font-medium">Aucun résultat ne correspond à vos filtres.</div>`;
                     return;
                 }
                 
-                if (mt) mt.style.display = 'none'; if (ct) ct.innerText = `${approvedExpenses.length} transactions`;
+                if (mt) mt.style.display = 'none'; 
+                if (ct) ct.innerText = `${displayedExps.length} transaction${displayedExps.length > 1 ? 's' : ''}`;
                 if (list) {
                     list.innerHTML = '';
-                    approvedExpenses.forEach(exp => {
-                        const sp1 = exp.p1SharePercent ?? 50; const sp2 = exp.p2SharePercent ?? 50;
+                    displayedExps.forEach(exp => {
                         const item = document.createElement('div');
-                        if (exp.isEditing) {
-                            const expP1Pct = exp.p1SharePercent || 50; const expP2Pct = exp.p2SharePercent || 50;
-                            const expP1Amt = ((exp.amount || 0) * (expP1Pct / 100)).toFixed(2); const expP2Amt = ((exp.amount || 0) - parseFloat(expP1Amt)).toFixed(2);
-                            const localSplitType = exp.splitTypeLocal || (expP1Pct === 50 ? '50_50' : expP1Pct === 0 || expP1Pct === 100 ? '100_other' : 'custom');
-                            const dt = new Date(exp.created_at).toISOString().split('T')[0];
-                            
-                            let cBtns = ''; state.categories.forEach(c => { let isAct = exp.category===c.label?'border-indigo-500 text-indigo-400':'border-slate-850 text-slate-400'; cBtns += `<button onclick="updateHistoryField('${exp.id}','category','${c.label}')" class="flex items-center justify-center w-11 h-11 rounded-xl text-lg bg-slate-900 border ${isAct}"><i class="fa-solid ${c.icon}"></i></button>`; });
-                            
-                            let pTitle = 'Qui a payé ?'; if(exp.type === 'revenu') pTitle = 'Qui a reçu ?'; if(exp.type === 'transfert') pTitle = 'Qui a envoyé ?';
-                            let splitTitle = ''; if (localSplitType === '50_50') splitTitle = '50% / 50%'; else if (localSplitType === '100_other') splitTitle = "100% l'autre"; else splitTitle = `Précis (${expP1Pct}% / ${expP2Pct}%)`;
-                            let s50 = localSplitType==='50_50'?'border-indigo-500 text-indigo-300':'border-slate-800 text-slate-400';
-                            let s100 = localSplitType==='100_other'?'border-indigo-500 text-indigo-300':'border-slate-800 text-slate-400';
-                            let sC = localSplitType==='custom'?'border-indigo-500 text-indigo-300':'border-slate-800 text-slate-400';
-                            let b1C = exp.payer==='p1'?'border-indigo-500 text-indigo-300 bg-indigo-600/20':'border-slate-800 text-slate-400';
-                            let b2C = exp.payer==='p2'?'border-indigo-500 text-indigo-300 bg-indigo-600/20':'border-slate-800 text-slate-400';
-
-                            item.className = "w-full animate-in fade-in duration-150 bg-slate-950/40 border-2 border-amber-500/30 rounded-2xl p-5 space-y-4 shadow-lg";
-                            item.innerHTML = `
-                            <div class="flex justify-between items-center border-b border-slate-850 pb-2"><span class="text-[10px] font-bold text-amber-400 uppercase">Modifier</span><button onclick="toggleHistoryEdit('${exp.id}',false)" class="text-xs text-slate-500">Fermer</button></div>
-                            <div class="space-y-3"><input type="text" value="${exp.description}" oninput="updateHistoryField('${exp.id}','description',this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200"><div class="grid grid-cols-2 gap-3"><input type="date" value="${dt}" onchange="updateHistoryField('${exp.id}','date',this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 [color-scheme:dark]"><input type="number" step="0.01" value="${exp.amount}" oninput="updateHistoryField('${exp.id}','amount',this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200"></div></div>
-                            <div><label class="text-[10px] text-slate-500 font-bold uppercase block mb-1.5">${pTitle}</label><div class="grid grid-cols-2 gap-2"><button onclick="updateHistoryField('${exp.id}','payer','p1')" class="py-2.5 rounded-lg border text-xs font-bold ${b1C}">Toi</button><button onclick="updateHistoryField('${exp.id}','payer','p2')" class="py-2.5 rounded-lg border text-xs font-bold ${b2C}">${state.config.p2Name}</button></div></div>
-                            <div class="${exp.type==='transfert'?'hidden':''} flex flex-wrap gap-2">${cBtns}</div>
-                            <div class="${exp.type==='transfert'?'hidden':''} bg-slate-950/50 p-4 rounded-xl space-y-4">
-                                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest"><span>Partage</span><span class="text-xs text-indigo-400 font-extrabold">${splitTitle}</span></div>
-                                <div class="grid grid-cols-3 gap-1.5"><button onclick="updateHistorySplitType('${exp.id}','50_50')" class="py-2 text-[10px] font-bold rounded-lg border ${s50}">50/50</button><button onclick="updateHistorySplitType('${exp.id}','100_other')" class="py-2 text-[10px] font-bold rounded-lg border ${s100}">L'autre</button><button onclick="updateHistorySplitType('${exp.id}','custom')" class="py-2 text-[10px] font-bold rounded-lg border ${sC}">Précis</button></div>
-                                <div class="${localSplitType==='custom'?'':'hidden'} space-y-4">
-                                    <div class="grid grid-cols-2 gap-3"><div class="bg-slate-900 p-2 rounded"><input type="number" id="history-amt-p1-${exp.id}" value="${expP1Amt}" oninput="onHistoryCustomAmountInput('${exp.id}','p1',this.value)" class="w-full bg-transparent text-base text-slate-200 text-center"></div><div class="bg-slate-900 p-2 rounded"><input type="number" id="history-amt-p2-${exp.id}" value="${expP2Amt}" oninput="onHistoryCustomAmountInput('${exp.id}','p2',this.value)" class="w-full bg-transparent text-base text-slate-200 text-center"></div></div>
-                                    <input type="range" id="history-range-${exp.id}" min="0" max="100" value="${expP1Pct}" oninput="onHistorySplitSliderInput('${exp.id}', this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-3"><button onclick="saveHistoryEdit('${exp.id}')" class="py-3 bg-emerald-600 text-white rounded-xl text-xs font-black">Sauver</button></div>`;
-                        } else {
-                            item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-colors";
-                            let lbl = exp.type === 'transfert' ? 'Transfert' : exp.type === 'revenu' ? 'Revenu' : 'Dépense';
-                            item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 truncate">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} • ${lbl}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-regular fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-regular fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-regular fa-trash-can"></i></button></div>`;
-                        }
+                        item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-colors";
+                        let lbl = exp.type === 'transfert' ? 'Transfert' : exp.type === 'revenu' ? 'Revenu' : 'Dépense';
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 truncate">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} • ${lbl}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-regular fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-regular fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-regular fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
