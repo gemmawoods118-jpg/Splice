@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- Meta tags iOS PWA (Progressive Web App) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Splittr">
+    
     <title>Splittr - Comptes à Deux</title>
     <!-- Tailwind CSS pour un design moderne -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -75,7 +81,7 @@
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative h-screen max-h-screen border-x border-slate-800/40 overflow-hidden">
         
         <!-- Header & Projects -->
-        <header class="flex justify-between items-center p-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30">
+        <header class="flex justify-between items-center p-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 pt-10 sm:pt-4"> <!-- pt-10 pour notch iOS -->
             <div class="flex items-center gap-1.5 w-1/4">
                 <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></div>
                 <span class="text-[9px] text-slate-400 font-bold tracking-wider uppercase hidden sm:block" id="status-text">Local</span>
@@ -379,7 +385,15 @@
     <!-- Settings Modal -->
     <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div class="flex justify-between items-center pb-2 border-b border-slate-800"><h3 class="text-sm font-bold text-white"><i class="fa-solid fa-sliders mr-2 text-indigo-400"></i>Configuration</h3><button onclick="toggleSettingsModal(false)" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <div class="flex items-center gap-2">
+                    <img id="settings-logo-preview" class="w-6 h-6 rounded-md shadow-sm bg-indigo-500/20" alt="Logo">
+                    <h3 class="text-sm font-bold text-white">Configuration</h3>
+                </div>
+                <button onclick="toggleSettingsModal(false)" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
             <div class="space-y-3">
                 <div class="grid grid-cols-2 gap-2">
                     <div><label class="text-[10px] text-slate-500 font-bold block mb-1">Ton prénom</label><input type="text" id="config-p1" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500"></div>
@@ -426,14 +440,14 @@
                 </div>
                 
                 <!-- Spaced row layout (Fixed overlap) -->
-                <div class="flex gap-3">
-                    <div class="flex-1 min-w-0">
-                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
-                        <input type="date" id="modal-edit-date" class="w-full min-w-0 bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-1.5 text-sm text-slate-200 focus:outline-none [color-scheme:dark]">
+                <div class="grid grid-cols-2 gap-3 w-full overflow-hidden">
+                    <div class="min-w-0 overflow-hidden">
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1 truncate">Date</label>
+                        <input type="date" id="modal-edit-date" class="w-full max-w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-2 text-sm text-slate-200 focus:outline-none [color-scheme:dark]">
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
-                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full min-w-[50px] bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-1.5 text-sm text-slate-200 focus:outline-none text-center font-bold math-input">
+                    <div class="min-w-0 overflow-hidden">
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1 truncate">Montant (<span class="currency-display">€</span>)</label>
+                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full max-w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-2 text-sm text-slate-200 focus:outline-none text-center font-bold math-input">
                         <!-- Mini-Calculatrice Keyboard Row -->
                         <div class="flex gap-1 mt-1.5 justify-center">
                             <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">+</button>
@@ -583,6 +597,51 @@
             else modal.classList.add('hidden');
         }
 
+        // GENERATE iOS PWA APP ICON DYNAMICALLY 
+        function generateAndSetAppIcon() {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                // Gradient Background
+                const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+                gradient.addColorStop(0, '#4f46e5'); // indigo-600
+                gradient.addColorStop(1, '#8b5cf6'); // violet-500
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Lightning Bolt Shape
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                ctx.shadowBlur = 30;
+                ctx.shadowOffsetY = 15;
+                
+                ctx.beginPath();
+                ctx.moveTo(280, 64);
+                ctx.lineTo(112, 280);
+                ctx.lineTo(232, 280);
+                ctx.lineTo(208, 448);
+                ctx.lineTo(400, 208);
+                ctx.lineTo(280, 208);
+                ctx.closePath();
+                ctx.fill();
+
+                // Inject dynamic PWA icon
+                const dataUrl = canvas.toDataURL('image/png');
+                const link = document.createElement('link');
+                link.rel = 'apple-touch-icon';
+                link.href = dataUrl;
+                document.head.appendChild(link);
+                
+                // Show logo preview in settings modal
+                const preview = document.getElementById('settings-logo-preview');
+                if (preview) preview.src = dataUrl;
+
+            } catch(e) { console.error("Icon Gen Error:", e); }
+        }
+
         function saveConfiguration() {
             state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
             state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
@@ -656,6 +715,8 @@
         }
 
         function initApp() {
+            generateAndSetAppIcon();
+
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if(splash) {
@@ -1404,8 +1465,8 @@
                     state.editingTransaction.icon = c.icon;
                     renderModalCategorySelector(); // Redessine les focus
                 };
-                btn.className = `flex-shrink-0 min-w-[70px] h-12 rounded-xl flex flex-col items-center justify-center border text-xs gap-1 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
-                btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${c.icon}"></i></span> <span class="text-[9px] font-black">${c.label}</span>`;
+                btn.className = `flex-shrink-0 min-w-[76px] px-3 h-12 rounded-xl flex flex-col items-center justify-center border text-xs gap-1 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
+                btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${c.icon}"></i></span> <span class="text-[9px] font-black whitespace-nowrap">${c.label}</span>`;
                 grid.appendChild(btn);
             });
 
@@ -1413,8 +1474,8 @@
             const triggerBtn = document.createElement('button');
             triggerBtn.type = "button";
             triggerBtn.onclick = () => toggleModalCustomCategoryInput(true);
-            triggerBtn.className = "flex-shrink-0 min-w-[70px] px-3 h-12 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 font-semibold text-[9px] flex flex-col items-center justify-center gap-1 active:scale-95";
-            triggerBtn.innerHTML = `<i class="fa-solid fa-folder-plus text-xs"></i> <span>Nouveau</span>`;
+            triggerBtn.className = "flex-shrink-0 min-w-[76px] px-3 h-12 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 font-semibold text-[9px] flex flex-col items-center justify-center gap-1 active:scale-95";
+            triggerBtn.innerHTML = `<i class="fa-solid fa-folder-plus text-xs"></i> <span class="whitespace-nowrap">Nouveau</span>`;
             grid.appendChild(triggerBtn);
         }
 
