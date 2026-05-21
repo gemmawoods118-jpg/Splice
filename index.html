@@ -97,8 +97,8 @@
         </header>
 
         <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 transition-all">
-            <i class="fa-solid fa-info-circle"></i>
-            <span id="toast-message">Notification</span>
+            <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
+            <span id="toast-message" class="flex-1">Notification</span>
         </div>
 
         <!-- Scrollable Content Area -->
@@ -181,6 +181,13 @@
                                 <span class="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-bold text-slate-500 currency-display">€</span>
                                 <input type="text" id="amount" inputmode="decimal" placeholder="0.00" required onblur="evaluateMath(this)"
                                     class="w-full bg-slate-950/60 border border-slate-800/80 focus:border-indigo-500 rounded-xl py-3.5 pl-14 pr-4 text-3xl font-black text-white text-center focus:outline-none transition-colors shadow-inner math-input">
+                            </div>
+                            <!-- Mini-Calculatrice Keyboard Row -->
+                            <div class="flex gap-1.5 pt-1.5 justify-center">
+                                <button type="button" onclick="appendMathOperator('amount', '+')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">+</button>
+                                <button type="button" onclick="appendMathOperator('amount', '-')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">-</button>
+                                <button type="button" onclick="appendMathOperator('amount', '*')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">×</button>
+                                <button type="button" onclick="appendMathOperator('amount', '/')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">÷</button>
                             </div>
                         </div>
 
@@ -400,8 +407,8 @@
     </div>
 
     <!-- FEUILLE DE MODIFICATION (Dedicated bottom sheet modal) -->
-    <div id="edit-tx-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-sm transition-opacity duration-300">
-        <div class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92vh] sm:max-h-[85vh] p-5 space-y-4 shadow-2xl flex flex-col justify-between overflow-hidden">
+    <div id="edit-tx-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+        <div id="edit-tx-modal-content" class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92vh] sm:max-h-[85vh] p-5 space-y-4 shadow-2xl flex flex-col justify-between overflow-hidden transition-transform duration-300 translate-y-full">
             <!-- Header -->
             <div class="flex justify-between items-center pb-2 border-b border-slate-800 shrink-0">
                 <h3 class="text-sm font-black text-white uppercase tracking-wider"><i class="fa-solid fa-pen-to-square mr-2 text-indigo-400"></i>Modifier la transaction</h3>
@@ -418,15 +425,22 @@
                     <input type="text" id="modal-edit-desc" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
                 </div>
                 
-                <!-- Spaced row layout -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
+                <!-- Spaced row layout (Fixed overlap) -->
+                <div class="flex gap-3">
+                    <div class="flex-1 min-w-0">
                         <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
-                        <input type="date" id="modal-edit-date" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none [color-scheme:dark]">
+                        <input type="date" id="modal-edit-date" class="w-full min-w-0 bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-1.5 text-sm text-slate-200 focus:outline-none [color-scheme:dark]">
                     </div>
-                    <div>
+                    <div class="flex-1 min-w-0">
                         <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
-                        <input type="number" step="0.01" id="modal-edit-amount" oninput="onModalEditAmountInput(this.value)" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none">
+                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full min-w-[50px] bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-1.5 text-sm text-slate-200 focus:outline-none text-center font-bold math-input">
+                        <!-- Mini-Calculatrice Keyboard Row -->
+                        <div class="flex gap-1 mt-1.5 justify-center">
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">+</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">-</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">×</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">÷</button>
+                        </div>
                     </div>
                 </div>
 
@@ -439,10 +453,19 @@
                     </div>
                 </div>
 
-                <!-- Catégorie -->
+                <!-- Catégorie (Horizontal Scroll in Modal) -->
                 <div id="modal-edit-cat-section" class="space-y-1.5">
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block">Catégorie</label>
-                    <div class="flex flex-wrap gap-2" id="modal-edit-cat-grid"></div>
+                    <div class="flex overflow-x-auto gap-2 pb-2 scrollbar-none" id="modal-edit-cat-grid"></div>
+                    
+                    <div id="modal-custom-cat-input-block" class="hidden space-y-2 pt-2 border-t border-slate-850">
+                        <label class="text-[10px] text-slate-400 font-bold block">Nouvelle catégorie</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="modal-custom-category-name" placeholder="Ex: Voyage..." class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
+                            <button type="button" onclick="applyModalCustomCategoryName()" class="bg-indigo-600 text-white font-bold text-xs px-3 py-2 rounded-lg shadow">Créer</button>
+                            <button type="button" onclick="toggleModalCustomCategoryInput(false)" class="bg-slate-800 text-slate-400 text-xs px-3 py-2 rounded-lg">Annuler</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Partage / Splits (Slider + custom boxes) -->
@@ -668,14 +691,36 @@
         if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initApp);
         else initApp();
 
+        // Ajout d'opérateurs pour la calculatrice
+        function appendMathOperator(inputId, op) {
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            el.value = el.value.replace(/,/g, '.');
+            if (el.value === "" && op !== '-') return;
+            
+            // Empêche les doubles opérateurs
+            if (/[+\-*/]$/.test(el.value)) {
+                el.value = el.value.slice(0, -1) + op;
+            } else {
+                el.value += op;
+            }
+            el.focus();
+            
+            if (inputId === 'modal-edit-amount') {
+                onModalEditAmountInput(el.value);
+            }
+        }
+
         function evaluateMath(el) {
             try {
                 let val = el.value.replace(/,/g, '.').replace(/[^0-9+\-*/().]/g, '');
+                val = val.replace(/[+\-*/]$/, ''); // retire le dernier opérateur si inutile
                 if(val) {
                     let result = new Function('return ' + val)();
                     if(!isNaN(result) && result > 0) {
                         el.value = parseFloat(result).toFixed(2);
-                        syncCustomSplitUI();
+                        if (el.id === 'amount') syncCustomSplitUI();
+                        if (el.id === 'modal-edit-amount') onModalEditAmountInput(el.value);
                     }
                 }
             } catch(e) {}
@@ -973,6 +1018,19 @@
             else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
         }
 
+        function applyCustomCategoryName() {
+            const inputVal = document.getElementById('custom-category-name').value.trim();
+            if (!inputVal) return;
+            const formattedName = inputVal.charAt(0).toUpperCase() + inputVal.slice(1);
+            if (state.categories.some(c => c.label.toLowerCase() === formattedName.toLowerCase())) { showToast("Catégorie existante"); return; }
+
+            const newCat = { label: formattedName, icon: 'fa-tag', color: 'text-violet-400', presets: [formattedName] };
+            state.categories.push(newCat);
+            localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
+            renderCategorySelector(); setManualCategory(newCat.label, newCat.icon); toggleCustomCategoryInput(false);
+            showToast(`Catégorie "${formattedName}" ajoutée !`);
+        }
+
         function toggleAddPresetInput(show) {
             const block = document.getElementById('add-preset-input-block');
             const inputField = document.getElementById('new-preset-name');
@@ -1134,6 +1192,7 @@
 
         function openEditTxModal() {
             const modal = document.getElementById('edit-tx-modal');
+            const content = document.getElementById('edit-tx-modal-content');
             const tx = state.editingTransaction;
             if (!modal || !tx) return;
 
@@ -1169,6 +1228,10 @@
             selectModalEditSplitType(tx.splitTypeLocal || defaultSplitType);
 
             modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
         }
 
         function expP1PercentIs100(p1Pct, payer) {
@@ -1178,8 +1241,16 @@
         }
 
         function closeEditTxModal() {
-            document.getElementById('edit-tx-modal').classList.add('hidden');
-            state.editingTransaction = null;
+            const modal = document.getElementById('edit-tx-modal');
+            const content = document.getElementById('edit-tx-modal-content');
+            
+            modal.classList.add('opacity-0');
+            content.classList.add('translate-y-full');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                state.editingTransaction = null;
+            }, 300);
         }
 
         function selectModalEditPayer(payer) {
@@ -1333,10 +1404,43 @@
                     state.editingTransaction.icon = c.icon;
                     renderModalCategorySelector(); // Redessine les focus
                 };
-                btn.className = `flex-1 min-w-[75px] h-12 rounded-xl flex flex-col items-center justify-center border text-xs gap-1 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
+                btn.className = `flex-shrink-0 min-w-[70px] h-12 rounded-xl flex flex-col items-center justify-center border text-xs gap-1 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
                 btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${c.icon}"></i></span> <span class="text-[9px] font-black">${c.label}</span>`;
                 grid.appendChild(btn);
             });
+
+            // Bouton + Nouvelle
+            const triggerBtn = document.createElement('button');
+            triggerBtn.type = "button";
+            triggerBtn.onclick = () => toggleModalCustomCategoryInput(true);
+            triggerBtn.className = "flex-shrink-0 min-w-[70px] px-3 h-12 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 font-semibold text-[9px] flex flex-col items-center justify-center gap-1 active:scale-95";
+            triggerBtn.innerHTML = `<i class="fa-solid fa-folder-plus text-xs"></i> <span>Nouveau</span>`;
+            grid.appendChild(triggerBtn);
+        }
+
+        function toggleModalCustomCategoryInput(show) {
+            const block = document.getElementById('modal-custom-cat-input-block');
+            const inputField = document.getElementById('modal-custom-category-name');
+            if (show) { block.classList.remove('hidden'); if(inputField) inputField.focus(); } 
+            else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
+        }
+
+        function applyModalCustomCategoryName() {
+            const inputVal = document.getElementById('modal-custom-category-name').value.trim();
+            if (!inputVal) return;
+            const formattedName = inputVal.charAt(0).toUpperCase() + inputVal.slice(1);
+            if (state.categories.some(c => c.label.toLowerCase() === formattedName.toLowerCase())) { showToast("Catégorie existante"); return; }
+
+            const newCat = { label: formattedName, icon: 'fa-tag', color: 'text-violet-400', presets: [formattedName] };
+            state.categories.push(newCat);
+            localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
+            
+            state.editingTransaction.category = newCat.label;
+            state.editingTransaction.icon = newCat.icon;
+
+            renderModalCategorySelector();
+            toggleModalCustomCategoryInput(false);
+            showToast(`Catégorie "${formattedName}" ajoutée !`);
         }
 
         async function saveModalEdit() {
@@ -1367,9 +1471,10 @@
 
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
+            
+            // Douce fermeture
             closeEditTxModal();
-
-            showToast("Enregistré avec succès !");
+            showToast("Modifié avec succès !");
 
             if (state.supabaseClient && navigator.onLine) {
                 try {
@@ -1403,6 +1508,12 @@
         }
 
         async function approveTransaction(id) {
+            const el = document.getElementById(`inbox-item-${id}`);
+            if (el) {
+                el.style.transform = 'translateX(100%)';
+                el.style.opacity = '0';
+                await new Promise(r => setTimeout(r, 300));
+            }
             const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
             state.expenses[idx].approved = true; state.expenses[idx].isEditing = false;
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); confetti({ particleCount: 60, spread: 40, origin: { y: 0.8 }, colors: ['#10b981'] });
@@ -1410,11 +1521,23 @@
         }
 
         async function rejectTransaction(id) {
+            const el = document.getElementById(`inbox-item-${id}`);
+            if (el) {
+                el.style.transform = 'translateX(-100%)';
+                el.style.opacity = '0';
+                await new Promise(r => setTimeout(r, 300));
+            }
             state.expenses = state.expenses.filter(t => t.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
             if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').delete().eq('id', id); } catch (e) {} }
         }
 
         async function deleteExpense(id) {
+            const el = document.getElementById(`history-item-${id}`);
+            if (el) {
+                el.style.transform = 'translateX(-100%)';
+                el.style.opacity = '0';
+                await new Promise(r => setTimeout(r, 300));
+            }
             state.expenses = state.expenses.filter(exp => exp.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
             if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').delete().eq('id', id); } catch (e) {} }
         }
@@ -1619,7 +1742,6 @@
                     sDisp.innerText = `Tu dois ${Math.abs(diff).toFixed(2)} ${state.config.currency} à ${state.config.p2Name}`; sDisp.className = "text-xs font-bold text-rose-400";
                     if(sBtn) sBtn.classList.remove('hidden');
                 }
-                updateCurrencyUI();
 
                 const inBadge = document.getElementById('nav-inbox-badge'); const inCount = document.getElementById('inbox-badge-count'); const inList = document.getElementById('inbox-list');
                 if (unapprovedExpenses.length > 0) {
@@ -1629,7 +1751,8 @@
                         inList.innerHTML = '';
                         unapprovedExpenses.forEach(exp => {
                             const c = document.createElement('div');
-                            c.className = "bg-slate-950/20 border-2 border-dashed border-indigo-500/20 rounded-xl p-4 space-y-3";
+                            c.id = `inbox-item-${exp.id}`;
+                            c.className = "bg-slate-950/20 border-2 border-dashed border-indigo-500/20 rounded-xl p-4 space-y-3 transition-all duration-300";
                             const m = scanCategory(exp.description);
                             c.innerHTML = `<div class="flex justify-between items-start"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div><p class="text-sm font-bold text-slate-100">${exp.description}</p></div></div><span class="text-sm font-black text-indigo-400">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-850 pt-2">
@@ -1667,7 +1790,8 @@
                     list.innerHTML = '';
                     displayedExps.forEach(exp => {
                         const item = document.createElement('div');
-                        item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-colors";
+                        item.id = `history-item-${exp.id}`;
+                        item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         let lbl = exp.type === 'transfert' ? 'Transfert' : exp.type === 'revenu' ? 'Revenu' : 'Dépense';
                         item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 truncate">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} • ${lbl}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-regular fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-regular fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-regular fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
