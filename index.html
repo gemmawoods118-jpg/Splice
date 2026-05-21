@@ -156,7 +156,7 @@
             <!-- VIEW 1: MANUAL TRANSACTION ENTRY (Saisie) -->
             <div id="view-saisie" class="tab-view active-tab space-y-4">
                 
-                <!-- Saisie Magique en 1-Clic -->
+                <!-- Saisie Magique en 1-Clic (Strictement ancrée sur la Saisie) -->
                 <section class="bg-slate-950/20 border border-slate-850 p-3.5 rounded-2xl space-y-2">
                     <span class="text-[9px] text-slate-500 uppercase tracking-widest font-black block"><i class="fa-solid fa-bolt text-indigo-400 mr-1"></i>Saisie Magique en 1-Clic</span>
                     <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-thin">
@@ -439,22 +439,22 @@
                     <input type="text" id="modal-edit-desc" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
                 </div>
                 
-                <!-- Spaced row layout (Fixed overlap) -->
-                <div class="grid grid-cols-2 gap-3 w-full overflow-hidden">
-                    <div class="min-w-0 overflow-hidden">
-                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1 truncate">Date</label>
-                        <input type="date" id="modal-edit-date" class="w-full max-w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-2 text-sm text-slate-200 focus:outline-none [color-scheme:dark]">
-                    </div>
-                    <div class="min-w-0 overflow-hidden">
-                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1 truncate">Montant (<span class="currency-display">€</span>)</label>
-                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full max-w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-2 text-sm text-slate-200 focus:outline-none text-center font-bold math-input">
-                        <!-- Mini-Calculatrice Keyboard Row -->
-                        <div class="flex gap-1 mt-1.5 justify-center">
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">+</button>
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">-</button>
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">×</button>
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50">÷</button>
-                        </div>
+                <!-- Date -->
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
+                    <input type="date" id="modal-edit-date" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none [color-scheme:dark]">
+                </div>
+
+                <!-- Montant avec mini calculatrice intégrée -->
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
+                    <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-3 px-4 text-xl text-slate-200 focus:outline-none text-center font-black math-input">
+                    <!-- Mini-Calculatrice Keyboard Row -->
+                    <div class="flex gap-1.5 mt-2 justify-center">
+                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">+</button>
+                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">-</button>
+                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">×</button>
+                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">÷</button>
                     </div>
                 </div>
 
