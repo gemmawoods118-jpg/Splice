@@ -1,0 +1,2771 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Splittr - Comptes à Deux</title>
+    <!-- Tailwind CSS pour un design moderne -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Library pour la synchronisation cloud -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Canvas Confetti pour l'effet de fête -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Chart.js pour le graphique en Camembert -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plugin Chart.js Datalabels pour afficher les pourcentages directement sur les parts -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            background-color: #080b11;
+        }
+        /* Barre de défilement moderne */
+        ::-webkit-scrollbar {
+            height: 4px;
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
+        /* Masquer les flèches sur les inputs numériques */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]">
+
+    <!-- Mobile/Tablet App Container - Fixé à la hauteur de l'écran (h-screen) pour un menu 100% stable -->
+    <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative h-screen max-h-screen border-x border-slate-800/40 overflow-hidden">
+        
+        <!-- Header (Fixé en haut) -->
+        <header class="flex justify-between items-center p-5 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30">
+            <div class="flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></div>
+                <span class="text-[10px] text-slate-400 font-bold tracking-wider uppercase" id="status-text">Mode Local</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSettingsModal(true)" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
+                    <i class="fa-solid fa-gear text-sm"></i>
+                </button>
+                <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">Splittr.</h1>
+            </div>
+        </header>
+
+        <!-- Notification Banner / Toast customisé pour éviter alert() -->
+        <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 transition-all">
+            <i class="fa-solid fa-info-circle"></i>
+            <span id="toast-message">Notification</span>
+        </div>
+
+        <!-- Scrollable Content Area - Seul cet espace défile à l'intérieur de l'app -->
+        <div class="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-28">
+
+            <!-- Saisie Magique en 1-Clic (Raccourcis rapides tout en haut) -->
+            <section class="bg-slate-950/20 border border-slate-850 p-3.5 rounded-2xl space-y-2">
+                <span class="text-[9px] text-slate-500 uppercase tracking-widest font-black block"><i class="fa-solid fa-bolt text-indigo-400 mr-1"></i>Saisie Magique en 1-Clic</span>
+                <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-thin">
+                    <button type="button" onclick="applyPreset('Courses', 'Courses', 'fa-cart-shopping')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>🛒</span> Courses
+                    </button>
+                    <button type="button" onclick="applyPreset('Ménage appartement', 'Factures & Loyer', 'fa-house-user')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>🧹</span> Ménage
+                    </button>
+                    <button type="button" onclick="applyPreset('Café / Goûter', 'Resto & Café', 'fa-utensils')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>☕</span> Café
+                    </button>
+                    <button type="button" onclick="applyPreset('Resto McDo', 'Resto & Café', 'fa-utensils')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>🍔</span> McDo
+                    </button>
+                    <button type="button" onclick="applyPreset('Billet Train SNCF', 'Transport', 'fa-car')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>🚗</span> Train SNCF
+                    </button>
+                    <button type="button" onclick="applyPreset('Loyer Mensuel', 'Factures & Loyer', 'fa-house-user')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>🏠</span> Loyer
+                    </button>
+                    <button type="button" onclick="applyPreset('Plein Essence', 'Transport', 'fa-car')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>⛽</span> Essence
+                    </button>
+                    <button type="button" onclick="applyPreset('Abonnement Sport', 'Sport', 'fa-dumbbell')" class="flex-shrink-0 bg-slate-800/50 border border-slate-700/30 hover:border-indigo-500/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 active:scale-95">
+                        <span>🏋️‍♂️</span> Sport
+                    </button>
+                </div>
+            </section>
+
+            <!-- Balance Dashboard Card -->
+            <section class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 border border-slate-700/50 shadow-lg relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                <div class="absolute -left-10 -top-10 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl"></div>
+
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h2 class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Balance Globale</h2>
+                            <div class="text-3xl font-black tracking-tight text-white mt-1" id="dashboard-balance">
+                                0,00 €
+                            </div>
+                        </div>
+                        <button onclick="settleUp()" id="settle-btn" class="hidden text-xs bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg border border-emerald-500/30 transition-all active:scale-95 font-bold">
+                            Équilibrer <i class="fa-solid fa-handshake ml-1"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-indigo-300 font-semibold" id="dashboard-summary">Tout est parfaitement équilibré !</p>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-4 w-full h-2 bg-slate-950 rounded-full overflow-hidden flex">
+                        <div id="p1-share-bar" class="h-full bg-violet-500 transition-all duration-500" style="width: 50%;"></div>
+                        <div id="p2-share-bar" class="h-full bg-indigo-500 transition-all duration-500" style="width: 50%;"></div>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] text-slate-400 font-medium mt-2">
+                        <span id="p1-share-label">Toi : 0,00 €</span>
+                        <span id="p2-share-label">Partenaire : 0,00 €</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 1: MANUAL TRANSACTION ENTRY (Saisie) -->
+            <div id="view-saisie" class="space-y-4">
+                <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner space-y-4">
+                    
+                    <!-- Type de transaction selector -->
+                    <div class="grid grid-cols-3 gap-1.5 bg-slate-950/40 p-1.5 rounded-2xl border border-slate-800">
+                        <button type="button" id="type-btn-depense" onclick="selectTxType('depense')" class="py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white transition-all">
+                            💸 Dépense
+                        </button>
+                        <button type="button" id="type-btn-revenu" onclick="selectTxType('revenu')" class="py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all">
+                            💰 Revenu
+                        </button>
+                        <button type="button" id="type-btn-transfert" onclick="selectTxType('transfert')" class="py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all">
+                            🔄 Transfert
+                        </button>
+                    </div>
+
+                    <form id="expense-form" class="space-y-4" onsubmit="handleFormSubmission(event)">
+                        
+                        <!-- Étape 1 : Saisie du montant -->
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block" id="step-amount-label">1. Saisir le montant</span>
+                            <div class="relative">
+                                <span class="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-bold text-slate-500">€</span>
+                                <input type="number" id="amount" step="0.01" inputmode="decimal" placeholder="0,00" required
+                                    class="w-full bg-slate-950/60 border border-slate-800/80 focus:border-indigo-500 rounded-xl py-3.5 pl-12 pr-4 text-3xl font-black text-white text-center focus:outline-none transition-colors shadow-inner">
+                            </div>
+                        </div>
+
+                        <!-- Étape 2 : Description finale / Libellé (Placé juste sous le montant) -->
+                        <div class="relative">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">2. Description / Détails</span>
+                            <div class="relative">
+                                <input type="text" id="description" oninput="handleDescriptionTyping(this.value)" placeholder="Détail de l'achat (ex: Leclerc, Loyer...)"
+                                    class="w-full bg-slate-950/40 border border-slate-850 focus:border-slate-750 rounded-xl py-3.5 pl-4 pr-10 text-base text-slate-200 focus:outline-none transition-colors shadow-inner">
+                                <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
+                                    <i class="fa-solid fa-signature text-xs"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 3 : Choix de la catégorie -->
+                        <div id="category-selector-container" class="space-y-2 bg-slate-950/20 p-3.5 rounded-xl border border-slate-850">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block">3. Choisir la catégorie</span>
+                            
+                            <div class="flex flex-wrap gap-2" id="category-selector-grid">
+                                <!-- Injecté dynamiquement par le script -->
+                            </div>
+
+                            <div id="custom-cat-input-block" class="hidden space-y-2 pt-2 border-t border-slate-850">
+                                <label class="text-[10px] text-slate-400 font-bold block">Nom de la catégorie personnalisée</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="custom-category-name" placeholder="Ex: Cadeaux, Voyage..."
+                                        class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
+                                    <button type="button" onclick="applyCustomCategoryName()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-2 rounded-lg transition-colors shadow">
+                                        Créer
+                                    </button>
+                                    <button type="button" onclick="toggleCustomCategoryInput(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs px-3 py-2 rounded-lg transition-colors">
+                                        Annuler
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 4 : Choix / Ajout de raccourcis/labels spécifiques -->
+                        <div id="sub-presets-container" class="space-y-3 bg-slate-950/25 p-3.5 rounded-xl border border-slate-850 hidden transition-all">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block">Raccourcis de cette catégorie</span>
+                                <button type="button" onclick="toggleAddPresetInput(true)" class="text-[10px] text-indigo-400 hover:underline font-bold"><i class="fa-solid fa-plus mr-1"></i>Ajouter</button>
+                            </div>
+                            
+                            <!-- Suggestions list -->
+                            <div class="flex flex-wrap gap-2" id="sub-presets-list">
+                                <!-- Les raccourcis s'affichent ici -->
+                            </div>
+
+                            <!-- Input pour créer un nouveau raccourci de label -->
+                            <div id="add-preset-input-block" class="hidden space-y-2 pt-2 border-t border-slate-850/60">
+                                <div class="flex gap-2">
+                                    <input type="text" id="new-preset-name" placeholder="Ex: Resto, McDo, Carrefour..."
+                                        class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
+                                    <button type="button" onclick="addNewPresetLabel()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-2 rounded-lg transition-colors">
+                                        Enregistrer
+                                    </button>
+                                    <button type="button" onclick="toggleAddPresetInput(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs px-3 py-2 rounded-lg transition-colors">
+                                        Fermer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Qui a Payé / Reçu / Envoyé -->
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block" id="payer-toggle-label">Qui a payé ?</span>
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <button type="button" id="btn-p1" onclick="selectPayer('p1')"
+                                    class="py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide transition-all shadow-sm">
+                                    <i class="fa-solid fa-user-ninja mr-2 opacity-80 text-xs"></i><span id="label-btn-p1">Toi</span>
+                                </button>
+                                <button type="button" id="btn-p2" onclick="selectPayer('p2')"
+                                    class="py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide transition-all">
+                                    <i class="fa-solid fa-user-astronaut mr-2 opacity-80 text-xs"></i><span id="label-btn-p2">Partenaire</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Flexible Splits Engine (Caché si transfert) -->
+                        <div id="split-selector-container" class="bg-slate-950/30 border border-slate-800/50 p-4 rounded-xl space-y-3">
+                            <div class="flex justify-between items-center" id="split-badge-container">
+                                <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Partage des frais ?</span>
+                                <span id="split-badge" class="text-xs font-bold text-indigo-400">Égal (50/50)</span>
+                            </div>
+                            
+                            <!-- Split Toggles -->
+                            <div class="grid grid-cols-3 gap-2 border-b border-slate-850/50 pb-3">
+                                <button type="button" id="split-btn-50" onclick="selectSplit('50_50')" class="py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all">
+                                    50 / 50
+                                </button>
+                                <button type="button" id="split-btn-100" onclick="selectSplit('100_other')" class="py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all">
+                                    Pour l'autre
+                                </button>
+                                <button type="button" id="split-btn-custom" onclick="selectSplit('custom')" class="py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all">
+                                    Précis
+                                </button>
+                            </div>
+
+                            <!-- Custom Split Block -->
+                            <div id="custom-split-block" class="hidden space-y-3 pt-1 transition-all">
+                                <div id="custom-split-warning" class="text-center py-2 text-[11px] text-slate-500 bg-slate-950/20 border border-slate-850 rounded-lg">
+                                    ⚠️ Saisissez d'abord un montant en haut.
+                                </div>
+
+                                <div id="custom-split-controls" class="space-y-3 hidden">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+                                            <label id="split-input-label-p1" class="text-[10px] text-slate-400 font-bold block mb-1">Toi</label>
+                                            <div class="relative">
+                                                <input type="number" id="custom-amount-p1" step="0.01" min="0" placeholder="0.00" oninput="onCustomAmountInput('p1')"
+                                                    class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded py-1 pl-2 pr-6 text-base text-slate-200 focus:outline-none">
+                                                <span class="absolute right-2 top-1.5 text-slate-500 text-xs">€</span>
+                                            </div>
+                                            <span id="custom-pct-label-p1" class="text-[10px] text-slate-500 font-bold block mt-1 text-right">50%</span>
+                                        </div>
+                                        <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+                                            <label id="split-input-label-p2" class="text-[10px] text-slate-400 font-bold block mb-1">Partenaire</label>
+                                            <div class="relative">
+                                                <input type="number" id="custom-amount-p2" step="0.01" min="0" placeholder="0.00" oninput="onCustomAmountInput('p2')"
+                                                    class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded py-1 pl-2 pr-6 text-base text-slate-200 focus:outline-none">
+                                                <span class="absolute right-2 top-1.5 text-slate-500 text-xs">€</span>
+                                            </div>
+                                            <span id="custom-pct-label-p2" class="text-[10px] text-slate-500 font-bold block mt-1 text-right">50%</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-1">
+                                        <input type="range" id="split-range" min="0" max="100" value="50" oninput="onSplitSliderInput(this.value)"
+                                            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                        <div class="flex justify-between text-[10px] font-bold text-slate-500 px-1">
+                                            <span>Ratio :</span>
+                                            <span id="split-range-summary">50% / 50%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" 
+                            class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-950/50 flex items-center justify-center gap-2 text-md">
+                            <span>Enregistrer la transaction</span>
+                            <i class="fa-solid fa-paper-plane text-xs opacity-80"></i>
+                        </button>
+                    </form>
+                </section>
+            </div>
+
+            <!-- VIEW 2: AUTOMATIC WEBHOOK INBOX (Boîte de Réception) -->
+            <div id="view-inbox" class="hidden space-y-4">
+                <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner text-center space-y-4">
+                    <div class="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto">
+                        <i class="fa-solid fa-mobile-screen-button text-lg"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <h3 class="text-sm font-bold text-white">Flux Bancaire Automatique</h3>
+                        <p class="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                            Les transactions envoyées automatiquement par vos téléphones arrivent ici en temps réel pour validation et personnalisation complète.
+                        </p>
+                    </div>
+                    <button onclick="simulateIncomingWebhook()" class="text-xs text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/5 hover:bg-indigo-500/10 px-3.5 py-2 rounded-xl border border-indigo-500/10 transition-all active:scale-95">
+                        💡 Simuler un paiement automatique (Test)
+                    </button>
+                </section>
+
+                <section class="space-y-3.5">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4>
+                        <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
+                    </div>
+
+                    <div id="inbox-list" class="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                        <!-- Loaded Dynamically -->
+                        <div class="text-center py-12 border border-slate-850 bg-slate-950/10 rounded-xl text-xs text-slate-500">
+                            Aucun paiement automatique en attente de validation.
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 3: GRAPHICAL ANALYSIS & FILTERS (Analyse) -->
+            <div id="view-analyse" class="hidden space-y-5">
+                
+                <!-- Filter Section -->
+                <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 shadow-inner space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold"><i class="fa-solid fa-filter mr-1 text-indigo-400"></i>Filtres Temporels</span>
+                        <button onclick="resetAnalyseFilters()" class="text-[10px] text-indigo-400 hover:underline font-bold">Ce mois-ci</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <!-- Month selector -->
+                        <div class="space-y-1">
+                            <label class="text-[10px] text-slate-500 font-bold">Mois</label>
+                            <select id="filter-month" onchange="onAnalyseFilterChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <option value="all">Tous les mois</option>
+                                <option value="0">Janvier</option>
+                                <option value="1">Février</option>
+                                <option value="2">Mars</option>
+                                <option value="3">Avril</option>
+                                <option value="4">Mai</option>
+                                <option value="5">Juin</option>
+                                <option value="6">Juillet</option>
+                                <option value="7">Août</option>
+                                <option value="8">Septembre</option>
+                                <option value="9">Octobre</option>
+                                <option value="10">Novembre</option>
+                                <option value="11">Décembre</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Year selector -->
+                        <div class="space-y-1">
+                            <label class="text-[10px] text-slate-500 font-bold">Année</label>
+                            <select id="filter-year" onchange="onAnalyseFilterChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <option value="all">Toutes les années</option>
+                                <!-- Années injectées dynamiquement -->
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Period Summary Card -->
+                <section class="bg-gradient-to-r from-violet-950/20 to-indigo-950/20 border border-indigo-500/20 rounded-2xl p-5 space-y-4">
+                    <div class="text-center space-y-1">
+                        <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dépenses totales sur la période</span>
+                        <div class="text-3xl font-black text-white" id="analyse-period-total">0,00 €</div>
+                        <p id="analyse-period-title" class="text-xs text-indigo-300 font-semibold">Mai 2026</p>
+                    </div>
+
+                    <!-- Personal breakdown for this period -->
+                    <div class="grid grid-cols-2 gap-4 pt-3 border-t border-indigo-500/10 text-center">
+                        <div class="space-y-0.5">
+                            <span id="analyse-label-p1" class="text-[10px] text-slate-400 block font-bold">Toi a payé</span>
+                            <span id="analyse-val-p1" class="text-sm font-extrabold text-slate-100">0,00 €</span>
+                        </div>
+                        <div class="space-y-0.5">
+                            <span id="analyse-label-p2" class="text-[10px] text-slate-400 block font-bold">Partenaire a payé</span>
+                            <span id="analyse-val-p2" class="text-sm font-extrabold text-slate-100">0,00 €</span>
+                        </div>
+                    </div>
+
+                    <!-- Instant balance statement for just this period -->
+                    <div class="text-center pt-2">
+                        <span id="analyse-period-debt" class="text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-500/10 block whitespace-normal">
+                            Tout est équilibré sur ce mois
+                        </span>
+                    </div>
+                </section>
+
+                <!-- Visual Pie Chart (Camembert plein avec % écrits directement dessus) -->
+                <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner space-y-4 flex flex-col items-center">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest self-start">Répartition par Catégorie</h3>
+                    
+                    <div class="w-full max-w-[240px] h-[240px] flex items-center justify-center relative">
+                        <canvas id="analyse-chart"></canvas>
+                        <!-- Message d'absence de données -->
+                        <div id="no-chart-data-message" class="hidden absolute inset-0 bg-slate-900/85 backdrop-blur-sm flex items-center justify-center text-center text-xs text-slate-500 font-medium p-4 rounded-xl">
+                            Aucune donnée disponible à analyser pour cette période.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- List detailed category values -->
+                <section class="space-y-3">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Détails des catégories</h3>
+                    <div id="analyse-categories-list" class="space-y-2 animate-in fade-in">
+                        <!-- Chargé dynamiquement -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 4: HISTORIQUE VIEW -->
+            <div id="view-history" class="hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Historique des transactions</h3>
+                    <span class="text-[11px] font-semibold text-slate-500" id="history-count">0 dépense</span>
+                </div>
+                <div class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1" id="history-list">
+                    <div class="text-center py-12 text-xs text-slate-600 font-medium" id="empty-state">
+                        Aucune dépense enregistrée. Utilisez le premier onglet !
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Navigation Bar - Entièrement opaque, se cache proprement derrière le scroll -->
+        <nav class="shrink-0 bg-[#090d16] flex justify-around items-center py-3.5 z-40 shadow-[0_-12px_40px_rgba(0,0,0,0.95)] border-t border-slate-800/40 animate-none">
+            <button onclick="switchView('saisie')" id="nav-btn-saisie" class="flex flex-col items-center gap-1.5 text-indigo-400 font-bold transition-all p-1.5">
+                <i class="fa-solid fa-pen-nib text-lg"></i>
+                <span class="text-[9px] font-bold tracking-wider uppercase">Saisie</span>
+            </button>
+            <button onclick="switchView('inbox')" id="nav-btn-inbox" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5 relative">
+                <i class="fa-solid fa-mobile-screen-button text-lg"></i>
+                <span class="text-[9px] font-bold tracking-wider uppercase">Inbox</span>
+                <span id="nav-inbox-badge" class="hidden absolute top-1 right-4 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce">0</span>
+            </button>
+            <button onclick="switchView('analyse')" id="nav-btn-analyse" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[9px] font-bold tracking-wider uppercase">Analyse</span>
+            </button>
+            <button onclick="switchView('history')" id="nav-btn-history" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5">
+                <i class="fa-solid fa-receipt text-lg"></i>
+                <span class="text-[9px] font-bold tracking-wider uppercase">Historique</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Settings & Sync Configuration Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-sliders mr-2 text-indigo-400"></i>Configuration</h3>
+                <button onclick="toggleSettingsModal(false)" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Custom Names Settings -->
+            <div class="space-y-3">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Profils des partenaires</h4>
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold block mb-1">Ton prénom</label>
+                        <input type="text" id="config-p1" placeholder="Alex"
+                            class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold block mb-1">Prénom du partenaire</label>
+                        <input type="text" id="config-p2" placeholder="Sam"
+                            class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Supabase Synced Storage Setup -->
+            <div class="space-y-3 border-t border-slate-800 pt-3">
+                <div class="flex justify-between items-center">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Synchronisation Cloud</h4>
+                    <span class="text-[9px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">Gratuit</span>
+                </div>
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold block mb-1">URL Supabase</label>
+                        <input type="text" id="config-sb-url" placeholder="https://votre-projet.supabase.co"
+                            class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold block mb-1">Clé Anon Supabase</label>
+                        <input type="password" id="config-sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5..."
+                            class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex gap-2.5 pt-1">
+                <button onclick="saveConfiguration()" class="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-2.5 rounded-xl text-xs transition-colors shadow-md shadow-indigo-950/50">
+                    Sauvegarder
+                </button>
+                <button onclick="toggleSettingsModal(false)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script Engine -->
+    <script>
+        // French dictionary for smart auto category detection based on French keywords
+        const smartCategories = [
+            { keywords: ['course', 'courses', 'supermarche', 'supermarché', 'aldi', 'lidl', 'carrefour', 'walmart', 'food', 'market', 'monoprix', 'leclerc', 'auchan', 'nourriture', 'manger', 'biocoop', 'cora', 'epicerie', 'épicerie', 'intermarché', 'intermarche', 'franprix', 'boucherie'], label: 'Courses', icon: 'fa-cart-shopping', color: 'text-amber-400', bgClass: 'bg-amber-500/10', borderClass: 'border-amber-500/20' },
+            { keywords: ['café', 'cafe', 'resto', 'restaurant', 'diner', 'dîner', 'dejeuner', 'déjeuner', 'dej', 'burger', 'pizza', 'breakfast', 'uber eats', 'deliveroo', 'boulangerie', 'croissant', 'brasserie', 'mcdo', 'kebab', 'sushi', 'starbucks', 'bistro', 'bar', 'pub', 'paul'], label: 'Resto & Café', icon: 'fa-utensils', color: 'text-emerald-400', bgClass: 'bg-emerald-500/10', borderClass: 'border-emerald-500/20' },
+            { keywords: ['loyer', 'bill', 'facture', 'factures', 'edf', 'electricite', 'électricité', 'eau', 'gaz', 'netflix', 'spotify', 'wifi', 'internet', 'assurance', 'abonnement', 'charges', 'engie', 'totalenergies', 'sfr', 'orange', 'free mobile', 'bouygues', 'apple', 'icloud', 'ménage', 'menage'], label: 'Factures & Loyer', icon: 'fa-house-user', color: 'text-indigo-400', bgClass: 'bg-indigo-500/10', borderClass: 'border-indigo-500/20' },
+            { keywords: ['ticket', 'cine', 'ciné', 'cinema', 'cinéma', 'vol', 'avion', 'trip', 'hotel', 'hôtel', 'travel', 'voyage', 'concert', 'festival', 'soiree', 'soirée', 'biere', 'bière', 'loisir', 'vacances', 'theatre', 'musée', 'disney'], label: 'Loisirs & Sorties', icon: 'fa-ticket', color: 'text-violet-400', bgClass: 'bg-violet-500/10', borderClass: 'border-violet-500/20' },
+            { keywords: ['sport', 'fitness', 'salle de sport', 'dumbbell', 'gym', 'piscine', 'tennis', 'foot', 'courir', 'running', 'yoga', 'match', 'musculation', 'basic fit', 'neoness'], label: 'Sport', icon: 'fa-dumbbell', color: 'text-rose-400', bgClass: 'bg-rose-500/10', borderClass: 'border-rose-500/20' },
+            { keywords: ['essence', 'total', 'esso', 'shell', 'peage', 'péage', 'parking', 'sncf', 'train', 'metro', 'métro', 'rer', 'ticket', 'uber', 'taxi', 'blablacar', 'avion', 'vol', 'car', 'voiture'], label: 'Transport', icon: 'fa-car', color: 'text-sky-400', bgClass: 'bg-sky-500/10', borderClass: 'border-sky-500/20' }
+        ];
+
+        // Default categories
+        const DEFAULT_CATEGORIES = [
+            { label: 'Courses', icon: 'fa-cart-shopping', color: 'text-amber-400', presets: ['Leclerc', 'Carrefour', 'Lidl', 'Boulangerie', 'Bio'] },
+            { label: 'Resto & Café', icon: 'fa-utensils', color: 'text-emerald-400', presets: ['Restaurant', 'McDo', 'Café', 'Uber Eats', 'Bière'] },
+            { label: 'Factures & Loyer', icon: 'fa-house-user', color: 'text-indigo-400', presets: ['Loyer', 'Ménage', 'Électricité', 'Internet', 'Netflix'] },
+            { label: 'Loisirs & Sorties', icon: 'fa-ticket', color: 'text-violet-400', presets: ['Ciné', 'Théâtre', 'Concert', 'Vacances', 'Cadeau'] },
+            { label: 'Transport', icon: 'fa-car', color: 'text-sky-400', presets: ['Essence', 'SNCF', 'Uber', 'Métro', 'Parking'] },
+            { label: 'Sport', icon: 'fa-dumbbell', color: 'text-rose-400', presets: ['Salle de Sport', 'Decathlon', 'Piscine', 'Tennis', 'Running'] },
+            { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-400', presets: ['Retrait Cash', 'Coiffeur', 'Pharmacie', 'Bricolage'] }
+        ];
+
+        // Core App State
+        let state = {
+            expenses: [], // Approved active expenses
+            categories: [], // Loaded dynamic category schemas
+            config: {
+                p1Name: 'Alex',
+                p2Name: 'Sam',
+                sbUrl: '',
+                sbKey: ''
+            },
+            currentPayer: 'p1',
+            splitType: '50_50', // '50_50', '100_other', 'custom'
+            p1SplitPercent: 50, // Custom split slider percentage
+            selectedCategory: 'Autre',
+            selectedIcon: 'fa-asterisk',
+            supabaseClient: null,
+            syncQueue: [],
+            isCustomCategoryActive: false,
+            chartInstance: null, // Reference for ChartJS Camembert
+            txType: 'depense' // 'depense', 'revenu', 'transfert'
+        };
+
+        // Safer set inner text helper to prevent DOM access failures from halting the app
+        function safeSetInnerText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
+        }
+
+        // Unified app initializer (Robust bootloader)
+        function initApp() {
+            try { loadConfig(); } catch(e) { console.error("loadConfig error:", e); }
+            try { loadCategories(); } catch(e) { console.error("loadCategories error:", e); }
+            try { loadLocalExpenses(); } catch(e) { console.error("loadLocalExpenses error:", e); }
+            try { initializeSupabase(); } catch(e) { console.error("initializeSupabase error:", e); }
+            
+            // Set initial filters on Analysis tab to current month/year
+            try {
+                const now = new Date();
+                const filterMonthEl = document.getElementById('filter-month');
+                if (filterMonthEl) filterMonthEl.value = now.getMonth().toString();
+                populateYearFilterOptions();
+                const filterYearEl = document.getElementById('filter-year');
+                if (filterYearEl) filterYearEl.value = now.getFullYear().toString();
+            } catch(e) { console.error("Filter init error:", e); }
+
+            // Render Category layout
+            try { renderCategorySelector(); } catch(e) { console.error("renderCategorySelector error:", e); }
+            
+            // Auto highlight "Courses" category initially
+            try { setManualCategory('Courses', 'fa-cart-shopping'); } catch(e) { console.error("setManualCategory error:", e); }
+
+            try { updateUI(); } catch(e) { console.error("updateUI error:", e); }
+            
+            // Listen for online/offline triggers
+            window.addEventListener('online', handleNetworkChange);
+            window.addEventListener('offline', handleNetworkChange);
+            try { handleNetworkChange(); } catch(e) { console.error("handleNetworkChange error:", e); }
+
+            // Add listener on the main total amount field to update precise splits instantly
+            try {
+                const amountInput = document.getElementById('amount');
+                if (amountInput) {
+                    amountInput.addEventListener('input', onTotalAmountChanged);
+                }
+            } catch(e) { console.error("Input listener error:", e); }
+        }
+
+        // Safe DOM readiness execute check
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+
+        // Load categories schemas securely (Auto upgrading to includes "Transport" if cache is outdated)
+        function loadCategories() {
+            try {
+                const saved = localStorage.getItem('us_custom_categories');
+                let parsed = saved ? JSON.parse(saved) : null;
+                if (!parsed || !parsed.some(c => c.label === 'Transport')) {
+                    parsed = [...DEFAULT_CATEGORIES];
+                    localStorage.setItem('us_custom_categories', JSON.stringify(parsed));
+                }
+                state.categories = parsed;
+            } catch (e) {
+                state.categories = [...DEFAULT_CATEGORIES];
+            }
+        }
+
+        // Render responsive category buttons (Flexible sans contrainte de grid width)
+        function renderCategorySelector() {
+            try {
+                const grid = document.getElementById('category-selector-grid');
+                if (!grid) return;
+                grid.innerHTML = '';
+                grid.className = 'flex flex-wrap gap-2'; // Flex-wrap pour permettre de prendre l'espace nécessaire
+
+                state.categories.forEach(cat => {
+                    const btn = document.createElement('button');
+                    btn.type = "button";
+                    btn.onclick = () => setManualCategory(cat.label, cat.icon);
+                    // Padding équilibré pour empêcher l'écrasement (squishing)
+                    btn.className = "manual-cat-btn flex items-center justify-start px-3.5 py-2.5 text-sm font-semibold rounded-xl border border-slate-855 bg-slate-955/20 text-slate-300 hover:text-white transition-all active:scale-95 gap-2.5";
+                    btn.innerHTML = `
+                        <span class="text-base text-slate-500"><i class="fa-solid ${cat.icon}"></i></span>
+                        <span class="text-xs font-bold leading-tight">${cat.label}</span>
+                    `;
+                    grid.appendChild(btn);
+                });
+
+                // Append "+ Nouvelle" action button
+                const triggerBtn = document.createElement('button');
+                triggerBtn.type = "button";
+                triggerBtn.id = "btn-trigger-custom-cat";
+                triggerBtn.onclick = () => toggleCustomCategoryInput(true);
+                triggerBtn.className = "px-3.5 py-2.5 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-colors";
+                triggerBtn.innerHTML = `
+                    <span class="text-sm"><i class="fa-solid fa-folder-plus"></i></span>
+                    <span>Nouvelle</span>
+                `;
+                grid.appendChild(triggerBtn);
+            } catch(e) {
+                console.error("Error rendering category selector:", e);
+            }
+        }
+
+        // Custom Category input visibility toggle
+        function toggleCustomCategoryInput(show) {
+            const block = document.getElementById('custom-cat-input-block');
+            const inputField = document.getElementById('custom-category-name');
+            if (!block) return;
+
+            if (show) {
+                block.classList.remove('hidden');
+                if (inputField) inputField.focus();
+            } else {
+                block.classList.add('hidden');
+                if (inputField) inputField.value = '';
+            }
+        }
+
+        // Apply custom category setup
+        function applyCustomCategoryName() {
+            const inputVal = document.getElementById('custom-category-name').value.trim();
+            if (!inputVal) {
+                showToast("Veuillez saisir un nom de catégorie valide.");
+                return;
+            }
+
+            const formattedName = inputVal.charAt(0).toUpperCase() + inputVal.slice(1);
+
+            if (state.categories.some(c => c.label.toLowerCase() === formattedName.toLowerCase())) {
+                showToast("Cette catégorie existe déjà !");
+                return;
+            }
+
+            const newCat = {
+                label: formattedName,
+                icon: 'fa-tag',
+                color: 'text-violet-400',
+                presets: [formattedName]
+            };
+
+            state.categories.push(newCat);
+            localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
+            
+            renderCategorySelector();
+            setManualCategory(newCat.label, newCat.icon);
+            toggleCustomCategoryInput(false);
+            
+            showToast(`Catégorie "${formattedName}" ajoutée !`);
+        }
+
+        // Toggle creation interface for label presets
+        function toggleAddPresetInput(show) {
+            const block = document.getElementById('add-preset-input-block');
+            const inputField = document.getElementById('new-preset-name');
+            if (!block) return;
+
+            if (show) {
+                block.classList.remove('hidden');
+                if (inputField) inputField.focus();
+            } else {
+                block.classList.add('hidden');
+                if (inputField) inputField.value = '';
+            }
+        }
+
+        // Create and register a custom preset label
+        function addNewPresetLabel() {
+            const presetNameInput = document.getElementById('new-preset-name');
+            if (!presetNameInput) return;
+            const newLabel = presetNameInput.value.trim();
+
+            if (!newLabel) {
+                showToast("Veuillez saisir un nom de raccourci valide.");
+                return;
+            }
+
+            const activeCategory = state.selectedCategory;
+            const catIndex = state.categories.findIndex(c => c.label === activeCategory);
+
+            if (catIndex !== -1) {
+                const cat = state.categories[catIndex];
+                if (!cat.presets) cat.presets = [];
+
+                if (cat.presets.includes(newLabel)) {
+                    showToast("Ce raccourci existe déjà.");
+                    return;
+                }
+
+                cat.presets.push(newLabel);
+                localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
+                
+                renderCategorySubSuggestions(activeCategory);
+                toggleAddPresetInput(false);
+                showToast(`Raccourci "${newLabel}" enregistré !`);
+            }
+        }
+
+        // Manual Category Selection setup
+        function setManualCategory(categoryName, iconClass) {
+            state.isCustomCategoryActive = false;
+            toggleCustomCategoryInput(false);
+            toggleAddPresetInput(false);
+            
+            state.selectedCategory = categoryName;
+            state.selectedIcon = iconClass;
+
+            document.querySelectorAll('.manual-cat-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-500', 'bg-indigo-600/10', 'text-indigo-400');
+                btn.classList.add('border-slate-855', 'bg-slate-955/20', 'text-slate-400');
+            });
+
+            const activeBtn = Array.from(document.querySelectorAll('.manual-cat-btn')).find(el => el.textContent.includes(categoryName));
+            if (activeBtn) {
+                activeBtn.classList.remove('border-slate-855', 'bg-slate-955/20', 'text-slate-400');
+                activeBtn.classList.add('border-indigo-500', 'bg-indigo-600/10', 'text-indigo-400');
+            }
+
+            // Sync visual indicator tag
+            const aiIcon = document.getElementById('ai-icon');
+            const aiTag = document.getElementById('ai-tag');
+            const aiIndicator = document.getElementById('ai-indicator');
+
+            if (aiIcon) aiIcon.className = `fa-solid ${iconClass} text-xs`;
+            if (aiTag) aiTag.innerText = categoryName;
+            if (aiIndicator) {
+                aiIndicator.className = `absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-xl border border-indigo-500/20 transition-all scale-100`;
+            }
+
+            renderCategorySubSuggestions(categoryName);
+        }
+
+        // Render specific suggestions based on category
+        function renderCategorySubSuggestions(categoryName) {
+            const container = document.getElementById('sub-presets-container');
+            const list = document.getElementById('sub-presets-list');
+            if (!container || !list) return;
+
+            const matchedCat = state.categories.find(c => c.label === categoryName);
+
+            if (matchedCat && matchedCat.presets && matchedCat.presets.length > 0) {
+                container.classList.remove('hidden');
+                list.innerHTML = '';
+
+                matchedCat.presets.forEach(p => {
+                    const btn = document.createElement('button');
+                    btn.type = "button";
+                    btn.onclick = () => {
+                        const descInput = document.getElementById('description');
+                        if (descInput) {
+                            descInput.value = p;
+                            descInput.focus();
+                        }
+                    };
+                    btn.className = "bg-slate-800 hover:bg-slate-700/80 text-[10px] font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700/20 transition-all active:scale-95";
+                    btn.innerText = p;
+                    list.appendChild(btn);
+                });
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // View Navigation Switch Engine
+        function switchView(viewName) {
+            const views = ['view-saisie', 'view-inbox', 'view-analyse', 'view-history'];
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                if (el) el.classList.add('hidden');
+            });
+
+            // Reset navigation styles
+            const navBtnSaisie = document.getElementById('nav-btn-saisie');
+            const navBtnInbox = document.getElementById('nav-btn-inbox');
+            const navBtnAnalyse = document.getElementById('nav-btn-analyse');
+            const navBtnHistory = document.getElementById('nav-btn-history');
+
+            [navBtnSaisie, navBtnInbox, navBtnAnalyse, navBtnHistory].forEach(btn => {
+                if (btn) btn.className = "flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-2 relative";
+            });
+
+            // Activate target view & styling
+            const targetEl = document.getElementById(`view-${viewName}`);
+            if (targetEl) targetEl.classList.remove('hidden');
+
+            const targetBtn = document.getElementById(`nav-btn-${viewName}`);
+            if (targetBtn) targetBtn.className = "flex flex-col items-center gap-1 text-indigo-400 font-bold transition-all p-2 relative";
+
+            if (viewName === 'analyse') {
+                populateYearFilterOptions();
+                renderAnalyseTab();
+            }
+        }
+
+        // Custom notification toast helper
+        function showToast(message) {
+            const toast = document.getElementById('toast-banner');
+            const toastMsg = document.getElementById('toast-message');
+            if (!toast || !toastMsg) return;
+            toastMsg.innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Populate Years dynamically based on logged records list
+        function populateYearFilterOptions() {
+            const filterYear = document.getElementById('filter-year');
+            if (!filterYear) return;
+
+            const existingYears = new Set();
+            existingYears.add(new Date().getFullYear());
+
+            state.expenses.forEach(exp => {
+                if (exp.created_at) {
+                    const year = new Date(exp.created_at).getFullYear();
+                    if (!isNaN(year)) existingYears.add(year);
+                }
+            });
+
+            const currentSelected = filterYear.value || new Date().getFullYear().toString();
+            filterYear.innerHTML = '<option value="all">Toutes les années</option>';
+            
+            Array.from(existingYears).sort((a,b)=>b-a).forEach(year => {
+                const opt = document.createElement('option');
+                opt.value = year.toString();
+                opt.innerText = year.toString();
+                filterYear.appendChild(opt);
+            });
+
+            filterYear.value = currentSelected;
+        }
+
+        // Action when filters change in Analysis Tab
+        function onAnalyseFilterChanged() {
+            renderAnalyseTab();
+        }
+
+        function resetAnalyseFilters() {
+            const now = new Date();
+            const filterMonth = document.getElementById('filter-month');
+            const filterYear = document.getElementById('filter-year');
+            if (filterMonth) filterMonth.value = now.getMonth().toString();
+            if (filterYear) filterYear.value = now.getFullYear().toString();
+            renderAnalyseTab();
+        }
+
+        // Render graphical analysis tab (Full Pie chartJS Camembert + list)
+        function renderAnalyseTab() {
+            const filterMonth = document.getElementById('filter-month');
+            const filterYear = document.getElementById('filter-year');
+            if (!filterMonth || !filterYear) return;
+
+            const selectedMonth = filterMonth.value;
+            const selectedYear = filterYear.value;
+
+            const periodTitleEl = document.getElementById('analyse-period-title');
+            const periodTotalEl = document.getElementById('analyse-period-total');
+            const valP1El = document.getElementById('analyse-val-p1');
+            const valP2El = document.getElementById('analyse-val-p2');
+            const periodDebtEl = document.getElementById('analyse-period-debt');
+            const categoriesListEl = document.getElementById('analyse-categories-list');
+            const noDataMessageEl = document.getElementById('no-chart-data-message');
+
+            let periodLabelText = '';
+            if (selectedMonth === 'all' && selectedYear === 'all') {
+                periodLabelText = "Tout l'historique";
+            } else if (selectedMonth === 'all') {
+                periodLabelText = `Année ${selectedYear}`;
+            } else if (selectedYear === 'all') {
+                const monthsArray = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+                periodLabelText = `${monthsArray[parseInt(selectedMonth)]} (Toutes les années)`;
+            } else {
+                const monthsArray = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+                periodLabelText = `${monthsArray[parseInt(selectedMonth)]} ${selectedYear}`;
+            }
+            if (periodTitleEl) periodTitleEl.innerText = periodLabelText;
+
+            const approvedList = state.expenses.filter(exp => exp.approved !== false);
+            
+            const filtered = approvedList.filter(exp => {
+                const expDate = new Date(exp.created_at);
+                if (isNaN(expDate)) return false;
+
+                const matchMonth = selectedMonth === 'all' || expDate.getMonth().toString() === selectedMonth;
+                const matchYear = selectedYear === 'all' || expDate.getFullYear().toString() === selectedYear;
+
+                return matchMonth && matchYear;
+            });
+
+            let totalSpent = 0;
+            let paidP1 = 0;
+            let paidP2 = 0;
+            let p1OwesP2 = 0;
+            let p2OwesP1 = 0;
+
+            const categoryTotals = {}; 
+
+            filtered.forEach(exp => {
+                if (exp.type === 'transfert') return; // Exclure les remboursements de l'analyse dépense
+
+                if (exp.type === 'revenu') {
+                    // Les revenus n'entrent pas dans le graphique camembert des dépenses courantes
+                } else {
+                    totalSpent += exp.amount;
+                    const catName = exp.category || 'Autre';
+                    if (!categoryTotals[catName]) {
+                        categoryTotals[catName] = { amount: 0, icon: exp.icon || 'fa-asterisk' };
+                    }
+                    categoryTotals[catName].amount += exp.amount;
+                }
+
+                // Calculs des soldes selon le type
+                const p1SharePct = exp.hasOwnProperty('p1SharePercent') ? exp.p1SharePercent : 50;
+                const p2SharePct = exp.hasOwnProperty('p2SharePercent') ? exp.p2SharePercent : 50;
+                const p1OwedPart = exp.amount * (p1SharePct / 100);
+                const p2OwedPart = exp.amount * (p2SharePct / 100);
+
+                if (exp.type === 'revenu') {
+                    if (exp.payer === 'p1') {
+                        p1OwesP2 += p2OwedPart;
+                    } else {
+                        p2OwesP1 += p1OwedPart;
+                    }
+                } else if (exp.type === 'transfert') {
+                    if (exp.payer === 'p1') {
+                        p2OwesP1 += exp.amount;
+                    } else {
+                        p1OwesP2 += exp.amount;
+                    }
+                } else {
+                    if (exp.payer === 'p1') {
+                        p2OwesP1 += p2OwedPart;
+                        paidP1 += exp.amount;
+                    } else {
+                        p1OwesP2 += p1OwedPart;
+                        paidP2 += exp.amount;
+                    }
+                }
+            });
+
+            if (periodTotalEl) periodTotalEl.innerText = `${totalSpent.toFixed(2)} €`;
+            if (valP1El) valP1El.innerText = `${paidP1.toFixed(2)} €`;
+            if (valP2El) valP2El.innerText = `${paidP2.toFixed(2)} €`;
+
+            safeSetInnerText('analyse-label-p1', 'Dépenses de Toi');
+            safeSetInnerText('analyse-label-p2', `Dépenses de ${state.config.p2Name}`);
+
+            const diff = p2OwesP1 - p1OwesP2;
+            if (periodDebtEl) {
+                if (Math.abs(diff) < 0.01) {
+                    periodDebtEl.innerText = "Tout est équilibré sur cette période !";
+                    periodDebtEl.className = "text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-500/10 block";
+                } else if (diff > 0) {
+                    periodDebtEl.innerText = `${state.config.p2Name} doit ${Math.abs(diff).toFixed(2)} € à Toi sur cette période`;
+                    periodDebtEl.className = "text-[11px] font-bold bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/10 block";
+                } else {
+                    periodDebtEl.innerText = `Tu dois ${Math.abs(diff).toFixed(2)} € à ${state.config.p2Name} sur cette période`;
+                    periodDebtEl.className = "text-[11px] font-bold bg-rose-500/10 text-rose-400 px-3 py-1.5 rounded-full border border-rose-500/10 block";
+                }
+            }
+
+            if (categoriesListEl) categoriesListEl.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                if (noDataMessageEl) noDataMessageEl.classList.remove('hidden');
+                if (categoriesListEl) {
+                    categoriesListEl.innerHTML = `
+                        <div class="text-center py-10 border border-slate-850 bg-slate-950/10 rounded-xl text-xs text-slate-500">
+                            Aucune transaction enregistrée pour cette période.
+                        </div>
+                    `;
+                }
+                if (state.chartInstance) {
+                    state.chartInstance.destroy();
+                    state.chartInstance = null;
+                }
+                return;
+            }
+
+            if (noDataMessageEl) noDataMessageEl.classList.add('hidden');
+
+            const sortedCategories = Object.keys(categoryTotals).map(name => ({
+                name: name,
+                amount: categoryTotals[name].amount,
+                icon: categoryTotals[name].icon
+            })).sort((a,b) => b.amount - a.amount);
+
+            const chartLabels = [];
+            const chartData = [];
+            const chartColors = [];
+
+            const colorPalette = {
+                'Courses': '#fbbf24',
+                'Resto & Café': '#34d399',
+                'Factures & Loyer': '#818cf8',
+                'Loisirs & Sorties': '#a78bfa',
+                'Sport': '#f43f5e',
+                'Transport': '#38bdf8',
+                'Autre': '#94a3b8'
+            };
+
+            const fallbackColors = ['#f472b6', '#38bdf8', '#fb7185', '#2dd4bf', '#fb923c'];
+            let colorIdx = 0;
+
+            sortedCategories.forEach(cat => {
+                const percentageOfPeriod = totalSpent > 0 ? (cat.amount / totalSpent) * 100 : 0;
+                const colorHex = colorPalette[cat.name] || fallbackColors[colorIdx++ % fallbackColors.length];
+
+                chartLabels.push(cat.name);
+                chartData.push(cat.amount);
+                chartColors.push(colorHex);
+
+                const item = document.createElement('div');
+                item.className = "bg-slate-950/20 border border-slate-850/60 p-3.5 rounded-xl flex justify-between items-center text-xs";
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-800 animate-pulse" style="color: ${colorHex}">
+                            <i class="fa-solid ${cat.icon}"></i>
+                        </span>
+                        <div>
+                            <span class="font-bold text-slate-200 block">${cat.name}</span>
+                            <span class="text-[9px] text-slate-500 font-bold uppercase">${percentageOfPeriod.toFixed(0)}% du total</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-extrabold text-slate-100 text-sm">${cat.amount.toFixed(2)} €</span>
+                    </div>
+                `;
+                categoriesListEl.appendChild(item);
+            });
+
+            // Initialize or Redraw ChartJS Camembert safely (Disque plein avec % visibles intégrés)
+            const chartCanvas = document.getElementById('analyse-chart');
+            if (chartCanvas && typeof Chart !== 'undefined') {
+                const ctx = chartCanvas.getContext('2d');
+                if (state.chartInstance) {
+                    state.chartInstance.destroy();
+                }
+
+                if (typeof ChartDataLabels !== 'undefined') {
+                    try {
+                        Chart.register(ChartDataLabels);
+                    } catch(e) {
+                        console.warn("Could not register ChartDataLabels:", e);
+                    }
+                }
+
+                state.chartInstance = new Chart(ctx, {
+                    type: 'pie', 
+                    plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : [], 
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            data: chartData,
+                            backgroundColor: chartColors,
+                            borderWidth: 2,
+                            borderColor: '#0f172a',
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                                formatter: (value, ctx) => {
+                                    let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    let percentage = (value * 100 / sum).toFixed(0);
+                                    return percentage > 4 ? `${percentage}%` : '';
+                                },
+                                color: '#ffffff',
+                                font: {
+                                    weight: 'bold',
+                                    size: 11
+                                },
+                                align: 'center',
+                                anchor: 'center'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed;
+                                        const sum = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const pct = ((value / sum) * 100).toFixed(0);
+                                        return ` ${context.label} : ${value.toFixed(2)} € (${pct}%)`;
+                                    }
+                                },
+                                backgroundColor: '#1e293b',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#f1f5f9',
+                                borderColor: '#334155',
+                                borderWidth: 1,
+                                padding: 10,
+                                cornerRadius: 8
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Real-time Text Scanner for Saisie view
+        function handleDescriptionTyping(text) {
+            if (state.isCustomCategoryActive) return;
+
+            const query = text.toLowerCase().trim();
+            if (!query) {
+                setManualCategory('Autre', 'fa-asterisk');
+                return;
+            }
+
+            let found = false;
+            for (const cat of smartCategories) {
+                for (const kw of cat.keywords) {
+                    if (query.includes(kw)) {
+                        setManualCategory(cat.label, cat.icon);
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+
+            if (!found) {
+                setManualCategory('Autre', 'fa-asterisk');
+            }
+        }
+
+        // Apply One-Tap Quick Presets (1-Clic horizontal bar)
+        function applyPreset(name, category, icon) {
+            const descInput = document.getElementById('description');
+            if (descInput) {
+                descInput.value = name;
+            }
+            setManualCategory(category, icon);
+            const amountInput = document.getElementById('amount');
+            if (amountInput) amountInput.focus();
+        }
+
+        // Toggle transaction type (depense, revenu, transfert)
+        function selectTxType(type) {
+            state.txType = type;
+            
+            const btnDep = document.getElementById('type-btn-depense');
+            const btnRev = document.getElementById('type-btn-revenu');
+            const btnTrsf = document.getElementById('type-btn-transfert');
+
+            [btnDep, btnRev, btnTrsf].forEach(btn => {
+                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all";
+            });
+
+            const activeBtn = document.getElementById(`type-btn-${type}`);
+            if (activeBtn) {
+                activeBtn.className = "py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white transition-all";
+            }
+
+            // Gérer la visibilité des blocs selon le type
+            const catBlock = document.getElementById('category-selector-container');
+            const splitBlock = document.getElementById('split-selector-container');
+            const labelPresetBlock = document.getElementById('sub-presets-container');
+            const payerLabel = document.getElementById('payer-toggle-label');
+            const stepAmountLabel = document.getElementById('step-amount-label');
+
+            if (type === 'transfert') {
+                if (catBlock) catBlock.classList.add('hidden');
+                if (splitBlock) splitBlock.classList.add('hidden');
+                if (labelPresetBlock) labelPresetBlock.classList.add('hidden');
+                if (payerLabel) payerLabel.innerText = "Qui a envoyé l'argent ? (De)";
+                if (stepAmountLabel) stepAmountLabel.innerText = "1. Montant du transfert";
+                
+                const descInput = document.getElementById('description');
+                if (descInput && !descInput.value) descInput.value = "Remboursement direct";
+            } else if (type === 'revenu') {
+                if (catBlock) catBlock.classList.remove('hidden');
+                if (splitBlock) splitBlock.classList.remove('hidden');
+                if (payerLabel) payerLabel.innerText = "Qui a reçu l'argent ?";
+                if (stepAmountLabel) stepAmountLabel.innerText = "1. Montant reçu";
+                
+                const splitBadgeTitle = document.querySelector('#split-badge-container span');
+                if (splitBadgeTitle) splitBadgeTitle.innerText = "Partage du revenu ?";
+                
+                const descInput = document.getElementById('description');
+                if (descInput && descInput.value === "Remboursement direct") descInput.value = "";
+            } else {
+                if (catBlock) catBlock.classList.remove('hidden');
+                if (splitBlock) splitBlock.classList.remove('hidden');
+                if (payerLabel) payerLabel.innerText = "Qui a payé ?";
+                if (stepAmountLabel) stepAmountLabel.innerText = "1. Saisir le montant";
+                
+                const splitBadgeTitle = document.querySelector('#split-badge-container span');
+                if (splitBadgeTitle) splitBadgeTitle.innerText = "Partage des frais ?";
+
+                const descInput = document.getElementById('description');
+                if (descInput && descInput.value === "Remboursement direct") descInput.value = "";
+            }
+            updateSplitBadgeText();
+        }
+
+        // Duplicate an approved transaction instantly
+        function duplicateExpense(id) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const original = state.expenses[index];
+            const clone = {
+                ...original,
+                id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+                isEditing: false,
+                created_at: new Date().toISOString() // logged today
+            };
+
+            state.expenses.unshift(clone);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+
+            updateUI();
+
+            confetti({
+                particleCount: 50,
+                spread: 40,
+                origin: { y: 0.8 },
+                colors: ['#6366f1', '#10b981']
+            });
+
+            showToast("Transaction dupliquée !");
+
+            if (state.supabaseClient && navigator.onLine) {
+                state.supabaseClient.from('expenses').insert([clone]).then(({error}) => {
+                    if (error) console.error(error);
+                });
+            }
+        }
+
+        // Toggle approved history inline editor
+        function toggleHistoryEdit(id, show) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+            state.expenses[index].isEditing = show;
+            updateUI();
+        }
+
+        // Inline live updates of fields for editing transactions in History list
+        function updateHistoryField(id, field, value) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+            const exp = state.expenses[index];
+            
+            if (field === 'description') {
+                exp.description = value.trim();
+                const matched = scanCategory(value);
+                exp.category = matched.label;
+                exp.icon = matched.icon;
+            } else if (field === 'amount') {
+                exp.amount = parseFloat(value) || 0;
+            } else if (field === 'category') {
+                exp.category = value;
+                const match = state.categories.find(c => c.label === value);
+                exp.icon = match ? match.icon : 'fa-asterisk';
+            } else if (field === 'payer') {
+                exp.payer = value;
+            } else if (field === 'date') {
+                if (value) {
+                    const [year, month, day] = value.split('-');
+                    const currentDate = new Date(exp.created_at);
+                    currentDate.setFullYear(year);
+                    currentDate.setMonth(month - 1);
+                    currentDate.setDate(day);
+                    exp.created_at = currentDate.toISOString();
+                }
+            }
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+        }
+
+        // Inline live updates of split engine choices in History edit mode
+        function updateHistorySplitType(id, splitType) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+            const exp = state.expenses[index];
+            exp.splitTypeLocal = splitType;
+
+            if (splitType === '50_50') {
+                exp.p1SharePercent = 50;
+                exp.p2SharePercent = 50;
+            } else if (splitType === '100_other') {
+                exp.p1SharePercent = exp.payer === 'p1' ? 0 : 100;
+                exp.p2SharePercent = exp.payer === 'p2' ? 0 : 100;
+            } else if (splitType === 'custom') {
+                if (!exp.p1SharePercent) {
+                    exp.p1SharePercent = 50;
+                    exp.p2SharePercent = 50;
+                }
+            }
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+        }
+
+        // Interactive dynamic slider changes inside History editor card
+        function onHistorySplitSliderInput(id, val) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+            const exp = state.expenses[index];
+            const p1Pct = parseInt(val);
+            exp.p1SharePercent = p1Pct;
+            exp.p2SharePercent = 100 - p1Pct;
+
+            const total = exp.amount || 0;
+            const p1Amount = (total * (p1Pct / 100)).toFixed(2);
+            const p2Amount = (total - p1Amount).toFixed(2);
+
+            const amt1 = document.getElementById(`history-amt-p1-${id}`);
+            const amt2 = document.getElementById(`history-amt-p2-${id}`);
+            const pct1 = document.getElementById(`history-pct-label-p1-${id}`);
+            const pct2 = document.getElementById(`history-pct-label-p2-${id}`);
+            const rSum = document.getElementById(`history-range-summary-${id}`);
+
+            if (amt1) amt1.value = p1Amount;
+            if (amt2) amt2.value = p2Amount;
+            if (pct1) pct1.innerText = `${p1Pct}%`;
+            if (pct2) pct2.innerText = `${100 - p1Pct}%`;
+            if (rSum) rSum.innerText = `${p1Pct}% / ${100 - p1Pct}%`;
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+        }
+
+        // Direct currency amount changes typed in Toi/Partenaire fields inside History editor
+        function onHistoryCustomAmountInput(id, target, val) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+            const exp = state.expenses[index];
+            const totalVal = exp.amount || 0;
+            if (totalVal <= 0) return;
+
+            const p1Input = document.getElementById(`history-amt-p1-${id}`);
+            const p2Input = document.getElementById(`history-amt-p2-${id}`);
+
+            let p1Val = parseFloat(p1Input.value) || 0;
+            let p2Val = parseFloat(p2Input.value) || 0;
+
+            if (target === 'p1') {
+                if (p1Val > totalVal) p1Val = totalVal;
+                if (p1Val < 0) p1Val = 0;
+                if (p1Input) p1Input.value = p1Val.toFixed(2);
+                p2Val = parseFloat((totalVal - p1Val).toFixed(2));
+                if (p2Input) p2Input.value = p2Val.toFixed(2);
+            } else {
+                if (p2Val > totalVal) p2Val = totalVal;
+                if (p2Val < 0) p2Val = 0;
+                if (p2Input) p2Input.value = p2Val.toFixed(2);
+                p1Val = parseFloat((totalVal - p2Val).toFixed(2));
+                if (p1Input) p1Input.value = p1Val.toFixed(2);
+            }
+
+            const calculatedPctP1 = Math.round((p1Val / totalVal) * 100);
+            exp.p1SharePercent = calculatedPctP1;
+            exp.p2SharePercent = 100 - calculatedPctP1;
+
+            const rangeInput = document.getElementById(`history-range-${id}`);
+            const pct1 = document.getElementById(`history-pct-label-p1-${id}`);
+            const pct2 = document.getElementById(`history-pct-label-p2-${id}`);
+            const rSum = document.getElementById(`history-range-summary-${id}`);
+
+            if (rangeInput) rangeInput.value = calculatedPctP1;
+            if (pct1) pct1.innerText = `${calculatedPctP1}%`;
+            if (pct2) pct2.innerText = `${100 - calculatedPctP1}%`;
+            if (rSum) rSum.innerText = `${calculatedPctP1}% / ${100 - calculatedPctP1}%`;
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+        }
+
+        // Commit modifications to Supabase/local on approved transaction list
+        async function saveHistoryEdit(id) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+            const exp = state.expenses[index];
+            exp.isEditing = false;
+            
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    await state.supabaseClient.from('expenses').upsert([exp]);
+                    showToast("Transaction mise à jour !");
+                } catch(e) {
+                    console.error(e);
+                }
+            } else {
+                showToast("Modifications enregistrées localement !");
+            }
+        }
+
+        // Safe Submit handler linked to onsubmit attribute to prevent failure
+        async function handleFormSubmission(event) {
+            event.preventDefault();
+            
+            try {
+                const amountInput = document.getElementById('amount');
+                const descInput = document.getElementById('description');
+                
+                if (!amountInput) return;
+                const rawAmount = parseFloat(amountInput.value);
+                if (!rawAmount || isNaN(rawAmount)) {
+                    showToast("Veuillez saisir un montant valide.");
+                    return;
+                }
+
+                let categoryDesc = (descInput && descInput.value.trim()) || state.selectedCategory;
+                let activeCategory = state.selectedCategory;
+                let activeIcon = state.selectedIcon;
+
+                let p1Percentage = 50;
+                let p2Percentage = 50;
+
+                if (state.txType === 'transfert') {
+                    activeCategory = 'Transfert';
+                    activeIcon = 'fa-right-left';
+                    categoryDesc = categoryDesc || "Remboursement direct";
+                    // Le récepteur doit 100% de la somme au donneur
+                    p1Percentage = state.currentPayer === 'p1' ? 0 : 100;
+                    p2Percentage = state.currentPayer === 'p2' ? 0 : 100;
+                } else {
+                    if (state.splitType === '100_other') {
+                        p1Percentage = state.currentPayer === 'p1' ? 0 : 100;
+                        p2Percentage = state.currentPayer === 'p2' ? 0 : 100;
+                    } else if (state.splitType === 'custom') {
+                        p1Percentage = state.p1SplitPercent;
+                        p2Percentage = 100 - state.p1SplitPercent;
+                    }
+                }
+
+                const newExpense = {
+                    id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+                    amount: rawAmount,
+                    payer: state.currentPayer,
+                    description: categoryDesc,
+                    category: activeCategory,
+                    icon: activeIcon,
+                    p1SharePercent: p1Percentage,
+                    p2SharePercent: p2Percentage,
+                    approved: true, 
+                    isEditing: false,
+                    type: state.txType,
+                    created_at: new Date().toISOString()
+                };
+
+                // Optimistic Local storage update
+                state.expenses.unshift(newExpense);
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                
+                updateUI();
+                
+                // Refresh chart if Analyse tab is visible
+                const analyseView = document.getElementById('view-analyse');
+                if (analyseView && !analyseView.classList.contains('hidden')) {
+                    renderAnalyseTab();
+                }
+
+                // Reset forms fields
+                amountInput.value = '';
+                if (descInput) descInput.value = '';
+                
+                selectTxType('depense'); // Remettre par défaut sur dépense
+                setManualCategory('Courses', 'fa-cart-shopping');
+                selectSplit('50_50'); 
+                amountInput.blur(); 
+                
+                showToast("Transaction enregistrée !");
+
+                // Sync with cloud DB
+                if (state.supabaseClient) {
+                    if (navigator.onLine) {
+                        try {
+                            const { error } = await state.supabaseClient
+                                .from('expenses')
+                                .insert([newExpense]);
+                            if (error) throw error;
+                        } catch (e) {
+                            console.warn("Échec de synchronisation instantanée, sauvegarde en file locale.");
+                            queueSync(newExpense);
+                        }
+                    } else {
+                        queueSync(newExpense);
+                    }
+                }
+            } catch (err) {
+                console.error("Critical submission crash caught: ", err);
+                showToast("Erreur lors de l'enregistrement. Veuillez réessayer.");
+            }
+        }
+
+        // Simulate incoming webhook (automatic text parse simulation)
+        function simulateIncomingWebhook() {
+            const examples = [
+                { desc: 'Boulangerie Paul', amount: 4.80 },
+                { desc: 'Uber Eats', amount: 32.50 },
+                { desc: 'Leclerc Courses', amount: 78.20 },
+                { desc: 'Netflix', amount: 19.99 },
+                { desc: 'Basic-Fit Fitness', amount: 24.99, isSport: true }
+            ];
+            
+            const randomTrx = examples[Math.floor(Math.random() * examples.length)];
+            const detected = scanCategory(randomTrx.desc);
+
+            const mockIncoming = {
+                id: 'auto_' + Date.now().toString(),
+                amount: randomTrx.amount,
+                payer: 'p1', 
+                description: randomTrx.desc,
+                category: randomTrx.isSport ? 'Sport' : detected.label,
+                icon: randomTrx.isSport ? 'fa-dumbbell' : detected.icon,
+                p1SharePercent: 50,
+                p2SharePercent: 50,
+                approved: false, 
+                isEditing: false, 
+                created_at: new Date().toISOString()
+            };
+
+            state.expenses.unshift(mockIncoming);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            
+            updateUI();
+
+            confetti({
+                particleCount: 40,
+                spread: 30,
+                origin: { x: 0.5, y: 0.8 },
+                colors: ['#6366f1']
+            });
+
+            switchView('inbox');
+        }
+
+        function scanCategory(desc) {
+            const query = desc.toLowerCase().trim();
+            for (const cat of smartCategories) {
+                for (const kw of cat.keywords) {
+                    if (query.includes(kw)) return cat;
+                }
+            }
+            return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'border-transparent' };
+        }
+
+        // Toggle local editing UI state for a card in the inbox
+        function toggleInboxEdit(id, show) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            state.expenses[index].isEditing = show;
+            
+            if (show) {
+                const exp = state.expenses[index];
+                if (!exp.p1SharePercent && exp.p1SharePercent !== 0) {
+                    exp.p1SharePercent = 50;
+                    exp.p2SharePercent = 50;
+                }
+            }
+
+            updateUI();
+        }
+
+        // Inline live updates of fields on editing objects in Inbox array
+        function updateInboxField(id, field, value) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const exp = state.expenses[index];
+            
+            if (field === 'description') {
+                exp.description = value.trim();
+                const matched = scanCategory(value);
+                exp.category = matched.label;
+                exp.icon = matched.icon;
+            } else if (field === 'amount') {
+                const num = parseFloat(value) || 0;
+                exp.amount = num;
+            } else if (field === 'category') {
+                exp.category = value;
+                const match = state.categories.find(c => c.label === value);
+                exp.icon = match ? match.icon : 'fa-asterisk';
+            } else if (field === 'date') {
+                if (value) {
+                    const [year, month, day] = value.split('-');
+                    const currentDate = new Date(exp.created_at);
+                    currentDate.setFullYear(year);
+                    currentDate.setMonth(month - 1);
+                    currentDate.setDate(day);
+                    exp.created_at = currentDate.toISOString();
+                }
+            }
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+        }
+
+        // Inline live updates of split engine choices in Inbox
+        function updateInboxSplitType(id, splitType) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const exp = state.expenses[index];
+            exp.splitTypeLocal = splitType; 
+
+            if (splitType === '50_50') {
+                exp.p1SharePercent = 50;
+                exp.p2SharePercent = 50;
+            } else if (splitType === '100_other') {
+                exp.p1SharePercent = exp.payer === 'p1' ? 0 : 100;
+                exp.p2SharePercent = exp.payer === 'p2' ? 0 : 100;
+            } else if (splitType === 'custom') {
+                if (!exp.p1SharePercent) {
+                    exp.p1SharePercent = 50;
+                    exp.p2SharePercent = 50;
+                }
+            }
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+        }
+
+        // Interactive dynamic slider changes inside the Inbox editor card
+        function onInboxSplitSliderInput(id, val) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const exp = state.expenses[index];
+            const p1Pct = parseInt(val);
+            exp.p1SharePercent = p1Pct;
+            exp.p2SharePercent = 100 - p1Pct;
+
+            const total = exp.amount || 0;
+            const p1Amount = (total * (p1Pct / 100)).toFixed(2);
+            const p2Amount = (total - p1Amount).toFixed(2);
+
+            const amt1 = document.getElementById(`inbox-amt-p1-${id}`);
+            const amt2 = document.getElementById(`inbox-amt-p2-${id}`);
+            const pct1 = document.getElementById(`inbox-pct-label-p1-${id}`);
+            const pct2 = document.getElementById(`inbox-pct-label-p2-${id}`);
+            const rSum = document.getElementById(`inbox-range-summary-${id}`);
+
+            if (amt1) amt1.value = p1Amount;
+            if (amt2) amt2.value = p2Amount;
+            if (pct1) pct1.innerText = `${p1Pct}%`;
+            if (pct2) pct2.innerText = `${100 - p1Pct}%`;
+            if (rSum) rSum.innerText = `${p1Pct}% / ${100 - p1Pct}%`;
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+        }
+
+        // Direct currency amount changes inside Inbox editor
+        function onInboxCustomAmountInput(id, target, val) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const exp = state.expenses[index];
+            const totalVal = exp.amount || 0;
+            if (totalVal <= 0) return;
+
+            const p1Input = document.getElementById(`inbox-amt-p1-${id}`);
+            const p2Input = document.getElementById(`inbox-amt-p2-${id}`);
+
+            let p1Val = parseFloat(p1Input.value) || 0;
+            let p2Val = parseFloat(p2Input.value) || 0;
+
+            if (target === 'p1') {
+                if (p1Val > totalVal) p1Val = totalVal;
+                if (p1Val < 0) p1Val = 0;
+                if (p1Input) p1Input.value = p1Val.toFixed(2);
+
+                p2Val = parseFloat((totalVal - p1Val).toFixed(2));
+                if (p2Input) p2Input.value = p2Val.toFixed(2);
+            } else {
+                if (p2Val > totalVal) p2Val = totalVal;
+                if (p2Val < 0) p2Val = 0;
+                if (p2Input) p2Input.value = p2Val.toFixed(2);
+
+                p1Val = parseFloat((totalVal - p2Val).toFixed(2));
+                if (p1Input) p1Input.value = p1Val.toFixed(2);
+            }
+
+            const calculatedPctP1 = Math.round((p1Val / totalVal) * 100);
+            exp.p1SharePercent = calculatedPctP1;
+            exp.p2SharePercent = 100 - calculatedPctP1;
+
+            const rangeInput = document.getElementById(`inbox-range-${id}`);
+            const pct1 = document.getElementById(`inbox-pct-label-p1-${id}`);
+            const pct2 = document.getElementById(`inbox-pct-label-p2-${id}`);
+            const rSum = document.getElementById(`inbox-range-summary-${id}`);
+
+            if (rangeInput) rangeInput.value = calculatedPctP1;
+            if (pct1) pct1.innerText = `${calculatedPctP1}%`;
+            if (pct2) pct2.innerText = `${100 - calculatedPctP1}%`;
+            if (rSum) rSum.innerText = `${calculatedPctP1}% / ${100 - calculatedPctP1}%`;
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+        }
+
+        // Approve and commit imported transactions
+        async function approveTransaction(id) {
+            const index = state.expenses.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const exp = state.expenses[index];
+            exp.approved = true;
+            exp.isEditing = false; 
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+
+            updateUI();
+
+            confetti({
+                particleCount: 60,
+                spread: 40,
+                origin: { y: 0.8 },
+                colors: ['#10b981']
+            });
+
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    await state.supabaseClient
+                        .from('expenses')
+                        .upsert([exp]);
+                } catch (e) {
+                    console.error("Erreur de synchronisation de l'approbation :", e);
+                }
+            }
+        }
+
+        // Reject/ignore transaction in the inbox
+        async function rejectTransaction(id) {
+            state.expenses = state.expenses.filter(t => t.id !== id);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    await state.supabaseClient
+                        .from('expenses')
+                        .delete()
+                        .eq('id', id);
+                } catch (e) {
+                    console.error("La suppression en ligne a échoué :", e);
+                }
+            }
+        }
+
+        // Delete an entry
+        async function deleteExpense(id) {
+            state.expenses = state.expenses.filter(exp => exp.id !== id);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            
+            updateUI();
+            
+            if (!document.getElementById('view-analyse').classList.contains('hidden')) {
+                renderAnalyseTab();
+            }
+
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    await state.supabaseClient
+                        .from('expenses')
+                        .delete()
+                        .eq('id', id);
+                } catch (e) {
+                    console.error("La suppression en ligne a échoué :", e);
+                }
+            }
+        }
+
+        // Settlement Trigger logic
+        async function settleUp() {
+            let p1OwesP2 = 0;
+            let p2OwesP1 = 0;
+
+            const approvedExpenses = state.expenses.filter(exp => exp.approved !== false);
+
+            approvedExpenses.forEach(exp => {
+                const p1SharePct = exp.hasOwnProperty('p1SharePercent') ? exp.p1SharePercent : 50;
+                const p2SharePct = exp.hasOwnProperty('p2SharePercent') ? exp.p2SharePercent : 50;
+
+                const p1OwedPart = exp.amount * (p1SharePct / 100);
+                const p2OwedPart = exp.amount * (p2SharePct / 100);
+
+                if (exp.payer === 'p1') p2OwesP1 += p2OwedPart;
+                else p1OwesP2 += p1OwedPart;
+            });
+
+            const difference = p2OwesP1 - p1OwesP2;
+            if (Math.abs(difference) < 0.01) return;
+
+            const targetPayer = difference > 0 ? 'p2' : 'p1';
+            const valueNeeded = Math.abs(difference);
+
+            const settleLog = {
+                id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+                amount: valueNeeded, 
+                payer: targetPayer,
+                description: '💸 Équilibrage des comptes',
+                category: 'Settlement',
+                icon: 'fa-handshake',
+                p1SharePercent: targetPayer === 'p1' ? 100 : 0,
+                p2SharePercent: targetPayer === 'p2' ? 100 : 0,
+                approved: true,
+                isEditing: false,
+                created_at: new Date().toISOString()
+            };
+
+            confetti({
+                particleCount: 150,
+                spread: 75,
+                origin: { y: 0.6 },
+                colors: ['#6366f1', '#8b5cf6', '#10b981']
+            });
+
+            state.expenses.unshift(settleLog);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            
+            updateUI();
+            
+            if (!document.getElementById('view-analyse').classList.contains('hidden')) {
+                renderAnalyseTab();
+            }
+
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    await state.supabaseClient
+                        .from('expenses')
+                        .insert([settleLog]);
+                } catch (e) {
+                    console.error("Échec de synchronisation de l'équilibrage :", e);
+                }
+            }
+        }
+
+        // Offline Backup Queue sync logic
+        function queueSync(expense) {
+            state.syncQueue.push(expense);
+            localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue));
+            handleNetworkChange();
+        }
+
+        async function processOfflineQueue() {
+            if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
+
+            const nextItem = state.syncQueue[0];
+            try {
+                const { error } = await state.supabaseClient
+                    .from('expenses')
+                    .insert([nextItem]);
+                
+                if (!error) {
+                    state.syncQueue.shift();
+                    localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue));
+                    processOfflineQueue(); 
+                }
+            } catch (e) {
+                console.error("Pause de la synchronisation suite à un problème réseau.", e);
+            }
+        }
+
+        // Network Sync States
+        function handleNetworkChange() {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            if (!statusDot || !statusText) return;
+
+            if (navigator.onLine) {
+                if (state.supabaseClient) {
+                    statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                    safeSetInnerText("status-text", "Synchronisé & Connecté");
+                    processOfflineQueue();
+                } else {
+                    statusDot.className = "w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse";
+                    safeSetInnerText("status-text", "Sauvegarde Locale");
+                }
+            } else {
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+                safeSetInnerText("status-text", "Hors ligne (Sauvegarde locale active)");
+            }
+        }
+
+        // Configuration and Settings
+        function loadConfig() {
+            try {
+                const saved = localStorage.getItem('us_tracker_config');
+                if (saved) {
+                    state.config = JSON.parse(saved);
+                }
+            } catch(e) {}
+            
+            const p1Input = document.getElementById('config-p1');
+            const p2Input = document.getElementById('config-p2');
+            const urlInput = document.getElementById('config-sb-url');
+            const keyInput = document.getElementById('config-sb-key');
+
+            if (p1Input) p1Input.value = state.config.p1Name;
+            if (p2Input) p2Input.value = state.config.p2Name;
+            if (urlInput) urlInput.value = state.config.sbUrl || '';
+            if (keyInput) keyInput.value = state.config.sbKey || '';
+            
+            const lblP1 = document.getElementById('label-btn-p1');
+            const lblP2 = document.getElementById('label-btn-p2');
+            const splitP1 = document.getElementById('split-input-label-p1');
+            const splitP2 = document.getElementById('split-input-label-p2');
+
+            if (lblP1) lblP1.innerText = state.config.p1Name;
+            if (lblP2) lblP2.innerText = state.config.p2Name;
+            if (splitP1) splitP1.innerText = `Part de ${state.config.p1Name}`;
+            if (splitP2) splitP2.innerText = `Part de ${state.config.p2Name}`;
+            
+            updateSplitSliderLabels();
+        }
+
+        function toggleSettingsModal(show) {
+            const modal = document.getElementById('settings-modal');
+            if (!modal) return;
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function saveConfiguration() {
+            const p1Input = document.getElementById('config-p1');
+            const p2Input = document.getElementById('config-p2');
+            const urlInput = document.getElementById('config-sb-url');
+            const keyInput = document.getElementById('config-sb-key');
+
+            state.config.p1Name = (p1Input && p1Input.value.trim()) || 'Alex';
+            state.config.p2Name = (p2Input && p2Input.value.trim()) || 'Sam';
+            state.config.sbUrl = (urlInput && urlInput.value.trim()) || '';
+            state.config.sbKey = (keyInput && keyInput.value.trim()) || '';
+
+            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            
+            const lblP1 = document.getElementById('label-btn-p1');
+            const lblP2 = document.getElementById('label-btn-p2');
+            const splitP1 = document.getElementById('split-input-label-p1');
+            const splitP2 = document.getElementById('split-input-label-p2');
+
+            if (lblP1) lblP1.innerText = state.config.p1Name;
+            if (lblP2) lblP2.innerText = state.config.p2Name;
+            if (splitP1) splitP1.innerText = `Part de ${state.config.p1Name}`;
+            if (splitP2) splitP2.innerText = `Part de ${state.config.p2Name}`;
+
+            updateSplitSliderLabels();
+
+            initializeSupabase();
+            toggleSettingsModal(false);
+            updateUI();
+        }
+
+        // Initialize Supabase Client & Real-time Listeners
+        async function initializeSupabase() {
+            if (state.config.sbUrl && state.config.sbKey && typeof supabase !== 'undefined') {
+                try {
+                    state.supabaseClient = supabase.createClient(state.config.sbUrl, state.config.sbKey);
+                    handleNetworkChange();
+                    await fetchSupabaseExpenses();
+
+                    state.supabaseClient
+                        .channel('any')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, payload => {
+                            fetchSupabaseExpenses(); 
+                        })
+                        .subscribe();
+
+                } catch (e) {
+                    console.error("La connexion Supabase a échoué :", e);
+                    state.supabaseClient = null;
+                }
+            } else {
+                state.supabaseClient = null;
+                handleNetworkChange();
+            }
+        }
+
+        // DB Data fetching logic
+        async function fetchSupabaseExpenses() {
+            if (!state.supabaseClient || !navigator.onLine) return;
+
+            try {
+                const { data, error } = await state.supabaseClient
+                    .from('expenses')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (data) {
+                    state.expenses = data;
+                    localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                    updateUI();
+                }
+            } catch (e) {
+                console.error("Erreur lors de la lecture de la base Supabase :", e);
+            }
+        }
+
+        // Local Storage Engine
+        function loadLocalExpenses() {
+            try {
+                const saved = localStorage.getItem('us_expenses');
+                if (saved) {
+                    state.expenses = JSON.parse(saved);
+                }
+                const queue = localStorage.getItem('us_sync_queue');
+                if (queue) {
+                    state.syncQueue = JSON.parse(queue);
+                }
+            } catch(e){}
+        }
+
+        // Intelligent Split Logic Selection
+        function selectSplit(type) {
+            state.splitType = type;
+            
+            const btn50 = document.getElementById('split-btn-50');
+            const btn100 = document.getElementById('split-btn-100');
+            const btnCustom = document.getElementById('split-btn-custom');
+            const customBlock = document.getElementById('custom-split-block');
+
+            [btn50, btn100, btnCustom].forEach(btn => {
+                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all";
+            });
+
+            if (customBlock) customBlock.classList.add('hidden');
+
+            if (type === '50_50' && btn50) {
+                btn50.className = "py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all";
+            } else if (type === '100_other' && btn100) {
+                btn100.className = "py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all";
+            } else if (type === 'custom' && btnCustom) {
+                btnCustom.className = "py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all";
+                if (customBlock) customBlock.classList.remove('hidden');
+                syncCustomSplitUI();
+            }
+
+            updateSplitBadgeText();
+        }
+
+        // Reactive Custom split Calculations
+        function onTotalAmountChanged() {
+            if (state.splitType === 'custom') {
+                syncCustomSplitUI();
+            }
+        }
+
+        function syncCustomSplitUI() {
+            const amountEl = document.getElementById('amount');
+            if (!amountEl) return;
+            const totalVal = parseFloat(amountEl.value);
+            const warningEl = document.getElementById('custom-split-warning');
+            const controlsEl = document.getElementById('custom-split-controls');
+
+            if (isNaN(totalVal) || totalVal <= 0) {
+                if (warningEl) warningEl.classList.remove('hidden');
+                if (controlsEl) controlsEl.classList.add('hidden');
+                return;
+            }
+
+            if (warningEl) warningEl.classList.add('hidden');
+            if (controlsEl) controlsEl.classList.remove('hidden');
+
+            recalcAmountsFromPct(totalVal);
+        }
+
+        // If the user drags the percentage slider:
+        function onSplitSliderInput(val) {
+            state.p1SplitPercent = parseInt(val);
+            updateSplitSliderLabels();
+            updateSplitBadgeText();
+
+            const amountEl = document.getElementById('amount');
+            if (!amountEl) return;
+            const totalVal = parseFloat(amountEl.value);
+            if (!isNaN(totalVal) && totalVal > 0) {
+                recalcAmountsFromPct(totalVal);
+            }
+        }
+
+        function recalcAmountsFromPct(totalVal) {
+            const p1Val = parseFloat((totalVal * (state.p1SplitPercent / 100)).toFixed(2));
+            const p2Val = parseFloat((totalVal - p1Val).toFixed(2)); 
+
+            const customAmtP1 = document.getElementById('custom-amount-p1');
+            const customAmtP2 = document.getElementById('custom-amount-p2');
+            const customPctP1 = document.getElementById('custom-pct-label-p1');
+            const customPctP2 = document.getElementById('custom-pct-label-p2');
+            const splitRangeSummary = document.getElementById('split-range-summary');
+
+            if (customAmtP1) customAmtP1.value = p1Val;
+            if (customAmtP2) customAmtP2.value = p2Val;
+            if (customPctP1) customPctP1.innerText = `${state.p1SplitPercent}%`;
+            if (customPctP2) customPctP2.innerText = `${100 - state.p1SplitPercent}%`;
+            if (splitRangeSummary) splitRangeSummary.innerText = `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`;
+        }
+
+        // If the user inputs a custom amount in Euro directly:
+        function onCustomAmountInput(target) {
+            const amountEl = document.getElementById('amount');
+            if (!amountEl) return;
+            const totalVal = parseFloat(amountEl.value);
+            if (isNaN(totalVal) || totalVal <= 0) return;
+
+            const p1Input = document.getElementById('custom-amount-p1');
+            const p2Input = document.getElementById('custom-amount-p2');
+
+            let p1Val = parseFloat(p1Input.value) || 0;
+            let p2Val = parseFloat(p2Input.value) || 0;
+
+            if (target === 'p1') {
+                if (p1Val > totalVal) p1Val = totalVal;
+                if (p1Val < 0) p1Val = 0;
+                if (p1Input) p1Input.value = p1Val;
+
+                p2Val = parseFloat((totalVal - p1Val).toFixed(2));
+                if (p2Input) p2Input.value = p2Val;
+            } else {
+                if (p2Val > totalVal) p2Val = totalVal;
+                if (p2Val < 0) p2Val = 0;
+                if (p2Input) p2Input.value = p2Val;
+
+                p1Val = parseFloat((totalVal - p2Val).toFixed(2));
+                if (p1Input) p1Input.value = p1Val;
+            }
+
+            const calculatedPctP1 = Math.round((p1Val / totalVal) * 100);
+            state.p1SplitPercent = calculatedPctP1;
+
+            const splitRange = document.getElementById('split-range');
+            const customPctP1 = document.getElementById('custom-pct-label-p1');
+            const customPctP2 = document.getElementById('custom-pct-label-p2');
+            const splitRangeSummary = document.getElementById('split-range-summary');
+
+            if (splitRange) splitRange.value = calculatedPctP1;
+            if (customPctP1) customPctP1.innerText = `${calculatedPctP1}%`;
+            if (customPctP2) customPctP2.innerText = `${100 - calculatedPctP1}%`;
+            if (splitRangeSummary) splitRangeSummary.innerText = `${calculatedPctP1}% / ${100 - calculatedPctP1}%`;
+            
+            updateSplitBadgeText();
+        }
+
+        function updateSplitSliderLabels() {
+            const lblP1 = document.getElementById('split-label-p1');
+            const lblP2 = document.getElementById('split-label-p2');
+            if (lblP1) lblP1.innerText = `${state.config.p1Name} : ${state.p1SplitPercent}%`;
+            if (lblP2) lblP2.innerText = `${state.config.p2Name} : ${100 - state.p1SplitPercent}%`;
+        }
+
+        function updateSplitBadgeText() {
+            const badge = document.getElementById('split-badge');
+            if (!badge) return;
+            if (state.splitType === '50_50') {
+                badge.innerText = "Égal (50/50)";
+            } else if (state.splitType === '100_other') {
+                const target = state.currentPayer === 'p1' ? state.config.p2Name : state.config.p1Name;
+                badge.innerText = `Remboursement à 100% par ${target}`;
+            } else if (state.splitType === 'custom') {
+                badge.innerText = `Partage (${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%)`;
+            }
+        }
+
+        // Selector for manual payers in Form Saisie
+        function selectPayer(payer) {
+            state.currentPayer = payer;
+            const btn1 = document.getElementById('btn-p1');
+            const btn2 = document.getElementById('btn-p2');
+            if (!btn1 || !btn2) return;
+            
+            if(payer === 'p1') {
+                btn1.className = "py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide transition-all shadow-sm";
+                btn2.className = "py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide transition-all";
+            } else {
+                btn2.className = "py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide transition-all shadow-sm";
+                btn1.className = "py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide transition-all";
+            }
+            
+            if (state.splitType === '100_other') {
+                updateSplitBadgeText();
+            }
+        }
+
+        // Rendu complet de l'interface et de la file d'attente
+        function updateUI() {
+            try {
+                const list = document.getElementById('history-list');
+                const emptyState = document.getElementById('empty-state');
+                const countLabel = document.getElementById('history-count');
+                const settleBtn = document.getElementById('settle-btn');
+
+                const approvedExpenses = state.expenses.filter(exp => exp.approved !== false);
+                const unapprovedExpenses = state.expenses.filter(exp => exp.approved === false);
+
+                const inboxBadge = document.getElementById('nav-inbox-badge');
+                const inboxBadgeCount = document.getElementById('inbox-badge-count');
+                const inboxList = document.getElementById('inbox-list');
+
+                populateYearFilterOptions();
+
+                // Gestion de l'Inbox
+                if (unapprovedExpenses.length > 0) {
+                    if (inboxBadge) {
+                        inboxBadge.classList.remove('hidden');
+                        inboxBadge.innerText = unapprovedExpenses.length;
+                    }
+                    if (inboxBadgeCount) {
+                        inboxBadgeCount.innerText = `${unapprovedExpenses.length} à valider`;
+                        inboxBadgeCount.className = "text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2.5 py-0.5 rounded-full";
+                    }
+
+                    if (inboxList) {
+                        inboxList.innerHTML = '';
+                        unapprovedExpenses.forEach(exp => {
+                            const card = document.createElement('div');
+
+                            if (exp.isEditing) {
+                                // MODE ÉDITION DE L'INBOX
+                                const expP1Pct = exp.p1SharePercent || 50;
+                                const expP2Pct = exp.p2SharePercent || 50;
+                                const expP1Amt = ((exp.amount || 0) * (expP1Pct / 100)).toFixed(2);
+                                const expP2Amt = ((exp.amount || 0) - parseFloat(expP1Amt)).toFixed(2);
+                                const localSplitType = exp.splitTypeLocal || (expP1Pct === 50 ? '50_50' : 'custom');
+
+                                const dateValue = new Date(exp.created_at).toISOString().split('T')[0];
+
+                                let inboxCatButtons = '';
+                                state.categories.forEach(c => {
+                                    const isAct = exp.category === c.label;
+                                    inboxCatButtons += `
+                                        <button type="button" onclick="updateInboxField('${exp.id}', 'category', '${c.label}')" class="flex items-center justify-center w-11 h-11 rounded-xl text-lg bg-slate-900 border ${isAct ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'border-slate-850 text-slate-400 hover:bg-slate-800'}" title="${c.label}">
+                                            <i class="fa-solid ${c.icon}"></i>
+                                        </button>
+                                    `;
+                                });
+
+                                card.className = "bg-slate-950/40 border-2 border-indigo-500/30 rounded-2xl p-5 space-y-4 shadow-lg";
+                                card.innerHTML = `
+                                    <div class="flex justify-between items-center border-b border-slate-850 pb-2">
+                                        <span class="text-[10px] font-bold text-indigo-400 tracking-wider uppercase"><i class="fa-solid fa-pen-to-square mr-1"></i> Mode Édition</span>
+                                        <button type="button" onclick="toggleInboxEdit('${exp.id}', false)" class="text-xs text-slate-500 hover:text-white transition-colors">Fermer</button>
+                                    </div>
+
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
+                                            <input type="text" value="${exp.description}" oninput="updateInboxField('${exp.id}', 'description', this.value)"
+                                                class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
+                                                <input type="date" value="${dateValue}" onchange="updateInboxField('${exp.id}', 'date', this.value)"
+                                                    class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none [color-scheme:dark]">
+                                            </div>
+                                            <div>
+                                                <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (€)</label>
+                                                <input type="number" step="0.01" value="${exp.amount}" oninput="updateInboxField('${exp.id}', 'amount', this.value)"
+                                                    class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Catégorie</label>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${inboxCatButtons}
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-slate-950/50 border border-slate-850 p-4 rounded-xl space-y-4">
+                                        <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                            <span>Partage</span>
+                                            <span class="text-xs text-indigo-400 font-extrabold" id="inbox-split-title-${exp.id}">
+                                                ${localSplitType === '50_50' ? '50% / 50%' : localSplitType === '100_other' ? '100% l\'autre' : `Précis (${expP1Pct}% / ${expP2Pct}%)`}
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" onclick="updateInboxSplitType('${exp.id}', '50_50')" class="py-2 text-[10px] font-bold rounded-lg border ${localSplitType === '50_50' ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300' : 'border-slate-800 text-slate-400'}">50 / 50</button>
+                                            <button type="button" onclick="updateInboxSplitType('${exp.id}', '100_other')" class="py-2 text-[10px] font-bold rounded-lg border ${localSplitType === '100_other' ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300' : 'border-slate-800 text-slate-400'}">L'autre</button>
+                                            <button type="button" onclick="updateInboxSplitType('${exp.id}', 'custom')" class="py-2 text-[10px] font-bold rounded-lg border ${localSplitType === 'custom' ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300' : 'border-slate-800 text-slate-400'}">Précis</button>
+                                        </div>
+
+                                        <div id="inbox-custom-panel-${exp.id}" class="${localSplitType === 'custom' ? '' : 'hidden'} space-y-4 pt-1">
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-850">
+                                                    <span class="text-[9px] text-slate-500 block mb-1">Toi</span>
+                                                    <div class="relative">
+                                                        <input type="number" id="inbox-amt-p1-${exp.id}" step="0.01" value="${expP1Amt}" oninput="onInboxCustomAmountInput('${exp.id}', 'p1', this.value)"
+                                                            class="w-full bg-transparent text-slate-200 text-base font-bold focus:outline-none pr-4">
+                                                        <span class="absolute right-0 top-0 text-slate-500 text-xs">€</span>
+                                                    </div>
+                                                    <span id="inbox-pct-label-p1-${exp.id}" class="text-[10px] text-slate-500 font-bold block text-right mt-1">${expP1Pct}%</span>
+                                                </div>
+                                                <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-850">
+                                                    <span class="text-[9px] text-slate-500 block mb-1">${state.config.p2Name}</span>
+                                                    <div class="relative">
+                                                        <input type="number" id="inbox-amt-p2-${exp.id}" step="0.01" value="${expP2Amt}" oninput="onInboxCustomAmountInput('${exp.id}', 'p2', this.value)"
+                                                            class="w-full bg-transparent text-slate-200 text-base font-bold focus:outline-none pr-4">
+                                                        <span class="absolute right-0 top-0 text-slate-500 text-xs">€</span>
+                                                    </div>
+                                                    <span id="inbox-pct-label-p2-${exp.id}" class="text-[10px] text-slate-500 font-bold block text-right mt-1">${expP2Pct}%</span>
+                                                </div>
+                                            </div>
+
+                                            <input type="range" id="inbox-range-${exp.id}" min="0" max="100" value="${expP1Pct}" oninput="onInboxSplitSliderInput('${exp.id}', this.value)"
+                                                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                            <div class="flex justify-between text-[9px] font-bold text-slate-500">
+                                                <span>Glisser le ratio</span>
+                                                <span id="inbox-range-summary-${exp.id}">${expP1Pct}% / ${expP2Pct}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2.5">
+                                        <button type="button" onclick="approveTransaction('${exp.id}')" class="py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border border-transparent rounded-xl text-xs font-black tracking-wide transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow">
+                                            <i class="fa-solid fa-check"></i> Valider
+                                        </button>
+                                        <button type="button" onclick="toggleInboxEdit('${exp.id}', false)" class="py-3 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white border border-slate-750 rounded-xl text-xs font-bold tracking-wide transition-all active:scale-95">
+                                            Fermer
+                                        </button>
+                                    </div>
+                                `;
+                            } else {
+                                // CARTE STANDARD DANS L'INBOX
+                                const receiverName = exp.payer === 'p1' ? state.config.p2Name : state.config.p1Name;
+
+                                let splitText = '';
+                                if (exp.p1SharePercent === 50 && exp.p2SharePercent === 50) {
+                                    splitText = 'Égal (50/50)';
+                                } else if (exp.p1SharePercent === 0 || exp.p2SharePercent === 0) {
+                                    splitText = `100% pour ${receiverName}`;
+                                } else {
+                                    splitText = `Ratio (${exp.p1SharePercent}% / ${exp.p2SharePercent}%)`;
+                                }
+
+                                const catMatch = scanCategory(exp.category || 'Autre');
+
+                                card.className = "bg-slate-950/20 border-2 border-dashed border-indigo-500/20 rounded-xl p-4 space-y-3.5 shadow-md animate-pulse hover:animate-none transition-all";
+                                card.innerHTML = `
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-xl ${catMatch.bgClass || 'bg-slate-850'} flex items-center justify-center text-indigo-400 border ${catMatch.borderClass || 'border-slate-800'}">
+                                                <i class="fa-solid ${exp.icon || 'fa-mobile-button'} text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-bold text-slate-100">${exp.description}</p>
+                                                <p class="text-[10px] text-slate-500">Flux automatique • <span class="font-bold text-slate-400">${exp.category || 'Autre'}</span></p>
+                                            </div>
+                                        </div>
+                                        <span class="text-sm font-black text-indigo-400 mt-1">${exp.amount.toFixed(2)} €</span>
+                                    </div>
+
+                                    <div class="flex justify-between items-center bg-slate-900/30 p-2.5 rounded-xl border border-slate-850 text-xs text-slate-400">
+                                        <span>Partage : <strong class="text-slate-200 font-bold">${splitText}</strong></span>
+                                        <span class="text-[10px] text-slate-500">Payeur : Toi</span>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-2.5 pt-1 border-t border-slate-850/60">
+                                        <button type="button" onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white border border-emerald-500/20 rounded-xl text-[10px] font-black tracking-wide transition-all active:scale-95 flex items-center justify-center gap-1">
+                                            <i class="fa-solid fa-check"></i> Valider
+                                        </button>
+                                        <button type="button" onclick="toggleInboxEdit('${exp.id}', true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 hover:text-white border border-indigo-500/20 rounded-xl text-[10px] font-black tracking-wide transition-all active:scale-95 flex items-center justify-center gap-1">
+                                            <i class="fa-solid fa-pen-nib"></i> Éditer
+                                        </button>
+                                        <button type="button" onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800/40 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-slate-800 hover:border-rose-500/20 rounded-xl text-[10px] font-bold tracking-wide transition-all active:scale-95">
+                                            Ignorer
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                            inboxList.appendChild(card);
+                        });
+                    }
+
+                } else {
+                    if (inboxBadge) inboxBadge.classList.add('hidden');
+                    if (inboxBadgeCount) {
+                        inboxBadgeCount.innerText = "0 à valider";
+                        inboxBadgeCount.className = "text-[10px] bg-slate-850 text-slate-500 font-semibold px-2.5 py-0.5 rounded-full";
+                    }
+                    if (inboxList) {
+                        inboxList.innerHTML = `
+                            <div class="text-center py-12 border border-slate-850 bg-slate-950/10 rounded-xl text-xs text-slate-500">
+                                🎉 Toutes les dépenses automatiques ont été validées !
+                            </div>
+                        `;
+                    }
+                }
+
+                // Gestion de l'historique principal (APPROVED)
+                if (approvedExpenses.length === 0) {
+                    if (emptyState) emptyState.style.display = 'block';
+                    if (countLabel) countLabel.innerText = '0 transaction';
+                    if (settleBtn) settleBtn.classList.add('hidden');
+                    if (list) list.innerHTML = '';
+                    
+                    // Réinitialisation des totaux
+                    document.getElementById('dashboard-balance').innerText = "0,00 €";
+                    document.getElementById('dashboard-summary').innerText = "Tout est parfaitement équilibré !";
+                    document.getElementById('p1-share-bar').style.width = "50%";
+                    document.getElementById('p2-share-bar').style.width = "50%";
+                    document.getElementById('p1-share-label').innerText = `${state.config.p1Name} : 0,00 €`;
+                    document.getElementById('p2-share-label').innerText = `${state.config.p2Name} : 0,00 €`;
+                    return;
+                }
+                
+                if (emptyState) emptyState.style.display = 'none';
+                if (countLabel) countLabel.innerText = `${approvedExpenses.length} transaction${approvedExpenses.length > 1 ? 's' : ''}`;
+                if (list) {
+                    list.innerHTML = '';
+
+                    let p1OwesP2 = 0;
+                    let p2OwesP1 = 0;
+
+                    let displayContrP1 = 0;
+                    let displayContrP2 = 0;
+
+                    approvedExpenses.forEach(exp => {
+                        const p1SharePct = exp.hasOwnProperty('p1SharePercent') ? exp.p1SharePercent : 50;
+                        const p2SharePct = exp.hasOwnProperty('p2SharePercent') ? exp.p2SharePercent : 50;
+
+                        const p1OwedPart = exp.amount * (p1SharePct / 100);
+                        const p2OwedPart = exp.amount * (p2SharePct / 100);
+
+                        // Calculs des soldes et affichages des contributions
+                        const type = exp.type || 'depense';
+                        if (type === 'revenu') {
+                            if (exp.payer === 'p1') {
+                                p1OwesP2 += p2OwedPart;
+                            } else {
+                                p2OwesP1 += p1OwedPart;
+                            }
+                        } else if (type === 'transfert') {
+                            if (exp.payer === 'p1') {
+                                p2OwesP1 += exp.amount;
+                            } else {
+                                p1OwesP2 += exp.amount;
+                            }
+                        } else {
+                            if (exp.payer === 'p1') {
+                                p2OwesP1 += p2OwedPart;
+                                displayContrP1 += exp.amount;
+                            } else {
+                                p1OwesP2 += p1OwedPart;
+                                displayContrP2 += exp.amount;
+                            }
+                        }
+
+                        const item = document.createElement('div');
+                        
+                        if (exp.isEditing) {
+                            // FORMULAIRE D'ÉDITION INLINE DANS L'HISTORIQUE
+                            const expP1Pct = exp.p1SharePercent || 50;
+                            const expP2Pct = exp.p2SharePercent || 50;
+                            const expP1Amt = ((exp.amount || 0) * (expP1Pct / 100)).toFixed(2);
+                            const expP2Amt = ((exp.amount || 0) - parseFloat(expP1Amt)).toFixed(2);
+                            const localSplitType = exp.splitTypeLocal || (expP1Pct === 50 ? '50_50' : 'custom');
+                            const dateValue = new Date(exp.created_at).toISOString().split('T')[0];
+
+                            let historyCatButtons = '';
+                            state.categories.forEach(c => {
+                                const isAct = exp.category === c.label;
+                                historyCatButtons += `
+                                    <button type="button" onclick="updateHistoryField('${exp.id}', 'category', '${c.label}')" class="flex items-center justify-center w-11 h-11 rounded-xl text-lg bg-slate-900 border ${isAct ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'border-slate-850 text-slate-400 hover:bg-slate-800'}" title="${c.label}">
+                                        <i class="fa-solid ${c.icon}"></i>
+                                    </button>
+                                `;
+                            });
+
+                            item.className = "w-full animate-in fade-in duration-150";
+                            item.innerHTML = `
+                                <div class="bg-slate-950/40 border-2 border-amber-500/30 rounded-2xl p-5 space-y-4 shadow-lg w-full">
+                                    <div class="flex justify-between items-center border-b border-slate-850 pb-2">
+                                        <span class="text-[10px] font-bold text-amber-400 tracking-wider uppercase"><i class="fa-solid fa-pen-to-square mr-1"></i> Modifier la transaction</span>
+                                        <button type="button" onclick="toggleHistoryEdit('${exp.id}', false)" class="text-xs text-slate-500 hover:text-white transition-colors">Fermer</button>
+                                    </div>
+
+                                    <!-- Inputs: Desc & Amount & Date -->
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
+                                            <input type="text" id="edit-desc-${exp.id}" value="${exp.description}" oninput="updateHistoryField('${exp.id}', 'description', this.value)"
+                                                class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
+                                                <input type="date" value="${dateValue}" onchange="updateHistoryField('${exp.id}', 'date', this.value)"
+                                                    class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none [color-scheme:dark]">
+                                            </div>
+                                            <div>
+                                                <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (€)</label>
+                                                <input type="number" step="0.01" value="${exp.amount}" oninput="updateHistoryField('${exp.id}', 'amount', this.value)"
+                                                    class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Qui a payé / reçu -->
+                                    <div>
+                                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">${type === 'revenu' ? 'Qui a reçu ?' : type === 'transfert' ? 'Qui a envoyé ?' : 'Qui a payé ?'}</label>
+                                        <div class="grid grid-cols-2 gap-2.5">
+                                            <button type="button" onclick="updateHistoryField('${exp.id}', 'payer', 'p1')" class="py-3 rounded-xl border text-xs font-bold ${exp.payer === 'p1' ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300' : 'border-slate-800 text-slate-400'}">Toi</button>
+                                            <button type="button" onclick="updateHistoryField('${exp.id}', 'payer', 'p2')" class="py-3 rounded-xl border text-xs font-bold ${exp.payer === 'p2' ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300' : 'border-slate-800 text-slate-400'}">${state.config.p2Name}</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Category Selector (Caché si transfert) -->
+                                    <div class="${type === 'transfert' ? 'hidden' : ''}">
+                                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Catégorie</label>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${historyCatButtons}
+                                        </div>
+                                    </div>
+
+                                    <!-- Splits block (Caché si transfert) -->
+                                    <div class="bg-slate-950/50 border border-slate-850 p-4 rounded-xl space-y-4 ${type === 'transfert' ? 'hidden' : ''}">
+                                        <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                            <span>Partage</span>
+                                            <span class="text-xs text-indigo-400 font-extrabold" id="history-split-title-${exp.id}">
+                                                ${localSplitType === '50_50' ? '50% / 50%' : localSplitType === '100_other' ? '100% l\'autre' : `Précis (${expP1Pct}% / ${expP2Pct}%)`}
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" onclick="updateHistorySplitType('${exp.id}', '50_50')" class="py-2 text-[10px] font-bold rounded-lg border ${localSplitType === '50_50' ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300' : 'border-slate-800 text-slate-400'}">50 / 50</button>
+                                            <button type="button" onclick="updateHistorySplitType('${exp.id}', '100_other')" class="py-2 text-[10px] font-bold rounded-lg border ${localSplitType === '100_other' ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300' : 'border-slate-800 text-slate-400'}">L'autre</button>
+                                            <button type="button" onclick="updateHistorySplitType('${exp.id}', 'custom')" class="py-2 text-[10px] font-bold rounded-lg border ${localSplitType === 'custom' ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300' : 'border-slate-800 text-slate-400'}">Précis</button>
+                                        </div>
+
+                                        <div id="history-custom-panel-${exp.id}" class="${localSplitType === 'custom' ? '' : 'hidden'} space-y-4 pt-1">
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-850">
+                                                    <span class="text-[9px] text-slate-500 block mb-1">Toi</span>
+                                                    <div class="relative">
+                                                        <input type="number" id="history-amt-p1-${exp.id}" step="0.01" value="${expP1Amt}" oninput="onHistoryCustomAmountInput('${exp.id}', 'p1', this.value)"
+                                                            class="w-full bg-transparent text-slate-200 text-base font-bold focus:outline-none pr-4">
+                                                        <span class="absolute right-0 top-0 text-slate-500 text-xs">€</span>
+                                                    </div>
+                                                    <span id="history-pct-label-p1-${exp.id}" class="text-[10px] text-slate-500 font-bold block text-right mt-1">${expP1Pct}%</span>
+                                                </div>
+                                                <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-850">
+                                                    <span class="text-[9px] text-slate-500 block mb-1">${state.config.p2Name}</span>
+                                                    <div class="relative">
+                                                        <input type="number" id="history-amt-p2-${exp.id}" step="0.01" value="${expP2Amt}" oninput="onHistoryCustomAmountInput('${exp.id}', 'p2', this.value)"
+                                                            class="w-full bg-transparent text-slate-200 text-base font-bold focus:outline-none pr-4">
+                                                        <span class="absolute right-0 top-0 text-slate-500 text-xs">€</span>
+                                                    </div>
+                                                    <span id="history-pct-label-p2-${exp.id}" class="text-[10px] text-slate-500 font-bold block text-right mt-1">${expP2Pct}%</span>
+                                                </div>
+                                            </div>
+
+                                            <input type="range" id="history-range-${exp.id}" min="0" max="100" value="${expP1Pct}" oninput="onHistorySplitSliderInput('${exp.id}', this.value)"
+                                                class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                            <div class="flex justify-between text-[9px] font-bold text-slate-500">
+                                                <span>Glisser le ratio</span>
+                                                <span id="history-range-summary-${exp.id}">${expP1Pct}% / ${expP2Pct}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <button type="button" onclick="saveHistoryEdit('${exp.id}')" class="py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border border-transparent rounded-xl text-xs font-black tracking-wide transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow">
+                                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                                        </button>
+                                        <button type="button" onclick="toggleHistoryEdit('${exp.id}', false)" class="py-3 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white border border-slate-750 rounded-xl text-xs font-bold tracking-wide transition-all active:scale-95">
+                                            Annuler
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            // CARTE STANDARD DANS L'HISTORIQUE
+                            item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 hover:border-slate-700/60 transition-colors w-full";
+                            
+                            const expDate = new Date(exp.created_at).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
+                            const iconClass = exp.icon || 'fa-asterisk';
+                            const payerName = exp.payer === 'p1' ? state.config.p1Name : state.config.p2Name;
+
+                            // Wording de répartition adapté au type
+                            let splitSummary = '';
+                            let badgeStyleClass = '';
+                            
+                            if (type === 'transfert') {
+                                badgeStyleClass = "text-sky-400 bg-sky-500/10";
+                                if (exp.payer === 'p1') {
+                                    splitSummary = `Remboursement de Toi ➔ ${state.config.p2Name}`;
+                                } else {
+                                    splitSummary = `Remboursement de ${state.config.p2Name} ➔ Toi`;
+                                }
+                            } else if (type === 'revenu') {
+                                badgeStyleClass = "text-emerald-400 bg-emerald-500/10";
+                                splitSummary = `Revenu reçu par ${payerName} (Ta part : ${p1SharePct}% / Sa part : ${p2SharePct}%)`;
+                            } else {
+                                badgeStyleClass = "text-indigo-400 bg-indigo-500/10";
+                                if (p1SharePct === 50 && p2SharePct === 50) {
+                                    splitSummary = 'Partagé 50/50';
+                                } else if (exp.payer === 'p1' && p1SharePct === 0) {
+                                    splitSummary = `100% payé pour ${state.config.p2Name}`;
+                                } else if (exp.payer === 'p2' && p2SharePct === 0) {
+                                    splitSummary = `100% payé pour ${state.config.p1Name}`;
+                                } else {
+                                    splitSummary = `Partage (${p1SharePct}% / ${p2SharePct}%)`;
+                                }
+                            }
+
+                            item.innerHTML = `
+                                <div class="flex items-center gap-3.5 flex-1 min-w-0">
+                                    <div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0">
+                                        <i class="fa-solid ${iconClass} text-sm"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p>
+                                        <p class="text-[10px] text-slate-500 font-medium truncate">${expDate} • ${splitSummary}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)} €</span>
+                                    
+                                    <!-- Dupliquer -->
+                                    <button type="button" onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 transition-colors p-1.5 rounded-lg hover:bg-indigo-500/5" title="Dupliquer">
+                                        <i class="fa-regular fa-copy text-xs"></i>
+                                    </button>
+
+                                    <!-- Modifier -->
+                                    <button type="button" onclick="toggleHistoryEdit('${exp.id}', true)" class="text-slate-600 hover:text-amber-500 transition-colors p-1.5 rounded-lg hover:bg-amber-500/5" title="Modifier">
+                                        <i class="fa-regular fa-pen-to-square text-xs"></i>
+                                    </button>
+
+                                    <!-- Supprimer -->
+                                    <button type="button" onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-rose-500/5">
+                                        <i class="fa-regular fa-trash-can text-xs"></i>
+                                    </button>
+                                </div>
+                            `;
+                        }
+                        list.appendChild(item);
+                    });
+
+                    // Calcul de l'équilibrage et mise à jour de la balance
+                    const balanceDisplay = document.getElementById('dashboard-balance');
+                    const summaryDisplay = document.getElementById('dashboard-summary');
+                    
+                    const diff = p2OwesP1 - p1OwesP2;
+                    const settlementVal = Math.abs(diff);
+
+                    const totalVis = displayContrP1 + displayContrP2;
+                    let p1Pct = 50;
+                    let p2Pct = 50;
+                    if (totalVis > 0) {
+                        p1Pct = (displayContrP1 / totalVis) * 100;
+                        p2Pct = (displayContrP2 / totalVis) * 100;
+                    }
+
+                    document.getElementById('p1-share-bar').style.width = `${p1Pct}%`;
+                    document.getElementById('p2-share-bar').style.width = `${p2Pct}%`;
+                    document.getElementById('p1-share-label').innerText = `${state.config.p1Name} : ${displayContrP1.toFixed(2)} €`;
+                    document.getElementById('p2-share-label').innerText = `${state.config.p2Name} : ${displayContrP2.toFixed(2)} €`;
+
+                    if (settlementVal < 0.01) {
+                        balanceDisplay.innerText = "0,00 €";
+                        summaryDisplay.innerText = "Tout est parfaitement équilibré !";
+                        summaryDisplay.className = "text-sm text-indigo-300 font-medium";
+                        if (settleBtn) settleBtn.classList.add('hidden');
+                    } else if (diff > 0) {
+                        balanceDisplay.innerText = `${settlementVal.toFixed(2)} €`;
+                        summaryDisplay.innerText = `${state.config.p2Name} doit ${settlementVal.toFixed(2)} € à Toi`;
+                        summaryDisplay.className = "text-sm text-emerald-400 font-semibold";
+                        if (settleBtn) settleBtn.classList.remove('hidden');
+                    } else {
+                        balanceDisplay.innerText = `${settlementVal.toFixed(2)} €`;
+                        summaryDisplay.innerText = `Tu dois ${settlementVal.toFixed(2)} € à ${state.config.p2Name}`;
+                        summaryDisplay.className = "text-sm text-rose-400 font-semibold";
+                        if (settleBtn) settleBtn.classList.remove('hidden');
+                    }
+                }
+            } catch(e) {
+                console.error("Error in updateUI:", e);
+            }
+        }
+    </script>
+</body>
+</html>
