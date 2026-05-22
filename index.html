@@ -157,7 +157,7 @@
             z-index: 1;
             transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
             will-change: transform;
-            background-color: rgb(2 6 23 / 0.6);
+            background-color: #0b1220;
         }
         .swipe-content.swiping { transition: none; }
 
@@ -278,9 +278,9 @@
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative h-screen max-h-screen border-x border-slate-800/40 overflow-hidden">
         
         <!-- Header & Projects -->
-        <header class="flex justify-between items-center px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 relative" style="padding-top: max(1rem, env(safe-area-inset-top));">
-            <!-- Logo Splittr -->
-            <div class="flex items-center gap-2 z-10">
+        <header class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30" style="padding-top: max(1rem, env(safe-area-inset-top));">
+            <!-- Logo Splittr (left) -->
+            <div class="flex items-center gap-2 shrink-0">
                 <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
                     <svg viewBox="0 0 64 64" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
                         <path d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
@@ -290,16 +290,18 @@
                 <span class="text-sm font-black text-white tracking-tight">Splittr.</span>
             </div>
             
-            <!-- Sélecteur de Projet -->
-            <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-800/50 px-2 py-1.5 rounded-xl border border-slate-700/50 w-auto max-w-[40%] justify-center z-10" style="margin-top: calc(max(1rem, env(safe-area-inset-top)) - 1rem);">
-                <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer w-full text-center truncate">
-                    <!-- Généré dynamiquement -->
-                </select>
-                <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white pl-1 pr-1 shrink-0"><i class="fa-solid fa-plus text-xs"></i></button>
+            <!-- Sélecteur de Projet (center, takes remaining space) -->
+            <div class="flex-1 min-w-0 flex justify-center">
+                <div class="flex items-center gap-1.5 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-700/50 max-w-full">
+                    <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0">
+                        <!-- Généré dynamiquement -->
+                    </select>
+                    <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white shrink-0"><i class="fa-solid fa-plus text-xs"></i></button>
+                </div>
             </div>
 
             <!-- Boutons de droite (Rafraîchir + Paramètres) -->
-            <div class="flex items-center justify-end gap-1.5 z-10">
+            <div class="flex items-center justify-end gap-1.5 shrink-0">
                 <button onclick="window.location.reload()" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
                     <i class="fa-solid fa-rotate-right text-sm"></i>
                 </button>
