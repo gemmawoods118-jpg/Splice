@@ -602,16 +602,19 @@
                 <div class="flex justify-between items-center"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Transactions</h3><span class="text-[11px] font-semibold text-slate-500" id="history-count">0 dépense</span></div>
                 
                 <!-- Multi-select toolbar (shown when items are selected) -->
-                <div id="multi-select-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl p-3 flex items-center justify-between gap-2 shadow-lg shadow-indigo-950/30">
-                    <span class="text-xs font-bold text-indigo-300"><span id="multi-select-count">0</span> sélectionné(s)</span>
-                    <div class="flex items-center gap-2">
-                        <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border border-amber-500/30 transition-all active:scale-95">
-                            <i class="fa-solid fa-tag mr-1"></i>Catégorie
+                <div id="multi-select-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-lg shadow-indigo-950/30">
+                    <div class="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                        <span class="bg-indigo-500 text-white text-[11px] font-black rounded-full min-w-[22px] h-[22px] inline-flex items-center justify-center px-1.5" id="multi-select-count">0</span>
+                        <span class="text-[11px] font-bold text-indigo-300">sél.</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-amber-500/30 transition-all active:scale-95 whitespace-nowrap">
+                            <i class="fa-solid fa-tag mr-1"></i>Cat.
                         </button>
-                        <button onclick="bulkDeleteSelected()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border border-rose-500/30 transition-all active:scale-95">
+                        <button onclick="bulkDeleteSelected()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition-all active:scale-95 whitespace-nowrap">
                             <i class="fa-solid fa-trash-can mr-1"></i>Suppr.
                         </button>
-                        <button onclick="clearMultiSelect()" class="text-slate-400 hover:text-white p-1.5">
+                        <button onclick="clearMultiSelect()" class="text-slate-400 hover:text-white p-1.5 shrink-0" aria-label="Annuler">
                             <i class="fa-solid fa-xmark text-sm"></i>
                         </button>
                     </div>
@@ -1002,6 +1005,7 @@
         }
 
         function saveConfiguration() {
+            haptic('success');
             state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
             state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
             state.config.sbUrl = document.getElementById('config-sb-url').value.trim() || '';
@@ -1867,6 +1871,7 @@
         }
 
         async function saveModalEdit() {
+            haptic('success');
             const tx = state.editingTransaction;
             if (!tx) return;
 
@@ -2533,72 +2538,78 @@
 
         // ---------- 8. MULTI-SELECT ----------
         state.selectedIds = new Set();
-        let longPressTimer = null;
-        let tapStartX = 0, tapStartY = 0;
-        let tapState = 'idle'; // 'idle' | 'pending' | 'moved' | 'longpressed'
         const TAP_MOVE_TOLERANCE = 8;
 
+        // Per-element handlers (no shared module-level state — avoids race conditions)
         function bindTapAndLongPress(el, id) {
-            const start = (e) => {
+            let lpTimer = null;
+            let startX = 0, startY = 0;
+            let moved = false;
+            let longPressed = false;
+            let active = false;
+
+            const reset = () => {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+                active = false;
+                moved = false;
+                longPressed = false;
+            };
+
+            const onStart = (e) => {
                 const pt = e.touches ? e.touches[0] : e;
-                tapStartX = pt.clientX;
-                tapStartY = pt.clientY;
-                tapState = 'pending';
-                // Arm long-press only when not yet in multi-select mode
+                startX = pt.clientX;
+                startY = pt.clientY;
+                moved = false;
+                longPressed = false;
+                active = true;
+                // Always arm long-press if not already in multi-select; once in multi-select, tap toggles
                 if (state.selectedIds.size === 0) {
-                    longPressTimer = setTimeout(() => {
-                        if (tapState === 'pending') {
+                    lpTimer = setTimeout(() => {
+                        if (active && !moved) {
+                            longPressed = true;
                             haptic('medium');
-                            tapState = 'longpressed';
                             toggleMultiSelect(id);
                         }
-                        longPressTimer = null;
+                        lpTimer = null;
                     }, 500);
                 }
             };
-            const move = (e) => {
-                if (tapState !== 'pending') return;
-                const pt = e.touches ? e.touches[0] : e;
-                const dx = Math.abs(pt.clientX - tapStartX);
-                const dy = Math.abs(pt.clientY - tapStartY);
-                if (dx > TAP_MOVE_TOLERANCE || dy > TAP_MOVE_TOLERANCE) {
-                    tapState = 'moved';
-                    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-                }
-            };
-            const end = (e) => {
-                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-                const finalState = tapState;
-                tapState = 'idle';
 
-                if (finalState === 'pending') {
-                    // Was a quick tap (released before long-press fired and no movement)
-                    if (state.selectedIds.size > 0) {
-                        // Already in multi-select mode → toggle selection
-                        toggleMultiSelect(id);
-                        haptic('light');
-                    } else {
-                        // Normal mode → open edit directly
-                        haptic('light');
-                        toggleHistoryEdit(id, true);
-                    }
+            const onMove = (e) => {
+                if (!active) return;
+                const pt = e.touches ? e.touches[0] : e;
+                const dx = Math.abs(pt.clientX - startX);
+                const dy = Math.abs(pt.clientY - startY);
+                if (dx > TAP_MOVE_TOLERANCE || dy > TAP_MOVE_TOLERANCE) {
+                    moved = true;
+                    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
                 }
-                // If finalState was 'longpressed' or 'moved', do nothing (already handled)
             };
-            el.addEventListener('touchstart', start, { passive: true });
-            el.addEventListener('touchmove', move, { passive: true });
-            el.addEventListener('touchend', end);
-            el.addEventListener('touchcancel', () => {
-                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-                tapState = 'idle';
-            });
-            el.addEventListener('mousedown', start);
-            el.addEventListener('mousemove', e => { if (tapState === 'pending') move(e); });
-            el.addEventListener('mouseup', end);
-            el.addEventListener('mouseleave', () => {
-                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-                tapState = 'idle';
-            });
+
+            const onEnd = (e) => {
+                if (!active) return;
+                const wasMoved = moved;
+                const wasLongPressed = longPressed;
+                reset();
+                if (wasMoved || wasLongPressed) return; // swipe or long-press already handled
+                // A clean tap — decide action based on current mode
+                if (state.selectedIds.size > 0) {
+                    haptic('light');
+                    toggleMultiSelect(id);
+                } else {
+                    haptic('light');
+                    toggleHistoryEdit(id, true);
+                }
+            };
+
+            el.addEventListener('touchstart', onStart, { passive: true });
+            el.addEventListener('touchmove', onMove, { passive: true });
+            el.addEventListener('touchend', onEnd);
+            el.addEventListener('touchcancel', reset);
+            el.addEventListener('mousedown', onStart);
+            el.addEventListener('mousemove', onMove);
+            el.addEventListener('mouseup', onEnd);
+            el.addEventListener('mouseleave', reset);
         }
         function bindLongPress(el, id) { bindTapAndLongPress(el, id); }
 
