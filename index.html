@@ -121,22 +121,32 @@
             border-radius: 8px;
         }
 
-        /* Swipe-to-action on history items */
+        /* Swipe-to-action on history items
+           Architecture: content sits in normal flow; actions are positioned
+           absolutely to the right of the wrapper edge (translated outside),
+           and become visible as the content slides left. This avoids any
+           z-index leakage during fast scroll. */
         .swipe-wrapper {
             position: relative;
             overflow: hidden;
             border-radius: 0.75rem;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
         }
         .swipe-actions {
             position: absolute;
-            inset: 0;
+            top: 0;
+            bottom: 0;
+            left: 100%;
             display: flex;
-            justify-content: flex-end;
             align-items: stretch;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            z-index: 0;
+            z-index: 1;
+            transform: translateX(0);
+            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
         }
+        .swipe-actions.swiping { transition: none; }
         .swipe-action-btn {
             display: flex;
             align-items: center;
@@ -154,10 +164,13 @@
         .swipe-action-delete { background: linear-gradient(135deg, #e11d48, #be123c); }
         .swipe-content {
             position: relative;
-            z-index: 1;
+            z-index: 2;
             transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-            will-change: transform;
             background-color: #0b1220;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .swipe-content.swiping { transition: none; }
 
@@ -605,14 +618,14 @@
                 <div id="multi-select-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-lg shadow-indigo-950/30">
                     <div class="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                         <span class="bg-indigo-500 text-white text-[11px] font-black rounded-full min-w-[22px] h-[22px] inline-flex items-center justify-center px-1.5" id="multi-select-count">0</span>
-                        <span class="text-[11px] font-bold text-indigo-300">sél.</span>
+                        <span class="text-[11px] font-bold text-indigo-300">Sélectionné(s)</span>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                        <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-amber-500/30 transition-all active:scale-95 whitespace-nowrap">
-                            <i class="fa-solid fa-tag mr-1"></i>Cat.
+                        <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-amber-500/30 transition-all active:scale-95 whitespace-nowrap" aria-label="Changer la catégorie">
+                            <i class="fa-solid fa-tag"></i>
                         </button>
-                        <button onclick="bulkDeleteSelected()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition-all active:scale-95 whitespace-nowrap">
-                            <i class="fa-solid fa-trash-can mr-1"></i>Suppr.
+                        <button onclick="bulkDeleteSelected()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition-all active:scale-95 whitespace-nowrap" aria-label="Supprimer">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                         <button onclick="clearMultiSelect()" class="text-slate-400 hover:text-white p-1.5 shrink-0" aria-label="Annuler">
                             <i class="fa-solid fa-xmark text-sm"></i>
@@ -2293,14 +2306,49 @@
         // ---------- 1. HAPTIC FEEDBACK ----------
         // Calls navigator.vibrate on Android; on iOS, modern Safari ignores vibrate
         // but we use a silent <audio> trick to trigger the system haptic engine.
+        // iOS PWA haptic helper.
+        // Web standards expose vibration via navigator.vibrate, but iOS Safari does NOT
+        // implement it. The reliable workaround on iOS 18+ is to programmatically click
+        // the LABEL of an <input type="checkbox" switch> element — this is a documented
+        // Apple WebKit behavior that emits a subtle native haptic. Android uses
+        // navigator.vibrate normally.
+        let _hapticTriggerLabel = null;
+        function ensureHapticTrigger() {
+            if (_hapticTriggerLabel) return _hapticTriggerLabel;
+            const wrap = document.createElement('div');
+            wrap.setAttribute('aria-hidden', 'true');
+            wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;opacity:0;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.setAttribute('switch', '');       // iOS 18+ native switch — triggers haptic
+            cb.id = '__haptic_switch__';
+            cb.tabIndex = -1;
+            const lbl = document.createElement('label');
+            lbl.setAttribute('for', '__haptic_switch__');
+            wrap.appendChild(cb);
+            wrap.appendChild(lbl);
+            document.body.appendChild(wrap);
+            _hapticTriggerLabel = lbl;
+            return lbl;
+        }
         function haptic(type = 'light') {
             try {
+                // Android / desktop with vibrate API
                 if (navigator.vibrate) {
                     const map = { light: 10, medium: 18, success: [12, 40, 12], warn: [20, 30, 20] };
                     navigator.vibrate(map[type] || 10);
+                    return;
                 }
-                // iOS PWA fallback: brief Audio() click ping is silent but triggers haptics
-                // when paired with "Haptic Touch" enabled. We omit Audio to avoid sound pollution.
+                // iOS 18+ fallback
+                const lbl = ensureHapticTrigger();
+                if (!lbl) return;
+                lbl.click();
+                if (type === 'success') {
+                    setTimeout(() => lbl.click(), 80);
+                } else if (type === 'warn') {
+                    setTimeout(() => lbl.click(), 60);
+                    setTimeout(() => lbl.click(), 120);
+                }
             } catch(e) {}
         }
 
@@ -2725,41 +2773,74 @@
         // ---------- 9. SWIPE-TO-DELETE ----------
         function bindSwipe(wrapper, id) {
             const content = wrapper.querySelector('.swipe-content');
-            if (!content) return;
-            let startX = 0, currentX = 0, dragging = false;
+            const actions = wrapper.querySelector('.swipe-actions');
+            if (!content || !actions) return;
+            let startX = 0, startY = 0, currentX = 0, dragging = false, locked = false;
             const threshold = -80;
             const max = -144;
+            const AXIS_LOCK_THRESHOLD = 6;
+
+            const apply = (x) => {
+                content.style.transform = `translateX(${x}px)`;
+                actions.style.transform = `translateX(${x}px)`;
+            };
+            const reset = () => {
+                content.style.transform = '';
+                actions.style.transform = '';
+            };
+            const open = () => {
+                content.style.transform = `translateX(${max}px)`;
+                actions.style.transform = `translateX(${max}px)`;
+            };
 
             const onStart = (e) => {
-                // If in multi-select mode, don't swipe
-                if (state.selectedIds.size > 0) return;
-                startX = (e.touches ? e.touches[0].clientX : e.clientX);
+                if (state.selectedIds.size > 0) return; // disabled in multi-select
+                const pt = e.touches ? e.touches[0] : e;
+                startX = pt.clientX;
+                startY = pt.clientY;
                 currentX = 0;
-                dragging = true;
-                content.classList.add('swiping');
+                dragging = false;
+                locked = false;
             };
             const onMove = (e) => {
+                if (state.selectedIds.size > 0) return;
+                const pt = e.touches ? e.touches[0] : e;
+                const dx = pt.clientX - startX;
+                const dy = pt.clientY - startY;
+                // Lock axis once movement is decisive: horizontal vs vertical scroll
+                if (!locked) {
+                    if (Math.abs(dx) < AXIS_LOCK_THRESHOLD && Math.abs(dy) < AXIS_LOCK_THRESHOLD) return;
+                    if (Math.abs(dy) > Math.abs(dx)) {
+                        // Vertical scroll — abandon the swipe
+                        locked = true;
+                        dragging = false;
+                        return;
+                    }
+                    // Horizontal swipe wins
+                    locked = true;
+                    dragging = true;
+                    content.classList.add('swiping');
+                    actions.classList.add('swiping');
+                }
                 if (!dragging) return;
-                const x = (e.touches ? e.touches[0].clientX : e.clientX);
-                currentX = Math.max(max, Math.min(0, x - startX));
-                content.style.transform = `translateX(${currentX}px)`;
+                currentX = Math.max(max, Math.min(0, dx));
+                apply(currentX);
             };
             const onEnd = () => {
-                if (!dragging) return;
-                dragging = false;
                 content.classList.remove('swiping');
-                if (currentX < threshold) {
-                    // Snap open
-                    content.style.transform = `translateX(${max}px)`;
-                } else {
-                    content.style.transform = '';
-                }
+                actions.classList.remove('swiping');
+                if (!dragging) { dragging = false; locked = false; return; }
+                dragging = false;
+                locked = false;
+                if (currentX < threshold) open();
+                else reset();
             };
             content.addEventListener('touchstart', onStart, { passive: true });
             content.addEventListener('touchmove', onMove, { passive: true });
             content.addEventListener('touchend', onEnd);
+            content.addEventListener('touchcancel', onEnd);
             content.addEventListener('mousedown', onStart);
-            content.addEventListener('mousemove', e => { if (dragging) onMove(e); });
+            content.addEventListener('mousemove', e => { if (locked || (Math.abs(e.clientX - startX) > AXIS_LOCK_THRESHOLD)) onMove(e); });
             content.addEventListener('mouseup', onEnd);
             content.addEventListener('mouseleave', onEnd);
         }
