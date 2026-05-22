@@ -156,7 +156,7 @@
             <!-- VIEW 1: MANUAL TRANSACTION ENTRY (Saisie) -->
             <div id="view-saisie" class="tab-view active-tab space-y-4">
                 
-                <!-- Saisie Magique en 1-Clic (Strictement ancrée sur la Saisie) -->
+                <!-- Saisie Magique en 1-Clic -->
                 <section class="bg-slate-950/20 border border-slate-850 p-3.5 rounded-2xl space-y-2">
                     <span class="text-[9px] text-slate-500 uppercase tracking-widest font-black block"><i class="fa-solid fa-bolt text-indigo-400 mr-1"></i>Saisie Magique en 1-Clic</span>
                     <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-thin">
@@ -422,7 +422,7 @@
 
     <!-- FEUILLE DE MODIFICATION (Dedicated bottom sheet modal) -->
     <div id="edit-tx-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-sm transition-opacity duration-300 opacity-0">
-        <div id="edit-tx-modal-content" class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92vh] sm:max-h-[85vh] p-5 space-y-4 shadow-2xl flex flex-col justify-between overflow-hidden transition-transform duration-300 translate-y-full">
+        <div id="edit-tx-modal-content" class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92vh] sm:max-h-[85vh] p-4 space-y-3 shadow-2xl flex flex-col justify-between overflow-hidden transition-transform duration-300 translate-y-full">
             <!-- Header -->
             <div class="flex justify-between items-center pb-2 border-b border-slate-800 shrink-0">
                 <h3 class="text-sm font-black text-white uppercase tracking-wider"><i class="fa-solid fa-pen-to-square mr-2 text-indigo-400"></i>Modifier la transaction</h3>
@@ -432,28 +432,28 @@
             </div>
             
             <!-- Fields -->
-            <div class="space-y-4 overflow-y-auto flex-1 pr-1 py-1">
+            <div class="space-y-3 overflow-y-auto flex-1 pr-1 py-1">
                 <!-- Description -->
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
-                    <input type="text" id="modal-edit-desc" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
+                    <input type="text" id="modal-edit-desc" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2 px-3 text-sm text-slate-200 focus:outline-none">
                 </div>
                 
                 <!-- Date et Montant (Empilés verticalement pour éviter tout débordement iOS) -->
-                <div class="space-y-4">
+                <div class="space-y-3">
                     <div class="w-full">
                         <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
-                        <input type="date" id="modal-edit-date" class="w-full block bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-3 px-3.5 text-sm text-slate-200 focus:outline-none [color-scheme:dark] appearance-none m-0">
+                        <input type="date" id="modal-edit-date" class="w-full block bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2 px-3 text-sm text-slate-200 focus:outline-none [color-scheme:dark] appearance-none m-0">
                     </div>
                     <div class="w-full">
                         <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
-                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full block bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-3 px-3.5 text-xl text-slate-200 focus:outline-none text-center font-black math-input m-0">
+                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full block bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2 px-3 text-lg text-slate-200 focus:outline-none text-center font-black math-input m-0">
                         <!-- Mini-Calculatrice Keyboard Row -->
-                        <div class="flex gap-1.5 mt-2 justify-center">
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">+</button>
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">-</button>
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">×</button>
-                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">÷</button>
+                        <div class="flex gap-1 mt-1.5 justify-center">
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50 shadow-sm transition-colors">+</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50 shadow-sm transition-colors">-</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50 shadow-sm transition-colors">×</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-1.5 rounded-lg text-sm border border-slate-700/50 shadow-sm transition-colors">÷</button>
                         </div>
                     </div>
                 </div>
@@ -462,28 +462,28 @@
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5" id="modal-edit-payer-label">Qui a payé ?</label>
                     <div class="grid grid-cols-2 gap-2.5">
-                        <button type="button" id="modal-edit-payer-p1" onclick="selectModalEditPayer('p1')" class="py-2.5 rounded-xl border text-xs font-bold transition-all"></button>
-                        <button type="button" id="modal-edit-payer-p2" onclick="selectModalEditPayer('p2')" class="py-2.5 rounded-xl border text-xs font-bold transition-all"></button>
+                        <button type="button" id="modal-edit-payer-p1" onclick="selectModalEditPayer('p1')" class="py-2 rounded-xl border text-xs font-bold transition-all"></button>
+                        <button type="button" id="modal-edit-payer-p2" onclick="selectModalEditPayer('p2')" class="py-2 rounded-xl border text-xs font-bold transition-all"></button>
                     </div>
                 </div>
 
                 <!-- Catégorie (Horizontal Scroll in Modal) -->
                 <div id="modal-edit-cat-section" class="space-y-1.5">
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block">Catégorie</label>
-                    <div class="flex overflow-x-auto gap-2 pb-2 scrollbar-none" id="modal-edit-cat-grid"></div>
+                    <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-none" id="modal-edit-cat-grid"></div>
                     
                     <div id="modal-custom-cat-input-block" class="hidden space-y-2 pt-2 border-t border-slate-850">
                         <label class="text-[10px] text-slate-400 font-bold block">Nouvelle catégorie</label>
                         <div class="flex gap-2">
-                            <input type="text" id="modal-custom-category-name" placeholder="Ex: Voyage..." class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
-                            <button type="button" onclick="applyModalCustomCategoryName()" class="bg-indigo-600 text-white font-bold text-xs px-3 py-2 rounded-lg shadow">Créer</button>
-                            <button type="button" onclick="toggleModalCustomCategoryInput(false)" class="bg-slate-800 text-slate-400 text-xs px-3 py-2 rounded-lg">Annuler</button>
+                            <input type="text" id="modal-custom-category-name" placeholder="Ex: Voyage..." class="flex-1 min-w-0 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none">
+                            <button type="button" onclick="applyModalCustomCategoryName()" class="bg-indigo-600 text-white font-bold text-xs px-3 py-2 rounded-lg shadow whitespace-nowrap">Créer</button>
+                            <button type="button" onclick="toggleModalCustomCategoryInput(false)" class="bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs px-3 py-2 rounded-lg transition-colors whitespace-nowrap">Annuler</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Partage / Splits (Slider + custom boxes) -->
-                <div id="modal-edit-split-section" class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-850/50 space-y-3">
+                <div id="modal-edit-split-section" class="bg-slate-950/40 p-3 rounded-xl border border-slate-850/50 space-y-2">
                     <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                         <span>Partage</span>
                         <span class="text-xs text-indigo-400 font-extrabold" id="modal-edit-split-title">50% / 50%</span>
@@ -527,11 +527,11 @@
             </div>
 
             <!-- Footer Buttons -->
-            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800 shrink-0">
-                <button type="button" onclick="saveModalEdit()" class="py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-xs shadow-lg shadow-indigo-950/40">
+            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800 shrink-0">
+                <button type="button" onclick="saveModalEdit()" class="py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-xs shadow-lg shadow-indigo-950/40">
                     Enregistrer
                 </button>
-                <button type="button" onclick="closeEditTxModal()" class="py-3 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-xs transition-colors">
+                <button type="button" onclick="closeEditTxModal()" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-xs transition-colors">
                     Annuler
                 </button>
             </div>
@@ -1319,8 +1319,8 @@
             const btn1 = document.getElementById('modal-edit-payer-p1');
             const btn2 = document.getElementById('modal-edit-payer-p2');
             
-            const act = "py-2.5 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
-            const inact = "py-2.5 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
+            const act = "py-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
+            const inact = "py-2 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
             
             if (payer === 'p1') { btn1.className = act; btn2.className = inact; }
             else { btn2.className = act; btn1.className = inact; }
@@ -1465,7 +1465,7 @@
                     state.editingTransaction.icon = c.icon;
                     renderModalCategorySelector(); // Redessine les focus
                 };
-                btn.className = `flex-shrink-0 min-w-[76px] px-3 h-12 rounded-xl flex flex-col items-center justify-center border text-xs gap-1 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
+                btn.className = `flex-shrink-0 min-w-[76px] px-3 h-10 rounded-xl flex flex-col items-center justify-center border text-xs gap-0.5 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-800 text-slate-400 bg-slate-900 hover:text-white'}`;
                 btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${c.icon}"></i></span> <span class="text-[9px] font-black whitespace-nowrap">${c.label}</span>`;
                 grid.appendChild(btn);
             });
@@ -1474,7 +1474,7 @@
             const triggerBtn = document.createElement('button');
             triggerBtn.type = "button";
             triggerBtn.onclick = () => toggleModalCustomCategoryInput(true);
-            triggerBtn.className = "flex-shrink-0 min-w-[76px] px-3 h-12 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 font-semibold text-[9px] flex flex-col items-center justify-center gap-1 active:scale-95";
+            triggerBtn.className = "flex-shrink-0 min-w-[76px] px-3 h-10 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 font-semibold text-[9px] flex flex-col items-center justify-center gap-1 active:scale-95";
             triggerBtn.innerHTML = `<i class="fa-solid fa-folder-plus text-xs"></i> <span class="whitespace-nowrap">Nouveau</span>`;
             grid.appendChild(triggerBtn);
         }
