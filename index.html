@@ -98,22 +98,25 @@
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative h-screen max-h-screen border-x border-slate-800/40 overflow-hidden">
         
         <!-- Header & Projects -->
-        <header class="flex justify-between items-center p-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 pt-10 sm:pt-4"> <!-- pt-10 pour notch iOS -->
-            <div class="flex items-center gap-1.5 w-1/4">
-                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></div>
-                <span class="text-[9px] text-slate-400 font-bold tracking-wider uppercase hidden sm:block" id="status-text">Local</span>
+        <header class="flex justify-between items-center p-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 pt-12 sm:pt-4 relative"> <!-- pt-12 pour notch iOS -->
+            <!-- Logo Splittr -->
+            <div class="flex items-center gap-2 z-10">
+                <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-bolt text-[10px] text-white"></i>
+                </div>
+                <span class="text-sm font-black text-white tracking-tight">Splittr.</span>
             </div>
             
             <!-- Sélecteur de Projet -->
-            <div class="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-700/50 flex-1 justify-center max-w-[50%]">
+            <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-800/50 px-2 py-1.5 rounded-xl border border-slate-700/50 w-auto max-w-[40%] justify-center z-10">
                 <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer w-full text-center truncate">
                     <!-- Généré dynamiquement -->
                 </select>
-                <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white pl-1"><i class="fa-solid fa-plus text-xs"></i></button>
+                <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white pl-1 pr-1 shrink-0"><i class="fa-solid fa-plus text-xs"></i></button>
             </div>
 
             <!-- Boutons de droite (Rafraîchir + Paramètres) -->
-            <div class="flex items-center justify-end gap-2 w-1/4">
+            <div class="flex items-center justify-end gap-1.5 z-10">
                 <button onclick="window.location.reload(true)" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
                     <i class="fa-solid fa-rotate-right text-sm"></i>
                 </button>
@@ -122,6 +125,12 @@
                 </button>
             </div>
         </header>
+
+        <!-- Offline Banner -->
+        <div id="offline-banner" class="hidden w-full bg-rose-500/20 border-b border-rose-500/30 px-4 py-2 flex items-center justify-center gap-2 text-rose-400 text-[10px] font-bold z-20 transition-all">
+            <i class="fa-solid fa-wifi"></i>
+            <span>Hors ligne. Synchronisation à la reconnexion.</span>
+        </div>
 
         <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2">
             <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
@@ -1745,9 +1754,13 @@
         }
         
         function handleNetworkChange() {
-            const dot = document.getElementById('status-dot'); const txt = document.getElementById('status-text');
-            if (navigator.onLine) { if (state.supabaseClient) { dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"; if(txt) txt.innerText = "Connecté"; processOfflineQueue(); } else { dot.className = "w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"; if(txt) txt.innerText = "Local"; } } 
-            else { dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"; if(txt) txt.innerText = "Hors ligne"; }
+            const banner = document.getElementById('offline-banner');
+            if (navigator.onLine) { 
+                if(banner) banner.classList.add('hidden');
+                if (state.supabaseClient) processOfflineQueue(); 
+            } else { 
+                if(banner) banner.classList.remove('hidden');
+            }
         }
 
         function populateYearFilterOptions() {
