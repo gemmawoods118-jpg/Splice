@@ -195,6 +195,24 @@
             z-index: 2;
         }
 
+        /* Slide-in for newly-duplicated history rows */
+        @keyframes rowSlideIn {
+            0%   { transform: translateY(-12px) scale(0.96); opacity: 0; max-height: 0; margin-bottom: 0; }
+            40%  { opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; max-height: 120px; }
+        }
+        .row-slide-in {
+            animation: rowSlideIn 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            transform-origin: top center;
+        }
+        .row-slide-in .swipe-content {
+            animation: rowSlideInFlash 1.1s ease-out;
+        }
+        @keyframes rowSlideInFlash {
+            0%, 60% { box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3); }
+            100%    { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
         /* Undo toast (bottom, slides up) */
         @keyframes undoToastIn {
             0%   { transform: translate(-50%, 120%); opacity: 0; }
@@ -464,10 +482,10 @@
 
                                 <div id="custom-cat-input-block" class="hidden space-y-2 pt-2 border-t border-slate-800">
                                     <label class="text-[10px] text-slate-400 font-bold block">Nouvelle catégorie</label>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="custom-category-name" placeholder="Ex: Voyage..." class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
-                                        <button type="button" onclick="applyCustomCategoryName()" class="bg-indigo-600 text-white font-bold text-xs px-3 py-2 rounded-lg shadow">Créer</button>
-                                        <button type="button" onclick="toggleCustomCategoryInput(false)" class="bg-slate-800 text-slate-400 text-xs px-3 py-2 rounded-lg">Annuler</button>
+                                    <input type="text" id="custom-category-name" placeholder="Ex: Voyage..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button type="button" onclick="applyCustomCategoryName()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 rounded-lg shadow active:scale-95 transition-all">Créer</button>
+                                        <button type="button" onclick="toggleCustomCategoryInput(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-2 rounded-lg active:scale-95 transition-all">Annuler</button>
                                     </div>
                                 </div>
 
@@ -674,8 +692,19 @@
                 <button onclick="closeBulkCategoryPicker()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <p class="text-xs text-slate-400 mb-4"><span id="bulk-cat-count">0</span> transaction(s) seront mises à jour.</p>
-            <div id="bulk-cat-grid" class="flex flex-wrap gap-2 mb-4 max-h-[300px] overflow-y-auto"></div>
-            <button onclick="closeBulkCategoryPicker()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors">Annuler</button>
+            <div id="bulk-cat-grid" class="flex flex-wrap gap-2 mb-4 max-h-[280px] overflow-y-auto"></div>
+
+            <!-- New category input (hidden by default) -->
+            <div id="bulk-new-cat-block" class="hidden space-y-2 pt-3 mb-3 border-t border-slate-800">
+                <label class="text-[10px] text-slate-400 font-bold block uppercase tracking-widest">Nouvelle catégorie</label>
+                <input type="text" id="bulk-new-cat-name" placeholder="Ex: Voyage..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-base text-slate-200 focus:outline-none">
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="applyBulkNewCategory()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 rounded-lg shadow active:scale-95 transition-all">Créer & Appliquer</button>
+                    <button type="button" onclick="toggleBulkNewCategoryInput(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-2 rounded-lg active:scale-95 transition-all">Annuler</button>
+                </div>
+            </div>
+
+            <button onclick="closeBulkCategoryPicker()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors">Fermer</button>
         </div>
     </div>
 
@@ -1926,9 +1955,18 @@
         function duplicateExpense(id) {
             const index = state.expenses.findIndex(t => t.id === id); if (index === -1) return;
             const clone = { ...state.expenses[index], id: Date.now() + '_' + Math.random().toString(36).substr(2,5), isEditing: false, created_at: new Date().toISOString() };
-            state.expenses.unshift(clone); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-            showSuccessOverlay("Dupliqué !");
-            if (state.supabaseClient && navigator.onLine) state.supabaseClient.from('expenses').insert([clone]).then(()=>{});
+            // Transient flag — drives the slide-in animation on the next render only
+            clone._animateIn = true;
+            state.expenses.unshift(clone);
+            // Persist WITHOUT the transient animation flag
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses.map(e => { const {_animateIn, ...rest} = e; return rest; })));
+            updateUI();
+            haptic('success');
+            showToast('Dupliqué');
+            if (state.supabaseClient && navigator.onLine) {
+                const {_animateIn, ...persistable} = clone;
+                state.supabaseClient.from('expenses').insert([persistable]).then(()=>{});
+            }
         }
 
         function scanCategory(desc) {
@@ -2741,21 +2779,18 @@
                 mode = 'idle';
 
                 if (finalMode === 'pending-close') {
-                    // Tapped on a row whose drawer was open — close it
                     snapClosed();
-                    return;
+                    return true;
                 }
                 if (finalMode === 'swipe-horizontal') {
                     if (currentX < SWIPE_THRESHOLD) snapOpen();
                     else snapClosed();
-                    return;
+                    return true;
                 }
                 if (finalMode === 'swipe-vertical' || finalMode === 'longpress') {
-                    // already handled (scroll left to OS / long-press already toggled)
-                    return;
+                    return true;
                 }
                 if (finalMode === 'pending') {
-                    // Clean tap with no motion — open edit or toggle selection
                     if (state.selectedIds.size > 0) {
                         haptic('light');
                         toggleMultiSelect(id);
@@ -2763,23 +2798,29 @@
                         haptic('light');
                         toggleHistoryEdit(id, true);
                     }
+                    return true;
                 }
+                // mode was 'idle' — event came from a child button (e.g. duplicate);
+                // do NOT preventDefault, let the click chain fire normally
+                return false;
             };
 
             const onCancel = () => {
                 clearLP();
                 mode = 'idle';
-                if (content.style.transform) snapClosed();
+                if (content.style.transform && openSwipeWrapper !== wrapper) snapClosed();
             };
 
             content.addEventListener('touchstart', (e) => { onStart(e); }, { passive: true });
             content.addEventListener('touchmove', onMove, { passive: true });
             content.addEventListener('touchend', (e) => {
-                onEnd(e);
-                // Suppress the synthesized mousedown/mouseup/click that iOS fires after touchend.
-                // Without this, a tap in multi-select mode would toggle the item twice (select then deselect).
-                content.dataset.lastTouchAt = Date.now();
-                if (e.cancelable) e.preventDefault();
+                const handled = onEnd(e);
+                if (handled) {
+                    // Suppress iOS-synthesized mousedown/mouseup/click that would re-toggle the item.
+                    content.dataset.lastTouchAt = Date.now();
+                    if (e.cancelable) e.preventDefault();
+                }
+                // If not handled (event came from a child button), let the synthesized click fire.
             }, { passive: false });
             content.addEventListener('touchcancel', onCancel);
 
@@ -2858,15 +2899,51 @@
             const grid = document.getElementById('bulk-cat-grid');
             const count = document.getElementById('bulk-cat-count');
             count.innerText = state.selectedIds.size;
-            grid.innerHTML = state.categories.map(c =>
+            toggleBulkNewCategoryInput(false);
+            const catButtons = state.categories.map(c =>
                 `<button onclick="applyBulkCategory('${c.label.replace(/'/g, "\\'")}', '${c.icon}')" class="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border border-slate-700/60 bg-slate-800/40 text-slate-200 hover:border-indigo-500 hover:text-indigo-300 transition-all active:scale-95">
                     <i class="fa-solid ${c.icon}" style="color: ${categoryColor(c.label)};"></i>${c.label}
                 </button>`
             ).join('');
+            const newBtn = `<button onclick="toggleBulkNewCategoryInput(true)" class="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border border-dashed border-indigo-500/50 bg-indigo-500/5 text-indigo-400 hover:text-indigo-300 active:scale-95 transition-all">
+                <i class="fa-solid fa-folder-plus"></i>Nouvelle
+            </button>`;
+            grid.innerHTML = catButtons + newBtn;
             modal.classList.remove('hidden');
+        }
+        function toggleBulkNewCategoryInput(show) {
+            const block = document.getElementById('bulk-new-cat-block');
+            const grid = document.getElementById('bulk-cat-grid');
+            const input = document.getElementById('bulk-new-cat-name');
+            if (show) {
+                block.classList.remove('hidden');
+                grid.classList.add('hidden');
+                if (input) { input.value = ''; setTimeout(() => input.focus(), 80); }
+            } else {
+                block.classList.add('hidden');
+                grid.classList.remove('hidden');
+                if (input) input.value = '';
+            }
+        }
+        function applyBulkNewCategory() {
+            const inputVal = (document.getElementById('bulk-new-cat-name').value || '').trim();
+            if (!inputVal) return;
+            const formattedName = inputVal.charAt(0).toUpperCase() + inputVal.slice(1);
+            const existing = state.categories.find(c => c.label.toLowerCase() === formattedName.toLowerCase());
+            if (existing) {
+                applyBulkCategory(existing.label, existing.icon);
+                return;
+            }
+            const newCat = { label: formattedName, icon: 'fa-tag', color: 'text-violet-400', presets: [formattedName] };
+            state.categories.push(newCat);
+            localStorage.setItem('us_custom_categories', JSON.stringify(state.categories));
+            try { renderCategorySelector(); } catch(e) {}
+            try { renderHistoryCategoryFilters(); } catch(e) {}
+            applyBulkCategory(newCat.label, newCat.icon);
         }
         function closeBulkCategoryPicker() {
             document.getElementById('bulk-cat-modal').classList.add('hidden');
+            toggleBulkNewCategoryInput(false);
         }
         async function applyBulkCategory(categoryLabel, iconClass) {
             const ids = Array.from(state.selectedIds);
@@ -2974,7 +3051,12 @@
                     const color = categoryColor(exp.category || 'Autre');
                     const wrapper = document.createElement('div');
                     wrapper.id = `history-item-${exp.id}`;
-                    wrapper.className = 'swipe-wrapper relative transition-all duration-300';
+                    const animClass = exp._animateIn ? ' row-slide-in' : '';
+                    wrapper.className = 'swipe-wrapper relative transition-all duration-300' + animClass;
+                    if (exp._animateIn) {
+                        // Clear flag after this render so it only animates once
+                        delete exp._animateIn;
+                    }
                     wrapper.innerHTML = `
                         <div class="swipe-actions">
                             <button class="swipe-action-btn swipe-action-edit" onclick="toggleHistoryEdit('${exp.id}',true)" aria-label="Modifier">
