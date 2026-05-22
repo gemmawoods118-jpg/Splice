@@ -568,6 +568,15 @@
 
     <!-- Application Script Engine -->
     <script>
+        // Request Web Badge Permissions
+        async function requestBadgePermission() {
+            if ('Notification' in window && navigator.setAppBadge) {
+                if (Notification.permission === 'default') {
+                    try { await Notification.requestPermission(); } catch (e) {}
+                }
+            }
+        }
+
         const smartCategories = [
             { keywords: ['course', 'courses', 'supermarche', 'aldi', 'lidl', 'carrefour', 'leclerc', 'auchan', 'nourriture', 'boucherie', 'monop', 'monoprix', 'franprix'], label: 'Courses', icon: 'fa-cart-shopping', color: 'text-amber-400', bgClass: 'bg-amber-500/10', borderClass: 'border-amber-500/20' },
             { keywords: ['café', 'cafe', 'resto', 'restaurant', 'diner', 'burger', 'pizza', 'uber eats', 'deliveroo', 'boulangerie', 'mcdo', 'sushi', 'starbucks', 'bar'], label: 'Resto & Café', icon: 'fa-utensils', color: 'text-emerald-400', bgClass: 'bg-emerald-500/10', borderClass: 'border-emerald-500/20' },
@@ -1645,9 +1654,13 @@
             return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'transparent' };
         }
 
-        function simulateIncomingWebhook() {
+        async function simulateIncomingWebhook() {
+            await requestBadgePermission();
             const mock = { id: 'auto_' + Date.now(), amount: 32.50, payer: 'p1', description: 'Uber Eats', category: 'Resto & Café', icon: 'fa-utensils', p1SharePercent: 50, p2SharePercent: 50, approved: false, isEditing: false, type: 'depense', project: state.config.activeProject, created_at: new Date().toISOString() };
             state.expenses.unshift(mock); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); switchView('inbox');
+            if (state.supabaseClient && navigator.onLine) {
+                try { await state.supabaseClient.from('expenses').insert([mock]); } catch (e) { queueSync(mock); }
+            } else { queueSync(mock); }
         }
 
         function toggleInboxEdit(id, show) {
@@ -1817,6 +1830,8 @@
         }
 
         function switchView(viewName) {
+            if (viewName === 'inbox') requestBadgePermission();
+
             ['view-saisie', 'view-inbox', 'view-analyse', 'view-history'].forEach(v => {
                 const el = document.getElementById(v); 
                 if(el) {
@@ -1937,7 +1952,7 @@
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-850 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
-                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-500 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
+                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
                             </div>`;
                             inList.appendChild(c);
                         });
