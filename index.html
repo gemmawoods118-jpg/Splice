@@ -56,6 +56,23 @@
             100% { transform: scale(1); opacity: 1; }
         }
         .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        /* Toast Bounce Animations */
+        @keyframes toastPop {
+            0% { top: 0px; opacity: 0; transform: translateX(-50%) scale(0.8); }
+            60% { top: 85px; opacity: 1; transform: translateX(-50%) scale(1.05); }
+            100% { top: 80px; opacity: 1; transform: translateX(-50%) scale(1); }
+        }
+        .toast-enter {
+            animation: toastPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes toastFadeOut {
+            0% { top: 80px; opacity: 1; transform: translateX(-50%) scale(1); }
+            100% { top: 80px; opacity: 0; transform: translateX(-50%) scale(0.9); }
+        }
+        .toast-exit {
+            animation: toastFadeOut 0.3s ease forwards;
+        }
     </style>
 </head>
 <body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]">
@@ -106,7 +123,7 @@
             </div>
         </header>
 
-        <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 transition-all">
+        <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2">
             <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
             <span id="toast-message" class="flex-1">Notification</span>
         </div>
@@ -592,13 +609,39 @@
 
         function safeSetInnerText(id, text) { const el = document.getElementById(id); if (el) el.innerText = text; }
 
+        function showSuccessOverlay(msg = "Enregistré !") {
+            const overlay = document.getElementById('success-overlay');
+            const icon = document.getElementById('success-icon');
+            const txt = document.getElementById('success-text');
+            if(txt) txt.innerText = msg;
+            if(overlay) {
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+                setTimeout(() => { icon.classList.add('animate-pop'); icon.classList.remove('scale-0'); txt.classList.remove('opacity-0', 'translate-y-4'); }, 150);
+                setTimeout(() => { 
+                    overlay.classList.add('opacity-0'); 
+                    setTimeout(() => { 
+                        overlay.classList.add('hidden'); 
+                        icon.classList.remove('animate-pop'); 
+                        icon.classList.add('scale-0'); 
+                        txt.classList.add('opacity-0', 'translate-y-4'); 
+                    }, 300); 
+                }, 1500);
+            }
+        }
+
         function showToast(message) {
             const toast = document.getElementById('toast-banner');
             const toastMsg = document.getElementById('toast-message');
             if (toastMsg) toastMsg.innerText = message;
             if (toast) { 
-                toast.classList.remove('hidden'); 
-                setTimeout(() => toast.classList.add('hidden'), 3000); 
+                toast.classList.remove('hidden', 'toast-exit');
+                toast.classList.add('toast-enter');
+                setTimeout(() => {
+                    toast.classList.remove('toast-enter');
+                    toast.classList.add('toast-exit');
+                    setTimeout(() => toast.classList.add('hidden'), 300);
+                }, 2500); 
             }
         }
 
@@ -669,7 +712,7 @@
             scrollArea.addEventListener('touchmove', e => {
                 if (scrollArea.scrollTop === 0 && touchstartY > 0) {
                     ptry = e.touches[0].clientY - touchstartY;
-                    if (ptry > 0 && ptry < 120) {
+                    if (ptry > 0 && ptry < 140) {
                         ptrIndicator.style.height = (ptry / 2) + 'px'; 
                         ptrIndicator.style.opacity = Math.min(ptry / 80, 1).toString();
                     }
@@ -678,7 +721,7 @@
 
             scrollArea.addEventListener('touchend', e => {
                 if (ptry > 80) {
-                    ptrIndicator.style.height = '40px';
+                    ptrIndicator.style.height = '60px';
                     ptrIndicator.style.opacity = '1';
                     setTimeout(() => window.location.reload(true), 300);
                 } else {
@@ -1273,13 +1316,7 @@
             amtIn.value = ''; if (descIn) descIn.value = '';
             selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); amtIn.blur();
             
-            const overlay = document.getElementById('success-overlay');
-            const icon = document.getElementById('success-icon');
-            const txt = document.getElementById('success-text');
-            overlay.classList.remove('hidden');
-            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
-            setTimeout(() => { icon.classList.add('animate-pop'); icon.classList.remove('scale-0'); txt.classList.remove('opacity-0', 'translate-y-4'); }, 150);
-            setTimeout(() => { overlay.classList.add('opacity-0'); setTimeout(() => { overlay.classList.add('hidden'); icon.classList.remove('animate-pop'); icon.classList.add('scale-0'); txt.classList.add('opacity-0', 'translate-y-4'); }, 300); }, 1500);
+            showSuccessOverlay("Enregistré !");
 
             if (state.supabaseClient && navigator.onLine) {
                 try { await state.supabaseClient.from('expenses').insert([newExpense]); } catch (e) { queueSync(newExpense); }
@@ -1598,7 +1635,7 @@
             const index = state.expenses.findIndex(t => t.id === id); if (index === -1) return;
             const clone = { ...state.expenses[index], id: Date.now() + '_' + Math.random().toString(36).substr(2,5), isEditing: false, created_at: new Date().toISOString() };
             state.expenses.unshift(clone); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-            confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 }, colors: ['#6366f1', '#10b981'] }); showToast("Dupliqué !");
+            showSuccessOverlay("Dupliqué !");
             if (state.supabaseClient && navigator.onLine) state.supabaseClient.from('expenses').insert([clone]).then(()=>{});
         }
 
@@ -1617,20 +1654,42 @@
             toggleHistoryEdit(id, show);
         }
 
+        // SMOOTH DISMISS ANIMATION
+        async function smoothDismiss(elId, direction = 100) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            
+            // 1. Slide out 
+            el.style.transform = `translateX(${direction}%)`;
+            el.style.opacity = '0';
+            await new Promise(r => setTimeout(r, 300));
+            
+            // 2. Lock current size then shrink gracefully
+            el.style.height = el.offsetHeight + 'px';
+            el.style.overflow = 'hidden';
+            el.offsetHeight; // Force reflow
+            
+            el.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            el.style.height = '0px';
+            el.style.paddingTop = '0px';
+            el.style.paddingBottom = '0px';
+            el.style.marginTop = '0px';
+            el.style.marginBottom = '0px';
+            el.style.borderWidth = '0px';
+            
+            await new Promise(r => setTimeout(r, 300));
+        }
+
         async function approveTransaction(id) {
-            const el = document.getElementById(`inbox-item-${id}`);
-            if (el) {
-                el.style.transform = 'translateX(100%)';
-                el.style.opacity = '0';
-                await new Promise(r => setTimeout(r, 300));
-            }
+            await smoothDismiss(`inbox-item-${id}`, 100);
+            
             const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
             state.expenses[idx].approved = true; state.expenses[idx].isEditing = false;
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); 
             
             const remaining = state.expenses.filter(e => e.approved === false && (e.project === state.config.activeProject || (!e.project && state.config.activeProject === 'Principal')));
             if (remaining.length === 0) {
-                confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#6366f1', '#f59e0b'] });
+                showSuccessOverlay("Tout est validé !");
             }
             
             updateUI(); 
@@ -1638,23 +1697,13 @@
         }
 
         async function rejectTransaction(id) {
-            const el = document.getElementById(`inbox-item-${id}`);
-            if (el) {
-                el.style.transform = 'translateX(-100%)';
-                el.style.opacity = '0';
-                await new Promise(r => setTimeout(r, 300));
-            }
+            await smoothDismiss(`inbox-item-${id}`, -100);
             state.expenses = state.expenses.filter(t => t.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
             if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').delete().eq('id', id); } catch (e) {} }
         }
 
         async function deleteExpense(id) {
-            const el = document.getElementById(`history-item-${id}`);
-            if (el) {
-                el.style.transform = 'translateX(-100%)';
-                el.style.opacity = '0';
-                await new Promise(r => setTimeout(r, 300));
-            }
+            await smoothDismiss(`history-item-${id}`, -100);
             state.expenses = state.expenses.filter(exp => exp.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
             if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').delete().eq('id', id); } catch (e) {} }
         }
@@ -1814,6 +1863,19 @@
                 const approvedExpenses = proExps.filter(exp => exp.approved !== false);
                 const unapprovedExpenses = proExps.filter(exp => exp.approved === false);
 
+                // Update Web App Badge (iOS 16.4+)
+                if ('setAppBadge' in navigator) {
+                    try {
+                        if (unapprovedExpenses.length > 0) {
+                            navigator.setAppBadge(unapprovedExpenses.length);
+                        } else {
+                            navigator.clearAppBadge();
+                        }
+                    } catch (e) {
+                        console.log("Badge error:", e);
+                    }
+                }
+
                 let d1 = 0; let d2 = 0; let t1 = 0; let t2 = 0; let s1 = 0; let s2 = 0; let totalGroup = 0;
                 approvedExpenses.forEach(exp => {
                     const sp1 = exp.p1SharePercent ?? 50; const sp2 = exp.p2SharePercent ?? 50;
@@ -1875,7 +1937,7 @@
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-850 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
-                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-rose-400 border border-slate-750/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
+                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-500 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
                             </div>`;
                             inList.appendChild(c);
                         });
