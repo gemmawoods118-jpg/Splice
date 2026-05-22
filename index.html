@@ -1577,7 +1577,14 @@
             }
             const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
             state.expenses[idx].approved = true; state.expenses[idx].isEditing = false;
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); confetti({ particleCount: 60, spread: 40, origin: { y: 0.8 }, colors: ['#10b981'] });
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); 
+            
+            const remaining = state.expenses.filter(e => e.approved === false && (e.project === state.config.activeProject || (!e.project && state.config.activeProject === 'Principal')));
+            if (remaining.length === 0) {
+                confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#6366f1', '#f59e0b'] });
+            }
+            
+            updateUI(); 
             if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').upsert([state.expenses[idx]]); } catch (e) {} }
         }
 
