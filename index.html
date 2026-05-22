@@ -95,7 +95,11 @@
                 <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white pl-1"><i class="fa-solid fa-plus text-xs"></i></button>
             </div>
 
-            <div class="flex items-center justify-end gap-3 w-1/4">
+            <!-- Boutons de droite (Rafraîchir + Paramètres) -->
+            <div class="flex items-center justify-end gap-2 w-1/4">
+                <button onclick="window.location.reload(true)" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
+                    <i class="fa-solid fa-rotate-right text-sm"></i>
+                </button>
                 <button onclick="toggleSettingsModal(true)" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
                     <i class="fa-solid fa-gear text-sm"></i>
                 </button>
@@ -107,8 +111,15 @@
             <span id="toast-message" class="flex-1">Notification</span>
         </div>
 
+        <!-- Pull to refresh indicator -->
+        <div id="ptr-indicator" class="w-full flex justify-center items-center h-0 overflow-hidden transition-all duration-200 opacity-0 bg-transparent shrink-0">
+            <div class="bg-slate-800 p-2 rounded-full shadow-lg border border-slate-700">
+                <i class="fa-solid fa-rotate-right text-indigo-400 animate-spin"></i>
+            </div>
+        </div>
+
         <!-- Scrollable Content Area -->
-        <div class="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-28">
+        <div id="main-scroll-area" class="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-28">
 
             <!-- TRICOUNT STYLE BALANCE DASHBOARD -->
             <section class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-4 border border-slate-700/50 shadow-lg relative overflow-hidden">
@@ -642,6 +653,43 @@
             } catch(e) { console.error("Icon Gen Error:", e); }
         }
 
+        // Pull-to-refresh logic
+        function initPullToRefresh() {
+            let touchstartY = 0;
+            let ptry = 0;
+            const scrollArea = document.getElementById('main-scroll-area');
+            const ptrIndicator = document.getElementById('ptr-indicator');
+
+            if (!scrollArea || !ptrIndicator) return;
+
+            scrollArea.addEventListener('touchstart', e => {
+                if (scrollArea.scrollTop === 0) touchstartY = e.touches[0].clientY;
+            }, {passive: true});
+
+            scrollArea.addEventListener('touchmove', e => {
+                if (scrollArea.scrollTop === 0 && touchstartY > 0) {
+                    ptry = e.touches[0].clientY - touchstartY;
+                    if (ptry > 0 && ptry < 120) {
+                        ptrIndicator.style.height = (ptry / 2) + 'px'; 
+                        ptrIndicator.style.opacity = Math.min(ptry / 80, 1).toString();
+                    }
+                }
+            }, {passive: true});
+
+            scrollArea.addEventListener('touchend', e => {
+                if (ptry > 80) {
+                    ptrIndicator.style.height = '40px';
+                    ptrIndicator.style.opacity = '1';
+                    setTimeout(() => window.location.reload(true), 300);
+                } else {
+                    ptrIndicator.style.height = '0px';
+                    ptrIndicator.style.opacity = '0';
+                }
+                touchstartY = 0;
+                ptry = 0;
+            });
+        }
+
         function saveConfiguration() {
             state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
             state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
@@ -716,6 +764,7 @@
 
         function initApp() {
             generateAndSetAppIcon();
+            initPullToRefresh();
 
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
@@ -1319,8 +1368,8 @@
             const btn1 = document.getElementById('modal-edit-payer-p1');
             const btn2 = document.getElementById('modal-edit-payer-p2');
             
-            const act = "py-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
-            const inact = "py-2 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
+            const act = "py-2.5 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
+            const inact = "py-2.5 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
             
             if (payer === 'p1') { btn1.className = act; btn2.className = inact; }
             else { btn2.className = act; btn1.className = inact; }
