@@ -615,20 +615,20 @@
                 <div class="flex justify-between items-center"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Transactions</h3><span class="text-[11px] font-semibold text-slate-500" id="history-count">0 dépense</span></div>
                 
                 <!-- Multi-select toolbar (shown when items are selected) -->
-                <div id="multi-select-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-lg shadow-indigo-950/30">
-                    <div class="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-                        <span class="bg-indigo-500 text-white text-[11px] font-black rounded-full min-w-[22px] h-[22px] inline-flex items-center justify-center px-1.5" id="multi-select-count">0</span>
-                        <span class="text-[11px] font-bold text-indigo-300">Sélectionné(s)</span>
+                <div id="multi-select-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl p-3 flex items-center justify-between gap-2 shadow-lg shadow-indigo-950/30">
+                    <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                        <span class="bg-indigo-500 text-white text-sm font-black rounded-full min-w-[28px] h-[28px] inline-flex items-center justify-center px-2" id="multi-select-count">0</span>
+                        <span class="text-sm font-bold text-indigo-300">Sélectionné(s)</span>
                     </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                        <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-amber-500/30 transition-all active:scale-95 whitespace-nowrap" aria-label="Changer la catégorie">
-                            <i class="fa-solid fa-tag"></i>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-amber-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Changer la catégorie">
+                            <i class="fa-solid fa-tag text-base"></i>
                         </button>
-                        <button onclick="bulkDeleteSelected()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition-all active:scale-95 whitespace-nowrap" aria-label="Supprimer">
-                            <i class="fa-solid fa-trash-can"></i>
+                        <button onclick="bulkDeleteSelected()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-rose-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Supprimer">
+                            <i class="fa-solid fa-trash-can text-base"></i>
                         </button>
-                        <button onclick="clearMultiSelect()" class="text-slate-400 hover:text-white p-1.5 shrink-0" aria-label="Annuler">
-                            <i class="fa-solid fa-xmark text-sm"></i>
+                        <button onclick="clearMultiSelect()" class="text-slate-400 hover:text-white w-10 h-10 flex items-center justify-center shrink-0" aria-label="Annuler">
+                            <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
                     </div>
                 </div>
@@ -2586,80 +2586,145 @@
 
         // ---------- 8. MULTI-SELECT ----------
         state.selectedIds = new Set();
-        const TAP_MOVE_TOLERANCE = 8;
+        const TAP_TOLERANCE = 12;       // total movement that still counts as a tap
+        const SWIPE_AXIS_LOCK = 8;      // movement before deciding swipe vs scroll
+        const SWIPE_MAX = -144;
+        const SWIPE_THRESHOLD = -80;
+        const LONG_PRESS_MS = 500;
 
-        // Per-element handlers (no shared module-level state — avoids race conditions)
-        function bindTapAndLongPress(el, id) {
-            let lpTimer = null;
+        // SINGLE unified gesture handler per row: tap, long-press, AND swipe in one closure.
+        // Avoids any race between separate handlers fighting over the same touch events.
+        function bindRowGestures(wrapper, id) {
+            const content = wrapper.querySelector('.swipe-content');
+            const actions = wrapper.querySelector('.swipe-actions');
+            if (!content) return;
+
             let startX = 0, startY = 0;
-            let moved = false;
-            let longPressed = false;
-            let active = false;
+            let lpTimer = null;
+            let mode = 'idle'; // 'idle' | 'pending' | 'swipe-horizontal' | 'swipe-vertical' | 'longpress'
+            let currentX = 0;
 
-            const reset = () => {
+            const setTransform = (x) => {
+                content.style.transform = `translateX(${x}px)`;
+                if (actions) actions.style.transform = `translateX(${x}px)`;
+            };
+            const snapOpen = () => {
+                content.classList.remove('swiping');
+                if (actions) actions.classList.remove('swiping');
+                setTransform(SWIPE_MAX);
+            };
+            const snapClosed = () => {
+                content.classList.remove('swiping');
+                if (actions) actions.classList.remove('swiping');
+                content.style.transform = '';
+                if (actions) actions.style.transform = '';
+            };
+            const clearLP = () => {
                 if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
-                active = false;
-                moved = false;
-                longPressed = false;
             };
 
             const onStart = (e) => {
+                // Reset state
                 const pt = e.touches ? e.touches[0] : e;
                 startX = pt.clientX;
                 startY = pt.clientY;
-                moved = false;
-                longPressed = false;
-                active = true;
-                // Always arm long-press if not already in multi-select; once in multi-select, tap toggles
+                currentX = 0;
+                mode = 'pending';
+                clearLP();
+
+                // Arm long-press only when NOT in multi-select mode
                 if (state.selectedIds.size === 0) {
                     lpTimer = setTimeout(() => {
-                        if (active && !moved) {
-                            longPressed = true;
+                        if (mode === 'pending') {
+                            mode = 'longpress';
                             haptic('medium');
                             toggleMultiSelect(id);
                         }
                         lpTimer = null;
-                    }, 500);
+                    }, LONG_PRESS_MS);
                 }
             };
 
             const onMove = (e) => {
-                if (!active) return;
+                if (mode === 'idle' || mode === 'longpress') return;
                 const pt = e.touches ? e.touches[0] : e;
-                const dx = Math.abs(pt.clientX - startX);
-                const dy = Math.abs(pt.clientY - startY);
-                if (dx > TAP_MOVE_TOLERANCE || dy > TAP_MOVE_TOLERANCE) {
-                    moved = true;
-                    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+                const dx = pt.clientX - startX;
+                const dy = pt.clientY - startY;
+
+                // While still pending, decide whether this is a swipe vs vertical scroll
+                if (mode === 'pending') {
+                    if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return;
+                    if (Math.abs(dy) > Math.abs(dx)) {
+                        // Vertical scroll — give up on swipe, abandon tap (mode stays as vertical so end ignores)
+                        mode = 'swipe-vertical';
+                        clearLP();
+                        return;
+                    }
+                    // Horizontal — commit to swipe
+                    if (state.selectedIds.size > 0) {
+                        // No swipe in multi-select; treat as moved → cancel tap
+                        mode = 'swipe-vertical'; // reuse the "no-op" state
+                        clearLP();
+                        return;
+                    }
+                    mode = 'swipe-horizontal';
+                    clearLP();
+                    content.classList.add('swiping');
+                    if (actions) actions.classList.add('swiping');
+                }
+
+                if (mode === 'swipe-horizontal') {
+                    currentX = Math.max(SWIPE_MAX, Math.min(0, dx));
+                    setTransform(currentX);
                 }
             };
 
-            const onEnd = (e) => {
-                if (!active) return;
-                const wasMoved = moved;
-                const wasLongPressed = longPressed;
-                reset();
-                if (wasMoved || wasLongPressed) return; // swipe or long-press already handled
-                // A clean tap — decide action based on current mode
-                if (state.selectedIds.size > 0) {
-                    haptic('light');
-                    toggleMultiSelect(id);
-                } else {
-                    haptic('light');
-                    toggleHistoryEdit(id, true);
+            const onEnd = () => {
+                clearLP();
+                const finalMode = mode;
+                mode = 'idle';
+
+                if (finalMode === 'swipe-horizontal') {
+                    if (currentX < SWIPE_THRESHOLD) snapOpen();
+                    else snapClosed();
+                    return;
+                }
+                if (finalMode === 'swipe-vertical' || finalMode === 'longpress') {
+                    // already handled (scroll left to OS / long-press already toggled)
+                    return;
+                }
+                if (finalMode === 'pending') {
+                    // Clean tap with no motion — open edit or toggle selection
+                    if (state.selectedIds.size > 0) {
+                        haptic('light');
+                        toggleMultiSelect(id);
+                    } else {
+                        haptic('light');
+                        toggleHistoryEdit(id, true);
+                    }
                 }
             };
 
-            el.addEventListener('touchstart', onStart, { passive: true });
-            el.addEventListener('touchmove', onMove, { passive: true });
-            el.addEventListener('touchend', onEnd);
-            el.addEventListener('touchcancel', reset);
-            el.addEventListener('mousedown', onStart);
-            el.addEventListener('mousemove', onMove);
-            el.addEventListener('mouseup', onEnd);
-            el.addEventListener('mouseleave', reset);
+            const onCancel = () => {
+                clearLP();
+                mode = 'idle';
+                if (content.style.transform) snapClosed();
+            };
+
+            content.addEventListener('touchstart', onStart, { passive: true });
+            content.addEventListener('touchmove', onMove, { passive: true });
+            content.addEventListener('touchend', onEnd);
+            content.addEventListener('touchcancel', onCancel);
+            content.addEventListener('mousedown', onStart);
+            content.addEventListener('mousemove', onMove);
+            content.addEventListener('mouseup', onEnd);
+            content.addEventListener('mouseleave', onCancel);
         }
-        function bindLongPress(el, id) { bindTapAndLongPress(el, id); }
+
+        // Backward-compat shims
+        function bindTapAndLongPress(el, id) {/* no-op, handled by bindRowGestures */}
+        function bindLongPress(el, id) {/* no-op */}
+        function bindSwipe(wrapper, id) {/* no-op, handled by bindRowGestures */}
 
         function toggleMultiSelect(id) {
             if (state.selectedIds.has(id)) state.selectedIds.delete(id);
@@ -2770,80 +2835,7 @@
             });
         }
 
-        // ---------- 9. SWIPE-TO-DELETE ----------
-        function bindSwipe(wrapper, id) {
-            const content = wrapper.querySelector('.swipe-content');
-            const actions = wrapper.querySelector('.swipe-actions');
-            if (!content || !actions) return;
-            let startX = 0, startY = 0, currentX = 0, dragging = false, locked = false;
-            const threshold = -80;
-            const max = -144;
-            const AXIS_LOCK_THRESHOLD = 6;
-
-            const apply = (x) => {
-                content.style.transform = `translateX(${x}px)`;
-                actions.style.transform = `translateX(${x}px)`;
-            };
-            const reset = () => {
-                content.style.transform = '';
-                actions.style.transform = '';
-            };
-            const open = () => {
-                content.style.transform = `translateX(${max}px)`;
-                actions.style.transform = `translateX(${max}px)`;
-            };
-
-            const onStart = (e) => {
-                if (state.selectedIds.size > 0) return; // disabled in multi-select
-                const pt = e.touches ? e.touches[0] : e;
-                startX = pt.clientX;
-                startY = pt.clientY;
-                currentX = 0;
-                dragging = false;
-                locked = false;
-            };
-            const onMove = (e) => {
-                if (state.selectedIds.size > 0) return;
-                const pt = e.touches ? e.touches[0] : e;
-                const dx = pt.clientX - startX;
-                const dy = pt.clientY - startY;
-                // Lock axis once movement is decisive: horizontal vs vertical scroll
-                if (!locked) {
-                    if (Math.abs(dx) < AXIS_LOCK_THRESHOLD && Math.abs(dy) < AXIS_LOCK_THRESHOLD) return;
-                    if (Math.abs(dy) > Math.abs(dx)) {
-                        // Vertical scroll — abandon the swipe
-                        locked = true;
-                        dragging = false;
-                        return;
-                    }
-                    // Horizontal swipe wins
-                    locked = true;
-                    dragging = true;
-                    content.classList.add('swiping');
-                    actions.classList.add('swiping');
-                }
-                if (!dragging) return;
-                currentX = Math.max(max, Math.min(0, dx));
-                apply(currentX);
-            };
-            const onEnd = () => {
-                content.classList.remove('swiping');
-                actions.classList.remove('swiping');
-                if (!dragging) { dragging = false; locked = false; return; }
-                dragging = false;
-                locked = false;
-                if (currentX < threshold) open();
-                else reset();
-            };
-            content.addEventListener('touchstart', onStart, { passive: true });
-            content.addEventListener('touchmove', onMove, { passive: true });
-            content.addEventListener('touchend', onEnd);
-            content.addEventListener('touchcancel', onEnd);
-            content.addEventListener('mousedown', onStart);
-            content.addEventListener('mousemove', e => { if (locked || (Math.abs(e.clientX - startX) > AXIS_LOCK_THRESHOLD)) onMove(e); });
-            content.addEventListener('mouseup', onEnd);
-            content.addEventListener('mouseleave', onEnd);
-        }
+        // ---------- 9. SWIPE — handled inside bindRowGestures above ----------
 
         // ---------- 10. DATE GROUPING + COLOR-CODED ICONS + LARGER TOUCH + SKELETON ----------
         // Date label helper
@@ -2936,8 +2928,7 @@
                         </div>
                     `;
                     list.appendChild(wrapper);
-                    bindSwipe(wrapper, exp.id);
-                    bindLongPress(wrapper.querySelector('.swipe-content'), exp.id);
+                    bindRowGestures(wrapper, exp.id);
                     // Restore selected state if any
                     if (state.selectedIds.has(exp.id)) {
                         wrapper.querySelector('.swipe-content').classList.add('history-item-selected');
