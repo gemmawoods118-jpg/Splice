@@ -439,22 +439,22 @@
                     <input type="text" id="modal-edit-desc" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none">
                 </div>
                 
-                <!-- Date -->
-                <div>
-                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
-                    <input type="date" id="modal-edit-date" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-2.5 px-3.5 text-base text-slate-200 focus:outline-none [color-scheme:dark]">
-                </div>
-
-                <!-- Montant avec mini calculatrice intégrée -->
-                <div>
-                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
-                    <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-3 px-4 text-xl text-slate-200 focus:outline-none text-center font-black math-input">
-                    <!-- Mini-Calculatrice Keyboard Row -->
-                    <div class="flex gap-1.5 mt-2 justify-center">
-                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">+</button>
-                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">-</button>
-                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">×</button>
-                        <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 transition-colors">÷</button>
+                <!-- Date et Montant (Empilés verticalement pour éviter tout débordement iOS) -->
+                <div class="space-y-4">
+                    <div class="w-full">
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Date</label>
+                        <input type="date" id="modal-edit-date" class="w-full block bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-3 px-3.5 text-sm text-slate-200 focus:outline-none [color-scheme:dark] appearance-none m-0">
+                    </div>
+                    <div class="w-full">
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Montant (<span class="currency-display">€</span>)</label>
+                        <input type="text" inputmode="decimal" id="modal-edit-amount" onblur="evaluateMath(this)" oninput="onModalEditAmountInput(this.value)" class="w-full block bg-slate-950 border border-slate-850 focus:border-indigo-500 rounded-xl py-3 px-3.5 text-xl text-slate-200 focus:outline-none text-center font-black math-input m-0">
+                        <!-- Mini-Calculatrice Keyboard Row -->
+                        <div class="flex gap-1.5 mt-2 justify-center">
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '+')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">+</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '-')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">-</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '*')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">×</button>
+                            <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="flex-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-400 font-black py-2 rounded-lg text-lg border border-slate-700/50 shadow-sm transition-colors">÷</button>
+                        </div>
                     </div>
                 </div>
 
