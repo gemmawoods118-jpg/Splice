@@ -2592,6 +2592,30 @@
         const SWIPE_THRESHOLD = -80;
         const LONG_PRESS_MS = 500;
 
+        // Track the single currently-open swipe drawer (if any) so tapping elsewhere closes it
+        let openSwipeWrapper = null;
+        function closeOpenSwipe() {
+            if (!openSwipeWrapper) return;
+            const c = openSwipeWrapper.querySelector('.swipe-content');
+            const a = openSwipeWrapper.querySelector('.swipe-actions');
+            if (c) c.style.transform = '';
+            if (a) a.style.transform = '';
+            openSwipeWrapper = null;
+        }
+        // Global "tap outside" listener — closes any open drawer when tapping elsewhere.
+        // Uses touchstart (and mousedown for desktop) on document so it runs BEFORE any other handler.
+        document.addEventListener('touchstart', (e) => {
+            if (!openSwipeWrapper) return;
+            // If the tap is inside the open drawer OR on its action buttons, leave it alone
+            if (openSwipeWrapper.contains(e.target)) return;
+            closeOpenSwipe();
+        }, { passive: true, capture: true });
+        document.addEventListener('mousedown', (e) => {
+            if (!openSwipeWrapper) return;
+            if (openSwipeWrapper.contains(e.target)) return;
+            closeOpenSwipe();
+        }, { capture: true });
+
         // SINGLE unified gesture handler per row: tap, long-press, AND swipe in one closure.
         // Avoids any race between separate handlers fighting over the same touch events.
         function bindRowGestures(wrapper, id) {
@@ -2600,8 +2624,9 @@
             if (!content) return;
 
             let startX = 0, startY = 0;
+            let startBaseline = 0;
             let lpTimer = null;
-            let mode = 'idle'; // 'idle' | 'pending' | 'swipe-horizontal' | 'swipe-vertical' | 'longpress'
+            let mode = 'idle'; // 'idle' | 'pending' | 'pending-close' | 'swipe-horizontal' | 'swipe-vertical' | 'longpress'
             let currentX = 0;
 
             const setTransform = (x) => {
@@ -2609,25 +2634,42 @@
                 if (actions) actions.style.transform = `translateX(${x}px)`;
             };
             const snapOpen = () => {
+                // If another drawer is open, close it first
+                if (openSwipeWrapper && openSwipeWrapper !== wrapper) closeOpenSwipe();
                 content.classList.remove('swiping');
                 if (actions) actions.classList.remove('swiping');
                 setTransform(SWIPE_MAX);
+                openSwipeWrapper = wrapper;
             };
             const snapClosed = () => {
                 content.classList.remove('swiping');
                 if (actions) actions.classList.remove('swiping');
                 content.style.transform = '';
                 if (actions) actions.style.transform = '';
+                if (openSwipeWrapper === wrapper) openSwipeWrapper = null;
             };
             const clearLP = () => {
                 if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
             };
 
             const onStart = (e) => {
-                // Reset state
+                // If this row's drawer is open, intercept: a tap should close the drawer, not open edit
+                if (openSwipeWrapper === wrapper) {
+                    const pt = e.touches ? e.touches[0] : e;
+                    startX = pt.clientX;
+                    startY = pt.clientY;
+                    startBaseline = SWIPE_MAX;
+                    currentX = SWIPE_MAX;
+                    mode = 'pending-close';
+                    clearLP();
+                    return;
+                }
+
+                // Normal tap-start
                 const pt = e.touches ? e.touches[0] : e;
                 startX = pt.clientX;
                 startY = pt.clientY;
+                startBaseline = 0;
                 currentX = 0;
                 mode = 'pending';
                 clearLP();
@@ -2650,6 +2692,20 @@
                 const pt = e.touches ? e.touches[0] : e;
                 const dx = pt.clientX - startX;
                 const dy = pt.clientY - startY;
+
+                // Re-opening movement when drawer was already open
+                if (mode === 'pending-close') {
+                    if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return;
+                    if (Math.abs(dy) > Math.abs(dx)) {
+                        mode = 'swipe-vertical';
+                        return;
+                    }
+                    // Horizontal — let user adjust the drawer (drag right to close, or further left)
+                    mode = 'swipe-horizontal';
+                    content.classList.add('swiping');
+                    if (actions) actions.classList.add('swiping');
+                    // continue below
+                }
 
                 // While still pending, decide whether this is a swipe vs vertical scroll
                 if (mode === 'pending') {
@@ -2674,7 +2730,7 @@
                 }
 
                 if (mode === 'swipe-horizontal') {
-                    currentX = Math.max(SWIPE_MAX, Math.min(0, dx));
+                    currentX = Math.max(SWIPE_MAX, Math.min(0, startBaseline + dx));
                     setTransform(currentX);
                 }
             };
@@ -2684,6 +2740,11 @@
                 const finalMode = mode;
                 mode = 'idle';
 
+                if (finalMode === 'pending-close') {
+                    // Tapped on a row whose drawer was open — close it
+                    snapClosed();
+                    return;
+                }
                 if (finalMode === 'swipe-horizontal') {
                     if (currentX < SWIPE_THRESHOLD) snapOpen();
                     else snapClosed();
@@ -2711,14 +2772,26 @@
                 if (content.style.transform) snapClosed();
             };
 
-            content.addEventListener('touchstart', onStart, { passive: true });
+            content.addEventListener('touchstart', (e) => { onStart(e); }, { passive: true });
             content.addEventListener('touchmove', onMove, { passive: true });
-            content.addEventListener('touchend', onEnd);
+            content.addEventListener('touchend', (e) => {
+                onEnd(e);
+                // Suppress the synthesized mousedown/mouseup/click that iOS fires after touchend.
+                // Without this, a tap in multi-select mode would toggle the item twice (select then deselect).
+                content.dataset.lastTouchAt = Date.now();
+                if (e.cancelable) e.preventDefault();
+            }, { passive: false });
             content.addEventListener('touchcancel', onCancel);
-            content.addEventListener('mousedown', onStart);
-            content.addEventListener('mousemove', onMove);
-            content.addEventListener('mouseup', onEnd);
-            content.addEventListener('mouseleave', onCancel);
+
+            // Mouse handlers — ignore for 600ms after a touch event (mouse is synthesized from touch)
+            const isSynthesizedMouse = () => {
+                const last = parseInt(content.dataset.lastTouchAt || '0', 10);
+                return last && (Date.now() - last) < 600;
+            };
+            content.addEventListener('mousedown', (e) => { if (!isSynthesizedMouse()) onStart(e); });
+            content.addEventListener('mousemove', (e) => { if (!isSynthesizedMouse()) onMove(e); });
+            content.addEventListener('mouseup',   (e) => { if (!isSynthesizedMouse()) onEnd(e); });
+            content.addEventListener('mouseleave', (e) => { if (!isSynthesizedMouse()) onCancel(e); });
         }
 
         // Backward-compat shims
