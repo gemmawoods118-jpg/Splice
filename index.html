@@ -941,9 +941,9 @@
     </div>
 
     <!-- Receipt Scanner Modal — full-screen review of OCR-parsed line items -->
-    <div id="receipt-scan-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-sm flex flex-col" style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+    <div id="receipt-scan-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-sm flex flex-col">
+        <!-- Header (with safe-area top padding for iPhone notch) -->
+        <div class="flex items-center justify-between px-4 border-b border-slate-800 shrink-0" style="padding-top: max(env(safe-area-inset-top, 47px), 47px); padding-bottom: 12px;">
             <button onclick="closeReceiptScanner()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white rounded-lg" aria-label="Fermer">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
@@ -982,7 +982,7 @@
             </div>
 
             <!-- Bottom summary + confirm -->
-            <div class="border-t border-slate-800 px-4 py-3 bg-slate-950/60 shrink-0 space-y-3">
+            <div class="border-t border-slate-800 px-4 pt-3 bg-slate-950/60 shrink-0 space-y-3" style="padding-bottom: max(env(safe-area-inset-bottom, 12px), 12px);">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total sélectionné</p>
@@ -2608,45 +2608,55 @@
             const lower = line.toLowerCase();
             return RECEIPT_BOILERPLATE.some(kw => lower.includes(kw));
         }
-        // Match a price token in a line: "12,30" / "12.30" / "12 30" (OCR sometimes reads the
-        // decimal separator as a space) / "1234" (integer cents — rare but happens with thermal print).
-        // Returns { name, price } or null. Used for typical "DESCRIPTION ... 12,30" lines.
+        // Receipt-line parser. Handles multiple French supermarket receipt layouts:
+        //   "DESCRIPTION ... 12,30"           (Carrefour-style, no code)
+        //   "3206179  DESCRIPTION  4,88"      (Action-style, leading item code)
+        //   "DESCRIPTION ... 12 30"           (OCR misread of decimal)
+        // Strategy: find the LAST price-looking number on the line; everything BEFORE
+        // it is the candidate name; strip leading item code if present.
         function parseReceiptLine(line) {
-            const cleaned = line.trim();
+            const cleaned = line.trim().replace(/\s{2,}/g, ' ');
             if (cleaned.length < 4) return null;
 
-            // Try patterns in order of specificity
-            const patterns = [
-                // 1. Standard: "NAME ... 12,30" or "NAME ... 12.30" with optional € sign
-                /^(.+?)\s+(\d{1,4}[,.]\d{2})\s*€?\s*$/,
-                // 2. Space-as-decimal: "NAME ... 12 30" (OCR misread)
-                /^(.+?)\s+(\d{1,4})\s(\d{2})\s*€?\s*$/,
-                // 3. Comma without decimals at end: "NAME ... 12," (rare)
-                /^(.+?)\s+(\d{1,4})[,.]\s*$/,
-                // 4. Plain integer at end with € or other indicator: "NAME ... 12 €"
-                /^(.+?)\s+(\d{1,4})\s*€\s*$/
-            ];
-
-            for (let i = 0; i < patterns.length; i++) {
-                const m = cleaned.match(patterns[i]);
-                if (!m) continue;
-                let name = m[1].trim().replace(/\s{2,}/g, ' ');
-                let priceStr;
-                if (i === 1) {
-                    // Space-as-decimal: combine the two captures
-                    priceStr = m[2] + '.' + m[3];
-                } else {
-                    priceStr = m[2].replace(',', '.');
-                }
-                const price = parseFloat(priceStr);
-                if (isNaN(price) || price <= 0 || price > 9999) continue;
-                if (/^\d+$/.test(name) || name.length < 2) continue;
-                // Filter out lines where the "name" is mostly non-letters (likely noise)
-                const letterCount = (name.match(/[a-zA-ZéèêëàâäîïôöùûüçÉÈÊËÀÂÄÎÏÔÖÙÛÜÇ]/g) || []).length;
-                if (letterCount < 2) continue;
-                return { name, price };
+            // Find all price-looking matches and take the rightmost one
+            const priceRegex = /(\d{1,4}[,.]\d{2})\s*€?/g;
+            let lastMatch = null;
+            let lastIndex = -1;
+            let m;
+            while ((m = priceRegex.exec(cleaned)) !== null) {
+                lastMatch = m[1];
+                lastIndex = m.index;
             }
-            return null;
+            // Also try "12 30" (space-as-decimal) as fallback
+            if (!lastMatch) {
+                const spaceDecRegex = /(\d{1,4})\s(\d{2})\s*€?\s*$/;
+                const sm = cleaned.match(spaceDecRegex);
+                if (sm) {
+                    lastMatch = sm[1] + '.' + sm[2];
+                    lastIndex = cleaned.lastIndexOf(sm[0]);
+                }
+            }
+            if (!lastMatch || lastIndex < 0) return null;
+
+            const priceStr = lastMatch.replace(',', '.');
+            const price = parseFloat(priceStr);
+            if (isNaN(price) || price <= 0 || price > 9999) return null;
+
+            // Everything before the price is the candidate name
+            let name = cleaned.substring(0, lastIndex).trim();
+
+            // Strip leading item code (5+ digit number at the start, common on Action/Lidl)
+            name = name.replace(/^\d{5,}\s+/, '');
+            // Strip orphan trailing numeric tokens like "1.31" weight indicators if followed by space
+            // (keep them — they're useful context)
+
+            // Validation: need at least 2 letters in the name
+            const letterCount = (name.match(/[a-zA-ZéèêëàâäîïôöùûüçÉÈÊËÀÂÄÎÏÔÖÙÛÜÇ]/g) || []).length;
+            if (letterCount < 2) return null;
+            // Must not be the boilerplate "TOTAL" / "TVA" lines (the boilerplate check happens before this, but be defensive)
+            if (/^(total|tva|sous[- ]?total|net|carte|cb|espèces|monnaie)\b/i.test(name)) return null;
+
+            return { name, price };
         }
         // Detect the receipt total (used for validation)
         function detectReceiptTotal(lines) {
@@ -2727,9 +2737,9 @@
                 const img = new Image();
                 img.onload = () => {
                     try {
-                        // Target width: 1600px gives Tesseract enough resolution without being huge
-                        const TARGET_W = 1600;
-                        const scale = TARGET_W / img.naturalWidth;
+                        // Target width: 1800px gives Tesseract enough resolution for small text
+                        const TARGET_W = 1800;
+                        const scale = Math.min(1, TARGET_W / img.naturalWidth);
                         const w = Math.round(img.naturalWidth * scale);
                         const h = Math.round(img.naturalHeight * scale);
                         const canvas = document.createElement('canvas');
@@ -2739,18 +2749,39 @@
                         ctx.drawImage(img, 0, 0, w, h);
                         const imgData = ctx.getImageData(0, 0, w, h);
                         const data = imgData.data;
-                        // Pass 1: grayscale + sample for adaptive threshold
-                        let sum = 0;
+
+                        // Pass 1: grayscale + build histogram
+                        const hist = new Array(256).fill(0);
                         for (let i = 0; i < data.length; i += 4) {
-                            // Luminance: 0.299R + 0.587G + 0.114B
-                            const gray = (data[i] * 299 + data[i+1] * 587 + data[i+2] * 114) / 1000;
+                            const gray = Math.round((data[i] * 299 + data[i+1] * 587 + data[i+2] * 114) / 1000);
                             data[i] = data[i+1] = data[i+2] = gray;
-                            sum += gray;
+                            hist[gray]++;
                         }
-                        const avg = sum / (data.length / 4);
-                        // Threshold: anything brighter than (avg + small bias) becomes white, else black.
-                        // The bias compensates for typical receipt photos being darker overall.
-                        const threshold = Math.min(200, Math.max(100, avg * 0.95));
+
+                        // Otsu's method: find threshold that maximizes between-class variance.
+                        // Much more robust than fixed-avg threshold on mixed backgrounds (e.g. paper on wood).
+                        const totalPixels = (data.length / 4);
+                        let sumAll = 0;
+                        for (let i = 0; i < 256; i++) sumAll += i * hist[i];
+                        let sumB = 0, wB = 0, maxVar = 0, threshold = 128;
+                        for (let t = 0; t < 256; t++) {
+                            wB += hist[t];
+                            if (wB === 0) continue;
+                            const wF = totalPixels - wB;
+                            if (wF === 0) break;
+                            sumB += t * hist[t];
+                            const mB = sumB / wB;
+                            const mF = (sumAll - sumB) / wF;
+                            const between = wB * wF * (mB - mF) * (mB - mF);
+                            if (between > maxVar) {
+                                maxVar = between;
+                                threshold = t;
+                            }
+                        }
+                        // Nudge threshold slightly brighter so faint text (mid-grey thermal print) becomes black
+                        threshold = Math.min(220, threshold + 10);
+
+                        // Pass 2: apply threshold
                         for (let i = 0; i < data.length; i += 4) {
                             const v = data[i] > threshold ? 255 : 0;
                             data[i] = data[i+1] = data[i+2] = v;
