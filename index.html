@@ -2842,22 +2842,68 @@
             }
         }
 
+        // Extract the rightmost price-looking token from a string.
+        // Returns { price, indexInString } or null.
+        function findLastPrice(text) {
+            const priceRegex = /(\d{1,4}[,.]\d{2})\s*€?/g;
+            let last = null, idx = -1;
+            let m;
+            while ((m = priceRegex.exec(text)) !== null) { last = m[1]; idx = m.index; }
+            // Fallback: space-as-decimal "12 30"
+            if (!last) {
+                const sm = text.match(/(\d{1,4})\s(\d{2})\s*€?\s*$/);
+                if (sm) { last = sm[1] + '.' + sm[2]; idx = text.lastIndexOf(sm[0]); }
+            }
+            if (!last) return null;
+            const price = parseFloat(last.replace(',', '.'));
+            if (isNaN(price) || price <= 0 || price > 9999) return null;
+            return { price, indexInString: idx };
+        }
+
+        // Pulls a clean item name out of a text block by removing the leading item code
+        // and the trailing price (and anything beyond it on the right).
+        function extractItemName(block, priceIndex) {
+            let name = block.substring(0, priceIndex).trim();
+            // Strip leading item code (5+ consecutive digits)
+            name = name.replace(/^\d{5,}\s+/, '');
+            // Collapse whitespace and remove trailing dots
+            name = name.replace(/\s{2,}/g, ' ').replace(/[.\s]+$/, '').trim();
+            return name;
+        }
+
+        // Determine if a line "starts a new item" — true when it begins with a 5+ digit item code.
+        // This is the key heuristic for code-anchored receipts (Action, Lidl, some Carrefour).
+        function lineStartsNewItem(line) {
+            return /^\d{5,}\b/.test(line.trim());
+        }
+
         function processReceiptText(rawText) {
-            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const detectedTotal = detectReceiptTotal(lines);
-            const items = [];
-            lines.forEach(line => {
-                if (isReceiptBoilerplate(line)) return;
-                const parsed = parseReceiptLine(line);
-                if (parsed) {
-                    items.push({
-                        id: 'rcp_' + Date.now() + '_' + items.length,
-                        name: parsed.name,
-                        price: parsed.price,
-                        selected: true
-                    });
-                }
-            });
+            const rawLines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const detectedTotal = detectReceiptTotal(rawLines);
+
+            // Detect receipt style: if multiple lines start with item codes, use code-anchored parsing.
+            const codeLineCount = rawLines.filter(lineStartsNewItem).length;
+            const useCodeAnchored = codeLineCount >= 2;
+
+            let items = [];
+            if (useCodeAnchored) {
+                items = parseCodeAnchoredReceipt(rawLines);
+            } else {
+                // Fall back to simple line-by-line parsing for receipts without codes
+                rawLines.forEach(line => {
+                    if (isReceiptBoilerplate(line)) return;
+                    const parsed = parseReceiptLine(line);
+                    if (parsed) {
+                        items.push({
+                            id: 'rcp_' + Date.now() + '_' + items.length,
+                            name: parsed.name,
+                            price: parsed.price,
+                            selected: true
+                        });
+                    }
+                });
+            }
+
             receiptState.items = items;
             receiptState.detectedTotal = detectedTotal;
             // Reveal phase 2
@@ -2865,6 +2911,52 @@
             document.getElementById('receipt-phase-review').classList.remove('hidden');
             renderReceiptItems();
             haptic('light');
+        }
+
+        // Group lines by item-code anchors: every line that starts with a 5+ digit code
+        // begins a new item; subsequent non-code lines are appended as continuations.
+        // Then for each item-block, find the price (which may appear on any continuation line
+        // because OCR sometimes shifts it) and use the text BEFORE the price as the name.
+        function parseCodeAnchoredReceipt(lines) {
+            const items = [];
+            const blocks = [];  // each block is { lines: [string], merged: string }
+            let current = null;
+            // Stop processing once we hit footer markers (TOTAL line and below)
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                // Hard stop on TOTAL line — everything below is payment metadata
+                if (/^(total|mode de paiement|nombre d.articles|d.tails tva)\b/i.test(line)) break;
+                // Skip boilerplate (rue, address, etc.)
+                if (isReceiptBoilerplate(line)) continue;
+                if (lineStartsNewItem(line)) {
+                    // Push the previous block (if any) and start fresh
+                    if (current) blocks.push(current);
+                    current = { lines: [line] };
+                } else if (current) {
+                    // Continuation of current item block
+                    current.lines.push(line);
+                }
+                // If no current block AND line doesn't start with code, ignore (header noise)
+            }
+            if (current) blocks.push(current);
+
+            // For each block, merge lines into a single string, find the price, extract name
+            blocks.forEach(block => {
+                const merged = block.lines.join(' ').replace(/\s{2,}/g, ' ').trim();
+                const priceResult = findLastPrice(merged);
+                if (!priceResult) return;  // no price found anywhere in the block — skip
+                const name = extractItemName(merged, priceResult.indexInString);
+                if (!name) return;
+                const letterCount = (name.match(/[a-zA-ZéèêëàâäîïôöùûüçÉÈÊËÀÂÄÎÏÔÖÙÛÜÇ]/g) || []).length;
+                if (letterCount < 2) return;
+                items.push({
+                    id: 'rcp_' + Date.now() + '_' + items.length,
+                    name: name,
+                    price: priceResult.price,
+                    selected: true
+                });
+            });
+            return items;
         }
 
         function renderReceiptItems() {
