@@ -642,10 +642,17 @@
 
                         <div class="relative">
                             <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">2. Description / Détails</span>
-                            <div class="relative">
-                                <input type="text" id="description" oninput="handleDescriptionTyping(this.value)" placeholder="Détail de l'achat (ex: Leclerc...)"
-                                    class="w-full bg-slate-950/40 border border-slate-800 focus:border-slate-700 rounded-xl py-3.5 pl-4 pr-10 text-base text-slate-200 focus:outline-none transition-colors shadow-inner">
-                                <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"><i class="fa-solid fa-signature text-xs"></i></div>
+                            <div class="relative flex gap-2">
+                                <div class="relative flex-1 min-w-0">
+                                    <input type="text" id="description" oninput="handleDescriptionTyping(this.value)" placeholder="Détail de l'achat (ex: Leclerc...)"
+                                        class="w-full bg-slate-950/40 border border-slate-800 focus:border-slate-700 rounded-xl py-3.5 pl-4 pr-10 text-base text-slate-200 focus:outline-none transition-colors shadow-inner">
+                                    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"><i class="fa-solid fa-signature text-xs"></i></div>
+                                </div>
+                                <!-- Hidden file input for camera capture -->
+                                <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleReceiptCapture(event)">
+                                <button type="button" onclick="document.getElementById('receipt-camera-input').click()" class="shrink-0 w-12 bg-slate-950/40 border border-slate-800 hover:border-indigo-500/50 rounded-xl text-slate-400 hover:text-indigo-400 transition-all active:scale-95 flex items-center justify-center" aria-label="Scanner un reçu">
+                                    <i class="fa-solid fa-receipt text-base"></i>
+                                </button>
                             </div>
                             <!-- Smart suggestions chips (filled dynamically) -->
                             <div id="description-suggestions" class="flex flex-wrap gap-1.5 mt-2 hidden"></div>
@@ -930,6 +937,66 @@
             </button>
             <div id="manage-projects-list" class="flex-1 overflow-y-auto space-y-2 -mx-1 px-1"></div>
             <button onclick="closeManageProjectsModal()" class="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors shrink-0">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Receipt Scanner Modal — full-screen review of OCR-parsed line items -->
+    <div id="receipt-scan-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-sm flex flex-col">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+            <button onclick="closeReceiptScanner()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white rounded-lg" aria-label="Fermer">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-sm font-bold text-white">Scanner un reçu</h3>
+            <div class="w-9"></div>
+        </div>
+
+        <!-- Phase 1: Loading / OCR in progress -->
+        <div id="receipt-phase-loading" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div class="w-16 h-16 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <i class="fa-solid fa-receipt text-2xl" id="receipt-loading-icon"></i>
+            </div>
+            <div class="space-y-1.5">
+                <p class="text-sm font-bold text-slate-200" id="receipt-loading-status">Préparation…</p>
+                <p class="text-xs text-slate-500" id="receipt-loading-sub">Cela peut prendre quelques secondes</p>
+            </div>
+            <div class="w-full max-w-xs h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div id="receipt-loading-bar" class="h-full bg-indigo-500 transition-all duration-200" style="width:0%"></div>
+            </div>
+        </div>
+
+        <!-- Phase 2: Review parsed line items -->
+        <div id="receipt-phase-review" class="hidden flex-1 flex flex-col min-h-0">
+            <!-- Status banner (warnings) -->
+            <div id="receipt-warning" class="hidden mx-4 mt-3 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] text-amber-300"></div>
+
+            <!-- Items list (scrollable) -->
+            <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2" id="receipt-items-list"></div>
+
+            <!-- Add line manually -->
+            <div class="px-4 pb-2 shrink-0">
+                <button onclick="addReceiptLineManually()" class="w-full flex items-center justify-center gap-2 bg-slate-800/40 hover:bg-slate-800/70 text-slate-300 border border-dashed border-slate-700 font-bold py-2 rounded-lg text-xs transition-all active:scale-[0.98]">
+                    <i class="fa-solid fa-plus text-[10px]"></i>
+                    Ajouter une ligne
+                </button>
+            </div>
+
+            <!-- Bottom summary + confirm -->
+            <div class="border-t border-slate-800 px-4 py-3 bg-slate-950/60 shrink-0 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total sélectionné</p>
+                        <p class="text-2xl font-black text-white" id="receipt-selected-total">0,00 €</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Articles</p>
+                        <p class="text-sm font-bold text-slate-300"><span id="receipt-selected-count">0</span> / <span id="receipt-total-count">0</span></p>
+                    </div>
+                </div>
+                <button onclick="confirmReceiptScan()" id="receipt-confirm-btn" disabled class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-white font-black py-3 rounded-xl text-sm shadow-lg shadow-indigo-950/40 transition-all disabled:cursor-not-allowed active:scale-[0.98]">
+                    Pré-remplir le formulaire
+                </button>
+            </div>
         </div>
     </div>
 
@@ -2166,6 +2233,15 @@
                 category: activeCategory, icon: activeIcon, p1SharePercent: p1Pct, p2SharePercent: p2Pct,
                 approved: true, isEditing: false, type: state.txType, project: state.config.activeProject, created_at: new Date().toISOString()
             };
+            // Attach receipt scan metadata if the user just came from the scanner
+            if (window._pendingReceiptMeta) {
+                newExpense.receiptItems = window._pendingReceiptMeta.items;
+                newExpense.receiptAllItems = window._pendingReceiptMeta.allItems;
+                newExpense.receiptDetectedTotal = window._pendingReceiptMeta.detectedTotal;
+                // NB: not persisting the photo data URL to localStorage to keep it light;
+                // could be uploaded to Supabase storage later
+                window._pendingReceiptMeta = null;
+            }
 
             state.expenses.unshift(newExpense); localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
@@ -2509,6 +2585,287 @@
             const query = desc.toLowerCase().trim();
             for (const cat of smartCategories) { for (const kw of cat.keywords) { if (query.includes(kw)) return cat; } }
             return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'transparent' };
+        }
+
+        // ---------- RECEIPT SCANNER (OCR + line-item picker) ----------
+        // Lazy-loads Tesseract.js on first use to keep initial page load fast.
+        // Parses French receipts using line-by-line regex with a boilerplate denylist.
+        // User picks which items to include via checkbox; the sum becomes the form amount.
+
+        let _tesseractLoaded = false;
+        let _tesseractWorker = null;
+        // Common French receipt boilerplate to skip during parsing
+        const RECEIPT_BOILERPLATE = [
+            'total', 'sous total', 'sous-total', 'tva', 'a payer', 'à payer', 'net a payer',
+            'net à payer', 'remise', 'recyclage emb', 'eco part', 'eco-part', 'eco contribution',
+            'merci', 'au revoir', 'carte bancaire', ' cb ', 'especes', 'espèces', 'rendu',
+            'monnaie', 'change', 'ticket', 'caisse', 'caissier', 'magasin', 'siret', 'tel',
+            'téléphone', 'tél.', 'rue ', 'avenue ', 'boulevard ', 'siren', 'rcs', 'code',
+            'date', 'heure', 'numero', 'numéro', 'ref ', 'référence', 'reference', 'n°',
+            'visa', 'mastercard', 'eur', 'a conserver', 'à conserver', 'remboursement'
+        ];
+        function isReceiptBoilerplate(line) {
+            const lower = line.toLowerCase();
+            return RECEIPT_BOILERPLATE.some(kw => lower.includes(kw));
+        }
+        // Match "DESCRIPTION ... 12,30" or "DESCRIPTION ... 12.30" (with optional € symbol)
+        function parseReceiptLine(line) {
+            const cleaned = line.trim();
+            if (cleaned.length < 4) return null;
+            // Capture trailing price: digits, optional comma/dot, 0-2 decimals, optional € sign, end of string
+            const match = cleaned.match(/^(.+?)\s+(\d{1,4}[,.]\d{1,2})\s*€?\s*$/);
+            if (!match) return null;
+            const name = match[1].trim().replace(/\s{2,}/g, ' ');
+            const priceStr = match[2].replace(',', '.');
+            const price = parseFloat(priceStr);
+            if (isNaN(price) || price <= 0 || price > 9999) return null;
+            // Skip lines where the "name" is purely numeric or noise
+            if (/^\d+$/.test(name) || name.length < 2) return null;
+            return { name, price };
+        }
+        // Detect the receipt total (used for validation)
+        function detectReceiptTotal(lines) {
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const lower = lines[i].toLowerCase();
+                if (/(^|\s)(total|net (a|à) payer|a payer|à payer)(\s|:)/.test(lower)) {
+                    const m = lines[i].match(/(\d{1,4}[,.]\d{1,2})/);
+                    if (m) return parseFloat(m[1].replace(',', '.'));
+                }
+            }
+            return null;
+        }
+
+        // State for the current scan session
+        let receiptState = {
+            items: [],         // [{ id, name, price, selected }]
+            detectedTotal: null,
+            photoDataUrl: null
+        };
+
+        function handleReceiptCapture(event) {
+            const file = event.target.files && event.target.files[0];
+            // Reset the input so the same file can be picked again later
+            event.target.value = '';
+            if (!file) return;
+            openReceiptScanner();
+            // Read the file as a data URL to display + feed to Tesseract
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                receiptState.photoDataUrl = e.target.result;
+                runReceiptOCR(e.target.result);
+            };
+            reader.onerror = () => {
+                showToast('Lecture du fichier impossible');
+                closeReceiptScanner();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function openReceiptScanner() {
+            const modal = document.getElementById('receipt-scan-modal');
+            modal.classList.remove('hidden');
+            document.getElementById('receipt-phase-loading').classList.remove('hidden');
+            document.getElementById('receipt-phase-review').classList.add('hidden');
+            receiptState = { items: [], detectedTotal: null, photoDataUrl: null };
+        }
+        function closeReceiptScanner() {
+            document.getElementById('receipt-scan-modal').classList.add('hidden');
+            // Don't terminate the Tesseract worker — keep it alive for reuse
+        }
+        function setLoadingStatus(msg, sub, pct) {
+            const s = document.getElementById('receipt-loading-status');
+            const sb = document.getElementById('receipt-loading-sub');
+            const bar = document.getElementById('receipt-loading-bar');
+            if (s && msg) s.innerText = msg;
+            if (sb && sub) sb.innerText = sub;
+            if (bar && typeof pct === 'number') bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        }
+
+        async function loadTesseract() {
+            if (_tesseractLoaded) return;
+            setLoadingStatus('Chargement du moteur OCR…', 'Première utilisation seulement', 5);
+            // Dynamically inject the Tesseract.js script
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('Tesseract load failed'));
+                document.head.appendChild(script);
+            });
+            _tesseractLoaded = true;
+        }
+
+        async function runReceiptOCR(dataUrl) {
+            try {
+                await loadTesseract();
+                setLoadingStatus('Préparation…', 'Initialisation du moteur', 15);
+                if (!_tesseractWorker) {
+                    _tesseractWorker = await window.Tesseract.createWorker('fra', 1, {
+                        logger: (m) => {
+                            if (m.status === 'recognizing text') {
+                                const pct = 30 + Math.round(m.progress * 65);
+                                setLoadingStatus('Lecture du reçu…', 'Reconnaissance des caractères', pct);
+                            }
+                        }
+                    });
+                }
+                setLoadingStatus('Lecture du reçu…', 'Cela prend quelques secondes', 30);
+                const result = await _tesseractWorker.recognize(dataUrl);
+                setLoadingStatus('Analyse terminée', '', 100);
+                const text = result.data.text || '';
+                processReceiptText(text);
+            } catch (err) {
+                console.error('OCR error:', err);
+                showToast('Échec de la lecture du reçu');
+                closeReceiptScanner();
+            }
+        }
+
+        function processReceiptText(rawText) {
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const detectedTotal = detectReceiptTotal(lines);
+            const items = [];
+            lines.forEach(line => {
+                if (isReceiptBoilerplate(line)) return;
+                const parsed = parseReceiptLine(line);
+                if (parsed) {
+                    items.push({
+                        id: 'rcp_' + Date.now() + '_' + items.length,
+                        name: parsed.name,
+                        price: parsed.price,
+                        selected: true
+                    });
+                }
+            });
+            receiptState.items = items;
+            receiptState.detectedTotal = detectedTotal;
+            // Reveal phase 2
+            document.getElementById('receipt-phase-loading').classList.add('hidden');
+            document.getElementById('receipt-phase-review').classList.remove('hidden');
+            renderReceiptItems();
+            haptic('light');
+        }
+
+        function renderReceiptItems() {
+            const list = document.getElementById('receipt-items-list');
+            const warning = document.getElementById('receipt-warning');
+            if (!list) return;
+
+            if (receiptState.items.length === 0) {
+                list.innerHTML = `<div class="text-center py-12 text-xs text-slate-500">
+                    <i class="fa-solid fa-receipt text-3xl text-slate-700 block mb-3"></i>
+                    Aucune ligne détectée.<br>Essayez avec une photo plus nette ou ajoutez les lignes manuellement.
+                </div>`;
+            } else {
+                list.innerHTML = receiptState.items.map((item, idx) => `
+                    <div class="bg-slate-900/60 border ${item.selected ? 'border-indigo-500/40' : 'border-slate-800'} rounded-xl p-2.5 flex items-center gap-2.5 transition-colors" data-receipt-row="${item.id}">
+                        <button onclick="toggleReceiptItem('${item.id}')" class="w-7 h-7 rounded-md shrink-0 flex items-center justify-center transition-all ${item.selected ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-600 border border-slate-700'}" aria-label="Toggle">
+                            ${item.selected ? '<i class="fa-solid fa-check text-[10px]"></i>' : ''}
+                        </button>
+                        <input type="text" value="${item.name.replace(/"/g, '&quot;')}" onchange="updateReceiptItem('${item.id}', 'name', this.value)" class="flex-1 min-w-0 bg-transparent text-sm text-slate-200 focus:outline-none border-b border-transparent focus:border-slate-700 py-1">
+                        <input type="text" inputmode="decimal" value="${item.price.toFixed(2).replace('.', ',')}" onchange="updateReceiptItem('${item.id}', 'price', this.value)" class="w-16 bg-transparent text-sm font-bold text-slate-200 text-right focus:outline-none border-b border-transparent focus:border-slate-700 py-1">
+                        <button onclick="removeReceiptItem('${item.id}')" class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-rose-400 shrink-0" aria-label="Supprimer">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            // Total validation banner: compare sum-of-all-parsed against detected total
+            if (warning) {
+                const sumAll = receiptState.items.reduce((s, it) => s + it.price, 0);
+                if (receiptState.detectedTotal && receiptState.items.length > 0 && Math.abs(sumAll - receiptState.detectedTotal) > 0.05) {
+                    warning.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i>Total détecté ${receiptState.detectedTotal.toFixed(2).replace('.', ',')} € ≠ somme des lignes ${sumAll.toFixed(2).replace('.', ',')} €. Vérifiez les lignes.`;
+                    warning.classList.remove('hidden');
+                } else {
+                    warning.classList.add('hidden');
+                }
+            }
+
+            updateReceiptSummary();
+        }
+
+        function updateReceiptSummary() {
+            const selectedItems = receiptState.items.filter(i => i.selected);
+            const total = selectedItems.reduce((s, it) => s + it.price, 0);
+            const totalEl = document.getElementById('receipt-selected-total');
+            const countEl = document.getElementById('receipt-selected-count');
+            const totalCountEl = document.getElementById('receipt-total-count');
+            const btn = document.getElementById('receipt-confirm-btn');
+            if (totalEl) totalEl.innerText = total.toFixed(2).replace('.', ',') + ' ' + (state.config.currency || '€');
+            if (countEl) countEl.innerText = selectedItems.length;
+            if (totalCountEl) totalCountEl.innerText = receiptState.items.length;
+            if (btn) btn.disabled = selectedItems.length === 0;
+        }
+
+        function toggleReceiptItem(id) {
+            const item = receiptState.items.find(i => i.id === id);
+            if (!item) return;
+            item.selected = !item.selected;
+            haptic('light');
+            renderReceiptItems();
+        }
+
+        function updateReceiptItem(id, field, value) {
+            const item = receiptState.items.find(i => i.id === id);
+            if (!item) return;
+            if (field === 'name') {
+                item.name = value.trim();
+            } else if (field === 'price') {
+                const num = parseFloat((value || '0').replace(',', '.'));
+                if (!isNaN(num) && num >= 0) item.price = num;
+            }
+            updateReceiptSummary();
+        }
+
+        function removeReceiptItem(id) {
+            receiptState.items = receiptState.items.filter(i => i.id !== id);
+            haptic('warn');
+            renderReceiptItems();
+        }
+
+        function addReceiptLineManually() {
+            receiptState.items.push({
+                id: 'rcp_' + Date.now() + '_' + receiptState.items.length,
+                name: '',
+                price: 0,
+                selected: true
+            });
+            renderReceiptItems();
+            // Focus the new row's name input
+            setTimeout(() => {
+                const lastRow = document.querySelector('#receipt-items-list > div:last-child input[type="text"]');
+                if (lastRow) lastRow.focus();
+            }, 50);
+        }
+
+        function confirmReceiptScan() {
+            const selectedItems = receiptState.items.filter(i => i.selected);
+            if (selectedItems.length === 0) return;
+            const total = selectedItems.reduce((s, it) => s + it.price, 0);
+            // Pre-fill the Saisie form: amount, and description if blank
+            const amtEl = document.getElementById('amount');
+            const descEl = document.getElementById('description');
+            if (amtEl) {
+                amtEl.value = total.toFixed(2);
+                // Trigger any input listeners
+                amtEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (descEl && !descEl.value.trim()) {
+                // Use a generic placeholder based on item count
+                descEl.value = `Reçu (${selectedItems.length} article${selectedItems.length > 1 ? 's' : ''})`;
+                descEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            // Stash the parsed metadata onto a hidden field so handleFormSubmission can attach it
+            window._pendingReceiptMeta = {
+                items: selectedItems.map(i => ({ name: i.name, price: i.price })),
+                allItems: receiptState.items.map(i => ({ name: i.name, price: i.price, selected: i.selected })),
+                detectedTotal: receiptState.detectedTotal,
+                photoDataUrl: receiptState.photoDataUrl
+            };
+            haptic('success');
+            showToast(`${selectedItems.length} article${selectedItems.length > 1 ? 's' : ''} sélectionné${selectedItems.length > 1 ? 's' : ''}`);
+            closeReceiptScanner();
         }
 
         async function simulateIncomingWebhook() {
