@@ -213,6 +213,25 @@
             100%    { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
         }
 
+        /* Project switch animation */
+        @keyframes projectSwitch {
+            0%   { opacity: 0; transform: translateY(8px) scale(0.985); filter: blur(2px); }
+            60%  { filter: blur(0); }
+            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+        .project-switch-anim {
+            animation: projectSwitch 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        /* Pulse the header selector on switch */
+        @keyframes projectBadgePulse {
+            0%   { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.6); }
+            70%  { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+        .project-badge-pulse {
+            animation: projectBadgePulse 0.6s ease-out;
+        }
+
         /* Undo toast (bottom, slides up) */
         @keyframes undoToastIn {
             0%   { transform: translate(-50%, 120%); opacity: 0; }
@@ -236,7 +255,15 @@
             align-items: center;
             gap: 10px;
             box-shadow: 0 10px 35px rgba(0,0,0,0.7);
-            max-width: calc(100% - 32px);
+            width: calc(100% - 24px);
+            max-width: 460px;
+        }
+        .undo-toast .undo-toast-msg {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .undo-toast.in { animation: undoToastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .undo-toast.out { animation: undoToastOut 0.25s ease forwards; }
@@ -327,11 +354,12 @@
             
             <!-- Sélecteur de Projet (center, takes remaining space) -->
             <div class="flex-1 min-w-0 flex justify-center">
-                <div class="flex items-center gap-1.5 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-700/50 max-w-full">
+                <div class="flex items-center gap-1 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-700/50 max-w-full">
                     <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0">
                         <!-- Généré dynamiquement -->
                     </select>
-                    <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white shrink-0"><i class="fa-solid fa-plus text-xs"></i></button>
+                    <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white shrink-0 px-1" aria-label="Nouveau projet"><i class="fa-solid fa-plus text-xs"></i></button>
+                    <button onclick="openManageProjectsModal()" class="text-slate-400 hover:text-white shrink-0 px-1" aria-label="Gérer les projets"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
                 </div>
             </div>
 
@@ -681,6 +709,18 @@
                 <button onclick="confirmNewProject()" class="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-950/50">Créer</button>
                 <button onclick="closeProjectModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors">Annuler</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Manage Projects Modal -->
+    <div id="manage-projects-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-800 mb-4 shrink-0">
+                <h3 class="text-sm font-bold text-white">Gérer les projets</h3>
+                <button onclick="closeManageProjectsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="manage-projects-list" class="flex-1 overflow-y-auto space-y-2 -mx-1 px-1"></div>
+            <button onclick="closeManageProjectsModal()" class="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors shrink-0">Fermer</button>
         </div>
     </div>
 
@@ -1090,6 +1130,34 @@
                 const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
                 if (!error && data) { 
                     state.expenses = data; 
+
+                    // Smart-categorize pending inbox items that came in as "Autre" / fa-asterisk
+                    // (typical when sent by an iOS Shortcut). If scanCategory finds a match for the
+                    // description, upgrade the row locally AND patch it on Supabase so it persists.
+                    const toPatch = [];
+                    state.expenses.forEach(exp => {
+                        const isPending = exp.approved === false;
+                        const isUncategorized = (!exp.category || exp.category === 'Autre') && (!exp.icon || exp.icon === 'fa-asterisk');
+                        if (isPending && isUncategorized && exp.description) {
+                            const match = scanCategory(exp.description);
+                            // scanCategory returns null when no keyword matches — keep as Autre in that case
+                            if (match && match.label && match.label !== 'Autre') {
+                                exp.category = match.label;
+                                exp.icon = match.icon;
+                                toPatch.push({ id: exp.id, category: match.label, icon: match.icon });
+                            }
+                        }
+                    });
+                    if (toPatch.length > 0) {
+                        // Fire-and-forget: patch each row's category/icon back to Supabase
+                        toPatch.forEach(p => {
+                            state.supabaseClient.from('expenses')
+                                .update({ category: p.category, icon: p.icon })
+                                .eq('id', p.id)
+                                .then(() => {});
+                        });
+                    }
+
                     localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); 
                     
                     let projectAdded = false;
@@ -1252,9 +1320,9 @@
         }
 
         function switchProject(name) {
+            if (state.config.activeProject === name) return;
             state.config.activeProject = name;
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
-            // Reset history search and category filter when switching project
             state.historySearchQuery = '';
             state.selectedHistoryCategory = 'all';
             const searchInput = document.getElementById('history-search');
@@ -1262,6 +1330,113 @@
             renderHistoryCategoryFilters();
             updateUI();
             if (!document.getElementById('view-analyse').classList.contains('hidden')) renderAnalyseTab();
+            haptic('light');
+            // Animate the visible main view + pulse the header badge
+            const activeView = document.querySelector('main > div:not(.hidden)');
+            if (activeView) {
+                activeView.classList.remove('project-switch-anim');
+                void activeView.offsetWidth; // restart animation
+                activeView.classList.add('project-switch-anim');
+            }
+            const badge = document.querySelector('#project-selector')?.closest('div');
+            if (badge) {
+                badge.classList.remove('project-badge-pulse');
+                void badge.offsetWidth;
+                badge.classList.add('project-badge-pulse');
+            }
+        }
+
+        // ---------- PROJECT MANAGEMENT ----------
+        function openManageProjectsModal() {
+            renderManageProjectsList();
+            document.getElementById('manage-projects-modal').classList.remove('hidden');
+        }
+        function closeManageProjectsModal() {
+            document.getElementById('manage-projects-modal').classList.add('hidden');
+        }
+        function renderManageProjectsList() {
+            const list = document.getElementById('manage-projects-list');
+            if (!list) return;
+            list.innerHTML = state.config.projects.map(p => {
+                const id = p.id || p;
+                const name = p.name || p;
+                const icon = p.icon || (id === 'Principal' ? '🏡' : '📂');
+                const isPrincipal = id === 'Principal';
+                const isActive = state.config.activeProject === id;
+                const expCount = state.expenses.filter(e => (e.project === id) || (!e.project && id === 'Principal')).length;
+                return `
+                    <div class="flex items-center gap-2 p-3 bg-slate-950/40 border border-slate-800 rounded-xl ${isActive ? 'ring-1 ring-indigo-500/40' : ''}" data-project-row="${id}">
+                        <input type="text" value="${icon}" maxlength="2" class="w-11 h-11 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg text-center text-lg text-slate-200 focus:outline-none shrink-0" data-edit-icon ${isPrincipal ? 'disabled' : ''}>
+                        <input type="text" value="${name.replace(/"/g, '&quot;')}" class="flex-1 min-w-0 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none" data-edit-name ${isPrincipal ? 'disabled' : ''}>
+                        ${isPrincipal ? '' : `<button onclick="saveProjectEdit('${id.replace(/'/g, "\\'")}')" class="w-9 h-9 flex items-center justify-center bg-emerald-500/15 text-emerald-400 rounded-lg shrink-0 hover:bg-emerald-500/25 active:scale-95 transition-all" aria-label="Sauvegarder"><i class="fa-solid fa-check text-xs"></i></button>`}
+                        ${isPrincipal ? `<span class="text-[10px] text-slate-500 px-2 shrink-0">par défaut</span>` : `<button onclick="confirmDeleteProject('${id.replace(/'/g, "\\'")}', ${expCount})" class="w-9 h-9 flex items-center justify-center bg-rose-500/15 text-rose-400 rounded-lg shrink-0 hover:bg-rose-500/25 active:scale-95 transition-all" aria-label="Supprimer"><i class="fa-solid fa-trash-can text-xs"></i></button>`}
+                    </div>
+                `;
+            }).join('');
+        }
+        function saveProjectEdit(oldId) {
+            const row = document.querySelector(`[data-project-row="${oldId}"]`);
+            if (!row) return;
+            const newName = row.querySelector('[data-edit-name]').value.trim();
+            const newIcon = row.querySelector('[data-edit-icon]').value.trim() || '📂';
+            if (!newName) { showToast('Nom requis'); return; }
+            // Find the project and update
+            const proj = state.config.projects.find(p => (p.id || p) === oldId);
+            if (!proj) return;
+            const newId = newName; // id == name for non-principal projects
+            // Avoid collisions
+            if (newId !== oldId && state.config.projects.some(p => (p.id || p) === newId)) {
+                showToast('Ce nom existe déjà');
+                return;
+            }
+            if (typeof proj === 'string') {
+                // Legacy string project — replace
+                const idx = state.config.projects.indexOf(proj);
+                state.config.projects[idx] = { id: newId, name: newName, icon: newIcon };
+            } else {
+                proj.id = newId;
+                proj.name = newName;
+                proj.icon = newIcon;
+            }
+            // Migrate any expenses belonging to oldId
+            if (newId !== oldId) {
+                state.expenses.forEach(e => { if (e.project === oldId) e.project = newId; });
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                if (state.config.activeProject === oldId) state.config.activeProject = newId;
+                // Sync to Supabase
+                if (state.supabaseClient && navigator.onLine) {
+                    state.supabaseClient.from('expenses').update({ project: newId }).eq('project', oldId).then(() => {});
+                }
+            }
+            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            populateProjectSelector();
+            renderManageProjectsList();
+            updateUI();
+            haptic('success');
+            showToast('Projet modifié');
+        }
+        function confirmDeleteProject(id, expCount) {
+            const msg = expCount > 0
+                ? `Supprimer ce projet et ses ${expCount} transaction(s) ?`
+                : 'Supprimer ce projet ?';
+            if (!confirm(msg)) return;
+            // Remove expenses belonging to this project (local + Supabase)
+            const toDelete = state.expenses.filter(e => e.project === id);
+            state.expenses = state.expenses.filter(e => e.project !== id);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            if (state.supabaseClient && navigator.onLine && toDelete.length > 0) {
+                state.supabaseClient.from('expenses').delete().eq('project', id).then(() => {});
+            }
+            // Remove the project itself
+            state.config.projects = state.config.projects.filter(p => (p.id || p) !== id);
+            // Switch to Principal if we just deleted the active project
+            if (state.config.activeProject === id) state.config.activeProject = 'Principal';
+            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            populateProjectSelector();
+            renderManageProjectsList();
+            updateUI();
+            haptic('warn');
+            showToast('Projet supprimé');
         }
 
         function updateCurrencyUI() {
@@ -2330,7 +2505,7 @@
                         item.id = `history-item-${exp.id}`;
                         item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         let lbl = exp.type === 'transfert' ? 'Transfert' : exp.type === 'revenu' ? 'Revenu' : 'Dépense';
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 truncate">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} • ${lbl}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-regular fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-regular fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-regular fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 truncate">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} • ${lbl}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
@@ -2561,9 +2736,9 @@
             toast.id = 'undo-toast';
             toast.className = 'undo-toast in';
             toast.innerHTML = `
-                <i class="fa-solid fa-circle-info text-indigo-400 text-sm"></i>
-                <span class="text-xs font-bold text-slate-200 flex-1">${message}</span>
-                <button class="text-indigo-400 hover:text-indigo-300 text-xs font-black uppercase tracking-wider px-2 py-1" id="undo-btn">Annuler</button>
+                <i class="fa-solid fa-circle-info text-indigo-400 text-sm shrink-0"></i>
+                <span class="undo-toast-msg text-xs font-bold text-slate-200">${message}</span>
+                <button class="text-indigo-400 hover:text-indigo-300 text-xs font-black uppercase tracking-wider px-2 py-1 shrink-0" id="undo-btn">Annuler</button>
                 <div class="undo-toast-progress" style="width: 100%; transition: transform 4s linear;"></div>
             `;
             document.body.appendChild(toast);
@@ -3078,7 +3253,12 @@
                             </div>
                             <div class="flex items-center gap-2 shrink-0 pl-2">
                                 <span class="text-sm font-black text-slate-200">${fmtMoney(exp.amount)}</span>
-                                <button onclick="event.stopPropagation(); duplicateExpense('${exp.id}')" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" class="text-slate-500 hover:text-indigo-400 p-2 -mr-1" aria-label="Dupliquer"><i class="fa-regular fa-copy text-sm"></i></button>
+                                <button onclick="event.stopPropagation(); duplicateExpense('${exp.id}')" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" class="text-slate-500 hover:text-indigo-400 p-2 -mr-1" aria-label="Dupliquer">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+                                        <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+                                        <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     `;
@@ -3307,6 +3487,20 @@
         } catch(e) {}
 
         // Apply haptics to key buttons
+        // Cache critical CDN assets so the app's icons survive going offline.
+        // Without a service worker, we can't intercept requests — but we CAN warm the
+        // HTTP browser cache by re-fetching with explicit cache mode on each visit.
+        (function warmAssetCache() {
+            const assets = [
+                'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+                'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
+                'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2'
+            ];
+            assets.forEach(url => {
+                fetch(url, { cache: 'force-cache', mode: 'no-cors' }).catch(() => {});
+            });
+        })();
+
         document.querySelectorAll('#expense-form button[type="submit"]').forEach(b => b.addEventListener('click', () => haptic('success')));
         document.querySelectorAll('#settle-btn, [onclick*="approveTransaction"], [onclick*="rejectTransaction"]').forEach(b => {
             b.addEventListener('click', () => haptic('light'));
