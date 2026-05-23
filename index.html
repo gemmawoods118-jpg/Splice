@@ -512,12 +512,12 @@
             
             <!-- Sélecteur de Projet (center, takes remaining space) -->
             <div class="flex-1 min-w-0 flex justify-center">
-                <div class="flex items-center gap-1 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-700/50 max-w-full">
-                    <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0">
+                <div class="flex items-center gap-0.5 bg-slate-800/50 pl-3 pr-1 py-1 rounded-xl border border-slate-700/50 max-w-full">
+                    <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0 py-0.5">
                         <!-- Généré dynamiquement -->
                     </select>
-                    <button onclick="openNewProjectModal()" class="text-slate-400 hover:text-white shrink-0 px-1" aria-label="Nouveau projet"><i class="fa-solid fa-plus text-xs"></i></button>
-                    <button onclick="openManageProjectsModal()" class="text-slate-400 hover:text-white shrink-0 px-1" aria-label="Gérer les projets"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
+                    <button onclick="openNewProjectModal()" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white shrink-0 rounded-lg" aria-label="Nouveau projet"><i class="fa-solid fa-plus text-xs"></i></button>
+                    <button onclick="openManageProjectsModal()" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white shrink-0 rounded-lg" aria-label="Gérer les projets"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
                 </div>
             </div>
 
