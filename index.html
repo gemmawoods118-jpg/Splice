@@ -214,13 +214,24 @@
         }
 
         /* Project switch animation */
-        @keyframes projectSwitch {
-            0%   { opacity: 0; transform: translateY(8px) scale(0.985); filter: blur(2px); }
-            60%  { filter: blur(0); }
-            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        /* Project switch animation — pure cross-fade for smoothness on mobile.
+           Blur and scale on a large scrolling container cause jank, so we use
+           only opacity + a small translateY which are both compositor-friendly. */
+        @keyframes projectFadeOut {
+            0%   { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-6px); }
         }
-        .project-switch-anim {
-            animation: projectSwitch 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+        @keyframes projectFadeIn {
+            0%   { opacity: 0; transform: translateY(6px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .project-fade-out {
+            animation: projectFadeOut 0.18s ease-out forwards;
+            will-change: opacity, transform;
+        }
+        .project-fade-in {
+            animation: projectFadeIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform;
         }
         /* Pulse the header selector on switch */
         @keyframes projectBadgePulse {
@@ -1321,29 +1332,47 @@
 
         function switchProject(name) {
             if (state.config.activeProject === name) return;
-            state.config.activeProject = name;
-            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
-            state.historySearchQuery = '';
-            state.selectedHistoryCategory = 'all';
-            const searchInput = document.getElementById('history-search');
-            if (searchInput) searchInput.value = '';
-            renderHistoryCategoryFilters();
-            updateUI();
-            if (!document.getElementById('view-analyse').classList.contains('hidden')) renderAnalyseTab();
             haptic('light');
-            // Animate the visible main view + pulse the header badge
-            const activeView = document.querySelector('main > div:not(.hidden)');
-            if (activeView) {
-                activeView.classList.remove('project-switch-anim');
-                void activeView.offsetWidth; // restart animation
-                activeView.classList.add('project-switch-anim');
-            }
+
+            // Pulse the header badge immediately (independent, lightweight animation)
             const badge = document.querySelector('#project-selector')?.closest('div');
             if (badge) {
                 badge.classList.remove('project-badge-pulse');
                 void badge.offsetWidth;
                 badge.classList.add('project-badge-pulse');
             }
+
+            const scrollArea = document.getElementById('main-scroll-area');
+
+            // Helper: actually swap the project data + re-render. Runs while invisible.
+            const applySwitch = () => {
+                state.config.activeProject = name;
+                localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                state.historySearchQuery = '';
+                state.selectedHistoryCategory = 'all';
+                const searchInput = document.getElementById('history-search');
+                if (searchInput) searchInput.value = '';
+                renderHistoryCategoryFilters();
+                updateUI();
+                if (!document.getElementById('view-analyse').classList.contains('hidden')) renderAnalyseTab();
+            };
+
+            if (!scrollArea) { applySwitch(); return; }
+
+            // Fade old content out, swap, fade new content in.
+            scrollArea.classList.remove('project-fade-in');
+            scrollArea.classList.add('project-fade-out');
+
+            // Match the CSS fade-out duration (180ms) before swapping
+            setTimeout(() => {
+                applySwitch();
+                scrollArea.classList.remove('project-fade-out');
+                // Force reflow so the in-animation restarts cleanly
+                void scrollArea.offsetWidth;
+                scrollArea.classList.add('project-fade-in');
+                // Clean up the class once the animation completes to avoid leftover state
+                setTimeout(() => scrollArea.classList.remove('project-fade-in'), 320);
+            }, 180);
         }
 
         // ---------- PROJECT MANAGEMENT ----------
