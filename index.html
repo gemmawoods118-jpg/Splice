@@ -222,7 +222,7 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+            padding: 6px 10px calc(4px + env(safe-area-inset-bottom, 0px));
             pointer-events: none; /* let taps fall through outside the pill */
         }
         .ios-nav-pill {
@@ -866,6 +866,10 @@
                 <h3 class="text-sm font-bold text-white">Gérer les projets</h3>
                 <button onclick="closeManageProjectsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
+            <button onclick="openNewProjectFromManage()" class="mb-3 w-full flex items-center justify-center gap-2 bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 border border-dashed border-indigo-500/40 font-bold py-2.5 rounded-xl text-xs transition-all active:scale-[0.98] shrink-0">
+                <i class="fa-solid fa-plus text-xs"></i>
+                Nouveau projet
+            </button>
             <div id="manage-projects-list" class="flex-1 overflow-y-auto space-y-2 -mx-1 px-1"></div>
             <button onclick="closeManageProjectsModal()" class="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors shrink-0">Fermer</button>
         </div>
@@ -1550,6 +1554,11 @@
         }
         function closeManageProjectsModal() {
             document.getElementById('manage-projects-modal').classList.add('hidden');
+        }
+        function openNewProjectFromManage() {
+            closeManageProjectsModal();
+            // Slight delay so the manage modal hides cleanly before the create modal opens
+            setTimeout(() => openNewProjectModal(), 60);
         }
         function renderManageProjectsList() {
             const list = document.getElementById('manage-projects-list');
