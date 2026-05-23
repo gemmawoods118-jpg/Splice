@@ -213,12 +213,14 @@
             100%    { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
         }
 
-        /* iOS-style floating glass nav bar */
+        /* iOS-style floating glass nav bar — fixed to the viewport so it always sits at the true screen bottom */
         .ios-nav-bar {
-            position: absolute;
+            position: fixed;
             bottom: 0;
-            left: 0;
-            right: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
             z-index: 40;
             display: flex;
             justify-content: center;
