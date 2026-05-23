@@ -224,7 +224,10 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            padding: 6px 10px env(safe-area-inset-bottom, 4px);
+            /* Small top padding for breathing room from content above.
+               Bottom: minimal so the nav sits low; the iOS home indicator
+               renders subtly on top of the glass which looks fine. */
+            padding: 6px 10px 8px;
             pointer-events: none; /* let taps fall through outside the pill */
         }
         .ios-nav-pill {
@@ -235,7 +238,9 @@
             gap: 4px;
             width: 100%;
             max-width: 480px;
-            padding: 8px 10px;
+            /* Extra bottom padding inside the pill so the labels clear the iOS home indicator
+               while the pill itself sits low on the screen */
+            padding: 8px 10px 22px;
             border-radius: 28px;
             background: rgba(15, 23, 42, 0.62);
             -webkit-backdrop-filter: saturate(180%) blur(28px);
