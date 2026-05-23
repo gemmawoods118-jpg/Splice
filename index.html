@@ -315,6 +315,25 @@
             padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
         }
 
+        /* Recurring frequency chips */
+        .recurring-freq-btn {
+            padding: 7px 4px;
+            border-radius: 10px;
+            background-color: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+            color: rgb(148, 163, 184);
+            font-size: 10.5px;
+            font-weight: 700;
+            transition: all 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .recurring-freq-btn:active { transform: scale(0.95); }
+        .recurring-freq-btn.active {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.20), rgba(99, 102, 241, 0.10));
+            border-color: rgba(99, 102, 241, 0.6);
+            color: rgb(165, 180, 252);
+        }
+
         /* Project switch animation */
         /* Project switch animation — pure cross-fade for smoothness on mobile.
            Blur and scale on a large scrolling container cause jank, so we use
@@ -712,16 +731,30 @@
                             </div>
                         </div>
 
-                        <!-- Récurrence (transactions répétées mensuellement) -->
-                        <div class="bg-slate-950/30 border border-slate-800/50 px-4 py-3 rounded-xl flex justify-between items-center">
-                            <div>
-                                <span class="text-xs font-bold text-slate-300 flex items-center gap-2"><i class="fa-solid fa-repeat text-indigo-400 text-[11px]"></i>Répéter mensuellement</span>
-                                <span class="text-[10px] text-slate-500 mt-0.5 block">Sera ajoutée à l'inbox chaque mois</span>
+                        <!-- Récurrence (transactions récurrentes) -->
+                        <div class="bg-slate-950/30 border border-slate-800/50 rounded-xl">
+                            <div class="px-4 py-3 flex justify-between items-center">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-300 flex items-center gap-2"><i class="fa-solid fa-repeat text-indigo-400 text-[11px]"></i>Récurrence</span>
+                                    <span class="text-[10px] text-slate-500 mt-0.5 block">Sera ajoutée à l'inbox automatiquement</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="recurring-toggle" class="sr-only peer" onchange="toggleRecurringOptions(this.checked)">
+                                    <div class="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:bg-indigo-600 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="recurring-toggle" class="sr-only peer">
-                                <div class="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:bg-indigo-600 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
-                            </label>
+                            <!-- Frequency picker (revealed when toggle is on) -->
+                            <div id="recurring-freq-block" class="hidden px-4 pb-3 pt-1 border-t border-slate-800/50">
+                                <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-2">Fréquence</span>
+                                <div class="grid grid-cols-3 gap-1.5" id="recurring-freq-grid">
+                                    <button type="button" data-freq="weekly" onclick="selectRecurringFreq('weekly')" class="recurring-freq-btn">Hebdo.</button>
+                                    <button type="button" data-freq="biweekly" onclick="selectRecurringFreq('biweekly')" class="recurring-freq-btn">2 sem.</button>
+                                    <button type="button" data-freq="monthly" onclick="selectRecurringFreq('monthly')" class="recurring-freq-btn active">Mensuelle</button>
+                                    <button type="button" data-freq="quarterly" onclick="selectRecurringFreq('quarterly')" class="recurring-freq-btn">Trimestrielle</button>
+                                    <button type="button" data-freq="biannual" onclick="selectRecurringFreq('biannual')" class="recurring-freq-btn">Semestre</button>
+                                    <button type="button" data-freq="yearly" onclick="selectRecurringFreq('yearly')" class="recurring-freq-btn">Annuelle</button>
+                                </div>
+                            </div>
                         </div>
 
                         <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.98] text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-950/50 flex items-center justify-center gap-2 text-md ripple-container">
@@ -2883,8 +2916,11 @@
         }
 
         // ---------- 6. RECURRING TRANSACTIONS ----------
-        // Stored separately in localStorage. Each entry knows its template and last_created month.
-        // On app load, we check if any recurring templates are due for this month and inject them in inbox.
+        // Stored separately in localStorage. Each template stores a `frequency` and
+        // a `nextDueDate` (ISO date string). On every app load, we check whether
+        // today is past nextDueDate for any template; if so, an expense is created
+        // and nextDueDate advances by the period length.
+        state.currentRecurringFreq = 'monthly';
         function loadRecurringTemplates() {
             try { return JSON.parse(localStorage.getItem('us_recurring') || '[]'); }
             catch(e) { return []; }
@@ -2892,10 +2928,28 @@
         function saveRecurringTemplates(arr) {
             localStorage.setItem('us_recurring', JSON.stringify(arr));
         }
-        function createRecurringFromExpense(exp) {
+        // Add `period` days to a Date; for "monthly" and longer we use month arithmetic to handle varying month lengths.
+        function advanceDate(date, frequency) {
+            const d = new Date(date);
+            switch (frequency) {
+                case 'weekly':    d.setDate(d.getDate() + 7); break;
+                case 'biweekly':  d.setDate(d.getDate() + 14); break;
+                case 'monthly':   d.setMonth(d.getMonth() + 1); break;
+                case 'quarterly': d.setMonth(d.getMonth() + 3); break;
+                case 'biannual':  d.setMonth(d.getMonth() + 6); break;
+                case 'yearly':    d.setFullYear(d.getFullYear() + 1); break;
+                default:          d.setMonth(d.getMonth() + 1); // safe default
+            }
+            return d;
+        }
+        function createRecurringFromExpense(exp, frequency = 'monthly') {
             const templates = loadRecurringTemplates();
-            const dayOfMonth = new Date(exp.created_at).getDate();
-            const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+            const startDate = new Date(exp.created_at);
+            // First occurrence: advance from creation date by one period — meaning the original
+            // expense the user just saved IS the first instance; the next one fires after one period.
+            const nextDue = advanceDate(startDate, frequency);
+            // Anchor at noon to dodge DST/timezone drift
+            nextDue.setHours(12, 0, 0, 0);
             templates.push({
                 id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                 amount: exp.amount,
@@ -2907,21 +2961,36 @@
                 p2SharePercent: exp.p2SharePercent,
                 type: exp.type,
                 project: exp.project,
-                dayOfMonth: Math.min(dayOfMonth, 28),
-                lastCreatedMonth: monthKey
+                frequency: frequency,
+                nextDueDate: nextDue.toISOString()
             });
             saveRecurringTemplates(templates);
         }
         function processRecurringDue() {
             const templates = loadRecurringTemplates();
             const now = new Date();
-            const currentMonthKey = now.toISOString().slice(0, 7);
-            const today = now.getDate();
             let changed = false;
             templates.forEach(t => {
-                if (t.lastCreatedMonth !== currentMonthKey && today >= t.dayOfMonth) {
+                // Migration: older templates without `frequency` / `nextDueDate`
+                if (!t.frequency || !t.nextDueDate) {
+                    t.frequency = 'monthly';
+                    // Build a nextDueDate from legacy dayOfMonth (defaulting to today)
+                    const next = new Date();
+                    next.setDate(t.dayOfMonth || next.getDate());
+                    // If the legacy lastCreatedMonth is current, advance to next month
+                    const currentMonthKey = now.toISOString().slice(0, 7);
+                    if (t.lastCreatedMonth === currentMonthKey) next.setMonth(next.getMonth() + 1);
+                    next.setHours(12, 0, 0, 0);
+                    t.nextDueDate = next.toISOString();
+                    changed = true;
+                }
+
+                // Catch-up loop: if a template is overdue by multiple periods (e.g. user opened
+                // the app after a long absence), create one expense per missed cycle.
+                let safety = 0;
+                while (new Date(t.nextDueDate) <= now && safety < 50) {
                     const recurringExp = {
-                        id: 'auto_rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                        id: 'auto_rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5) + '_' + safety,
                         amount: t.amount,
                         payer: t.payer,
                         description: `🔁 ${t.description}`,
@@ -2933,11 +3002,15 @@
                         isEditing: false,
                         type: t.type,
                         project: t.project,
-                        created_at: new Date().toISOString()
+                        created_at: t.nextDueDate
                     };
                     state.expenses.unshift(recurringExp);
-                    t.lastCreatedMonth = currentMonthKey;
+                    // Advance nextDueDate by one period
+                    const advanced = advanceDate(new Date(t.nextDueDate), t.frequency);
+                    advanced.setHours(12, 0, 0, 0);
+                    t.nextDueDate = advanced.toISOString();
                     changed = true;
+                    safety++;
                 }
             });
             if (changed) {
@@ -3693,14 +3766,44 @@
                 project: state.config.activeProject,
                 created_at: new Date().toISOString()
             };
+            const chosenFreq = state.currentRecurringFreq || 'monthly';
             await originalHandleFormSubmission(event);
             if (isRecurring && snapshot.amount > 0) {
-                createRecurringFromExpense(snapshot);
-                showToast('🔁 Récurrence créée');
+                createRecurringFromExpense(snapshot, chosenFreq);
+                const freqLabel = {
+                    weekly: 'hebdomadaire',
+                    biweekly: 'bimensuelle',
+                    monthly: 'mensuelle',
+                    quarterly: 'trimestrielle',
+                    biannual: 'semestrielle',
+                    yearly: 'annuelle'
+                }[chosenFreq] || 'mensuelle';
+                showToast(`🔁 Récurrence ${freqLabel} créée`);
                 recurringToggle.checked = false;
+                toggleRecurringOptions(false);
+                // Reset freq to monthly default for the next entry
+                state.currentRecurringFreq = 'monthly';
+                selectRecurringFreq('monthly', false);
             }
             haptic('success');
         };
+
+        // Show/hide the frequency picker when the toggle changes
+        function toggleRecurringOptions(show) {
+            const block = document.getElementById('recurring-freq-block');
+            if (!block) return;
+            if (show) block.classList.remove('hidden');
+            else block.classList.add('hidden');
+        }
+        // Set the active frequency
+        function selectRecurringFreq(freq, hapticOn = true) {
+            state.currentRecurringFreq = freq;
+            document.querySelectorAll('.recurring-freq-btn').forEach(b => {
+                if (b.dataset.freq === freq) b.classList.add('active');
+                else b.classList.remove('active');
+            });
+            if (hapticOn) haptic('light');
+        }
 
         // Hook into init: process recurring on every app load
         try {
