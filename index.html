@@ -765,15 +765,20 @@
             </div>
 
             <!-- VIEW 2: AUTOMATIC WEBHOOK INBOX -->
-            <div id="view-inbox" class="tab-view hidden space-y-4">
-                <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner text-center space-y-4">
-                    <div class="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto"><i class="fa-solid fa-mobile-screen-button text-lg"></i></div>
-                    <div class="space-y-1"><h3 class="text-sm font-bold text-white">Flux Bancaire Automatique</h3><p class="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">Les transactions arrivent ici en temps réel pour validation et personnalisation.</p></div>
-                    <button onclick="simulateIncomingWebhook()" class="text-xs text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/5 hover:bg-indigo-500/10 px-3.5 py-2 rounded-xl border border-indigo-500/10 transition-all">💡 Simuler un paiement</button>
+            <div id="view-inbox" class="tab-view hidden space-y-3">
+                <section class="bg-slate-950/40 border border-slate-800/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center shrink-0"><i class="fa-solid fa-mobile-screen-button text-xs"></i></div>
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-slate-200 truncate">Flux Bancaire Automatique</p>
+                            <p class="text-[10px] text-slate-500 truncate">Validation des transactions entrantes</p>
+                        </div>
+                    </div>
+                    <button onclick="simulateIncomingWebhook()" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/5 hover:bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/15 transition-all shrink-0">💡 Simuler</button>
                 </section>
-                <section class="space-y-3.5">
+                <section class="space-y-3">
                     <div class="flex justify-between items-center"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4><span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span></div>
-                    <div id="inbox-list" class="space-y-3 max-h-[500px] overflow-y-auto pr-1"></div>
+                    <div id="inbox-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1"></div>
                 </section>
             </div>
 
@@ -2816,7 +2821,9 @@
                             c.id = `inbox-item-${exp.id}`;
                             c.className = "bg-slate-950/20 border-2 border-dashed border-indigo-500/20 rounded-xl p-4 space-y-3 transition-all duration-300";
                             const m = scanCategory(exp.description);
-                            c.innerHTML = `<div class="flex justify-between items-start"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div><p class="text-sm font-bold text-slate-100">${exp.description}</p></div></div><span class="text-sm font-black text-indigo-400">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
+                            const payerColor = exp.payer === 'p1' ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/25' : 'text-violet-300 bg-violet-500/10 border-violet-500/25';
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 mt-0.5">Payé par <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px] ml-0.5">${payerName}</span></p></div></div><span class="text-sm font-black text-indigo-400 shrink-0">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
