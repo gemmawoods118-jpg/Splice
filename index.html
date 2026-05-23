@@ -213,6 +213,101 @@
             100%    { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
         }
 
+        /* iOS-style floating glass nav bar */
+        .ios-nav-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 40;
+            display: flex;
+            justify-content: center;
+            padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+            pointer-events: none; /* let taps fall through outside the pill */
+        }
+        .ios-nav-pill {
+            pointer-events: auto;
+            display: flex;
+            justify-content: space-around;
+            align-items: stretch;
+            gap: 4px;
+            width: 100%;
+            max-width: 480px;
+            padding: 8px 10px;
+            border-radius: 28px;
+            background: rgba(15, 23, 42, 0.62);
+            -webkit-backdrop-filter: saturate(180%) blur(28px);
+            backdrop-filter: saturate(180%) blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow:
+                0 14px 38px rgba(0, 0, 0, 0.55),
+                0 2px 8px rgba(0, 0, 0, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+        }
+        .ios-nav-btn {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 8px 4px 6px;
+            border-radius: 20px;
+            background: transparent;
+            border: none;
+            color: rgb(148, 163, 184);
+            font-weight: 600;
+            transition: color 0.25s ease, background-color 0.25s ease, transform 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .ios-nav-btn i {
+            font-size: 17px;
+            line-height: 1;
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .ios-nav-btn span:not(.ios-nav-badge) {
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: color 0.25s ease;
+        }
+        .ios-nav-btn:active { transform: scale(0.94); }
+        .ios-nav-btn.active {
+            color: rgb(129, 140, 248);
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.18), rgba(99, 102, 241, 0.10));
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                inset 0 0 0 1px rgba(99, 102, 241, 0.22);
+        }
+        .ios-nav-btn.active i {
+            transform: translateY(-1px) scale(1.08);
+        }
+        .ios-nav-badge {
+            position: absolute;
+            top: 4px;
+            right: 50%;
+            transform: translateX(20px);
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            background: rgb(244, 63, 94);
+            color: #fff;
+            font-size: 9px;
+            font-weight: 900;
+            border-radius: 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(244, 63, 94, 0.45), 0 0 0 2px rgba(15, 23, 42, 0.85);
+        }
+        /* Push scrollable content above the floating nav */
+        #main-scroll-area {
+            padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+        }
+
         /* Project switch animation */
         /* Project switch animation — pure cross-fade for smoothness on mobile.
            Blur and scale on a large scrolling container cause jank, so we use
@@ -241,6 +336,32 @@
         }
         .project-badge-pulse {
             animation: projectBadgePulse 0.6s ease-out;
+        }
+
+        /* New-project welcome animation — bouncy scale + colored ring sweep */
+        @keyframes projectWelcome {
+            0%   { transform: scale(0.85); }
+            35%  { transform: scale(1.18); }
+            55%  { transform: scale(0.96); }
+            75%  { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+        @keyframes projectWelcomeRing {
+            0%   { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.55), 0 0 0 0 rgba(99, 102, 241, 0.35); }
+            60%  { box-shadow: 0 0 0 14px rgba(139, 92, 246, 0), 0 0 0 28px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 14px rgba(139, 92, 246, 0), 0 0 0 28px rgba(99, 102, 241, 0); }
+        }
+        .project-welcome {
+            animation: projectWelcome 0.85s cubic-bezier(0.34, 1.56, 0.64, 1), projectWelcomeRing 1.2s ease-out;
+        }
+
+        /* Modal — improved exit animation */
+        @keyframes modalExit {
+            0%   { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.95); }
+        }
+        .modal-exit {
+            animation: modalExit 0.18s ease-in forwards;
         }
 
         /* Undo toast (bottom, slides up) */
@@ -698,12 +819,27 @@
 
         </div>
 
-        <!-- Bottom Navigation Bar -->
-        <nav class="shrink-0 bg-[#090d16] flex justify-around items-center py-3.5 z-40 shadow-[0_-12px_40px_rgba(0,0,0,0.95)] border-t border-slate-800/40">
-            <button onclick="switchView('saisie')" id="nav-btn-saisie" class="flex flex-col items-center gap-1.5 text-indigo-400 font-bold transition-all p-1.5"><i class="fa-solid fa-pen-nib text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Saisie</span></button>
-            <button onclick="switchView('inbox')" id="nav-btn-inbox" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5 relative"><i class="fa-solid fa-mobile-screen-button text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Inbox</span><span id="nav-inbox-badge" class="hidden absolute top-1 right-4 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">0</span></button>
-            <button onclick="switchView('analyse')" id="nav-btn-analyse" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5"><i class="fa-solid fa-chart-pie text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Analyse</span></button>
-            <button onclick="switchView('history')" id="nav-btn-history" class="flex flex-col items-center gap-1.5 text-slate-500 font-medium transition-all p-1.5"><i class="fa-solid fa-receipt text-lg"></i><span class="text-[9px] font-bold tracking-wider uppercase">Historique</span></button>
+        <!-- Bottom Navigation Bar — floating iOS-style glass pill -->
+        <nav class="ios-nav-bar">
+            <div class="ios-nav-pill">
+                <button onclick="switchView('saisie')" id="nav-btn-saisie" class="ios-nav-btn active" aria-label="Saisie">
+                    <i class="fa-solid fa-pen-nib"></i>
+                    <span>Saisie</span>
+                </button>
+                <button onclick="switchView('inbox')" id="nav-btn-inbox" class="ios-nav-btn" aria-label="Inbox">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                    <span>Inbox</span>
+                    <span id="nav-inbox-badge" class="hidden ios-nav-badge">0</span>
+                </button>
+                <button onclick="switchView('analyse')" id="nav-btn-analyse" class="ios-nav-btn" aria-label="Analyse">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Analyse</span>
+                </button>
+                <button onclick="switchView('history')" id="nav-btn-history" class="ios-nav-btn" aria-label="Historique">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Historique</span>
+                </button>
+            </div>
         </nav>
     </div>
 
@@ -1316,18 +1452,47 @@
             const iconInput = document.getElementById('new-project-icon');
             const name = nameInput.value.trim();
             const icon = iconInput.value.trim() || '📂';
-            if (name) {
-                const exists = state.config.projects.find(p => (p.id === name) || (p === name));
-                if (!exists) {
-                    state.config.projects.push({id: name, name: name, icon: icon});
-                    state.config.activeProject = name;
-                    localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
-                    populateProjectSelector();
-                    updateUI();
-                    if (!document.getElementById('view-analyse').classList.contains('hidden')) renderAnalyseTab();
-                }
+            if (!name) { closeProjectModal(); return; }
+            const exists = state.config.projects.find(p => (p.id === name) || (p === name));
+            if (exists) {
+                showToast('Ce projet existe déjà');
+                haptic('warn');
+                return;
             }
-            closeProjectModal();
+
+            // Save the new project (but don't switch yet — we'll do that via switchProject for the cross-fade)
+            state.config.projects.push({id: name, name: name, icon: icon});
+            localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            populateProjectSelector();
+
+            // Close the modal with an exit animation, then trigger the welcome celebration
+            const modal = document.getElementById('project-modal');
+            const inner = modal.querySelector('div');
+            if (inner) {
+                inner.classList.add('modal-exit');
+                setTimeout(() => {
+                    inner.classList.remove('modal-exit');
+                    closeProjectModal();
+                    // Trigger the smooth project switch + bouncy badge welcome
+                    switchProject(name);
+                    setTimeout(() => {
+                        const badgeBtn = document.querySelector('#project-selector')?.closest('div');
+                        if (badgeBtn) {
+                            badgeBtn.classList.remove('project-welcome');
+                            void badgeBtn.offsetWidth;
+                            badgeBtn.classList.add('project-welcome');
+                            setTimeout(() => badgeBtn.classList.remove('project-welcome'), 1300);
+                        }
+                        haptic('success');
+                        showToast(`${icon} Projet « ${name} » créé`);
+                    }, 60);
+                }, 180);
+            } else {
+                closeProjectModal();
+                switchProject(name);
+                haptic('success');
+                showToast(`${icon} Projet « ${name} » créé`);
+            }
         }
 
         function switchProject(name) {
@@ -1353,6 +1518,9 @@
                 const searchInput = document.getElementById('history-search');
                 if (searchInput) searchInput.value = '';
                 renderHistoryCategoryFilters();
+                // Keep the header dropdown in sync with the new active project
+                const sel = document.getElementById('project-selector');
+                if (sel) sel.value = name;
                 updateUI();
                 if (!document.getElementById('view-analyse').classList.contains('hidden')) renderAnalyseTab();
             };
@@ -2381,8 +2549,8 @@
                 }
             });
             ['nav-btn-saisie', 'nav-btn-inbox', 'nav-btn-analyse', 'nav-btn-history'].forEach(v => {
-                const el = document.getElementById(v); 
-                if(el) el.className = "flex flex-col items-center gap-1.5 text-slate-500 font-medium p-1.5 relative";
+                const el = document.getElementById(v);
+                if(el) el.classList.remove('active');
             });
             const tEl = document.getElementById(`view-${viewName}`); 
             if(tEl) {
@@ -2392,7 +2560,7 @@
                 }, 50);
             }
             const tBtn = document.getElementById(`nav-btn-${viewName}`); 
-            if(tBtn) tBtn.className = "flex flex-col items-center gap-1.5 text-indigo-400 font-bold p-1.5 relative";
+            if(tBtn) tBtn.classList.add('active');
             if (viewName === 'analyse') { populateYearFilterOptions(); renderAnalyseTab(); }
         }
 
