@@ -941,7 +941,7 @@
     </div>
 
     <!-- Receipt Scanner Modal — full-screen review of OCR-parsed line items -->
-    <div id="receipt-scan-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-sm flex flex-col">
+    <div id="receipt-scan-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-sm flex flex-col" style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);">
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
             <button onclick="closeReceiptScanner()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white rounded-lg" aria-label="Fermer">
@@ -2608,20 +2608,45 @@
             const lower = line.toLowerCase();
             return RECEIPT_BOILERPLATE.some(kw => lower.includes(kw));
         }
-        // Match "DESCRIPTION ... 12,30" or "DESCRIPTION ... 12.30" (with optional € symbol)
+        // Match a price token in a line: "12,30" / "12.30" / "12 30" (OCR sometimes reads the
+        // decimal separator as a space) / "1234" (integer cents — rare but happens with thermal print).
+        // Returns { name, price } or null. Used for typical "DESCRIPTION ... 12,30" lines.
         function parseReceiptLine(line) {
             const cleaned = line.trim();
             if (cleaned.length < 4) return null;
-            // Capture trailing price: digits, optional comma/dot, 0-2 decimals, optional € sign, end of string
-            const match = cleaned.match(/^(.+?)\s+(\d{1,4}[,.]\d{1,2})\s*€?\s*$/);
-            if (!match) return null;
-            const name = match[1].trim().replace(/\s{2,}/g, ' ');
-            const priceStr = match[2].replace(',', '.');
-            const price = parseFloat(priceStr);
-            if (isNaN(price) || price <= 0 || price > 9999) return null;
-            // Skip lines where the "name" is purely numeric or noise
-            if (/^\d+$/.test(name) || name.length < 2) return null;
-            return { name, price };
+
+            // Try patterns in order of specificity
+            const patterns = [
+                // 1. Standard: "NAME ... 12,30" or "NAME ... 12.30" with optional € sign
+                /^(.+?)\s+(\d{1,4}[,.]\d{2})\s*€?\s*$/,
+                // 2. Space-as-decimal: "NAME ... 12 30" (OCR misread)
+                /^(.+?)\s+(\d{1,4})\s(\d{2})\s*€?\s*$/,
+                // 3. Comma without decimals at end: "NAME ... 12," (rare)
+                /^(.+?)\s+(\d{1,4})[,.]\s*$/,
+                // 4. Plain integer at end with € or other indicator: "NAME ... 12 €"
+                /^(.+?)\s+(\d{1,4})\s*€\s*$/
+            ];
+
+            for (let i = 0; i < patterns.length; i++) {
+                const m = cleaned.match(patterns[i]);
+                if (!m) continue;
+                let name = m[1].trim().replace(/\s{2,}/g, ' ');
+                let priceStr;
+                if (i === 1) {
+                    // Space-as-decimal: combine the two captures
+                    priceStr = m[2] + '.' + m[3];
+                } else {
+                    priceStr = m[2].replace(',', '.');
+                }
+                const price = parseFloat(priceStr);
+                if (isNaN(price) || price <= 0 || price > 9999) continue;
+                if (/^\d+$/.test(name) || name.length < 2) continue;
+                // Filter out lines where the "name" is mostly non-letters (likely noise)
+                const letterCount = (name.match(/[a-zA-ZéèêëàâäîïôöùûüçÉÈÊËÀÂÄÎÏÔÖÙÛÜÇ]/g) || []).length;
+                if (letterCount < 2) continue;
+                return { name, price };
+            }
+            return null;
         }
         // Detect the receipt total (used for validation)
         function detectReceiptTotal(lines) {
@@ -2695,10 +2720,68 @@
             _tesseractLoaded = true;
         }
 
+        // Preprocess the photo for OCR: orient, grayscale, increase contrast, threshold.
+        // Receipts work best as pure black-on-white at a moderately high resolution.
+        function preprocessReceiptImage(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        // Target width: 1600px gives Tesseract enough resolution without being huge
+                        const TARGET_W = 1600;
+                        const scale = TARGET_W / img.naturalWidth;
+                        const w = Math.round(img.naturalWidth * scale);
+                        const h = Math.round(img.naturalHeight * scale);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const imgData = ctx.getImageData(0, 0, w, h);
+                        const data = imgData.data;
+                        // Pass 1: grayscale + sample for adaptive threshold
+                        let sum = 0;
+                        for (let i = 0; i < data.length; i += 4) {
+                            // Luminance: 0.299R + 0.587G + 0.114B
+                            const gray = (data[i] * 299 + data[i+1] * 587 + data[i+2] * 114) / 1000;
+                            data[i] = data[i+1] = data[i+2] = gray;
+                            sum += gray;
+                        }
+                        const avg = sum / (data.length / 4);
+                        // Threshold: anything brighter than (avg + small bias) becomes white, else black.
+                        // The bias compensates for typical receipt photos being darker overall.
+                        const threshold = Math.min(200, Math.max(100, avg * 0.95));
+                        for (let i = 0; i < data.length; i += 4) {
+                            const v = data[i] > threshold ? 255 : 0;
+                            data[i] = data[i+1] = data[i+2] = v;
+                        }
+                        ctx.putImageData(imgData, 0, 0);
+                        canvas.toBlob((blob) => {
+                            if (!blob) { reject(new Error('Preprocess: blob failed')); return; }
+                            resolve(blob);
+                        }, 'image/png');
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+                img.onerror = () => reject(new Error('Image load failed'));
+                img.src = dataUrl;
+            });
+        }
+
         async function runReceiptOCR(dataUrl) {
             try {
                 await loadTesseract();
-                setLoadingStatus('Préparation…', 'Initialisation du moteur', 15);
+                setLoadingStatus('Préparation de l\'image…', 'Optimisation pour la lecture', 10);
+                // Preprocess: grayscale + threshold + resize
+                let imageInput = dataUrl;
+                try {
+                    const blob = await preprocessReceiptImage(dataUrl);
+                    imageInput = URL.createObjectURL(blob);
+                } catch (e) {
+                    console.warn('Preprocessing failed, falling back to original image:', e);
+                }
+                setLoadingStatus('Initialisation du moteur…', '', 20);
                 if (!_tesseractWorker) {
                     _tesseractWorker = await window.Tesseract.createWorker('fra', 1, {
                         logger: (m) => {
@@ -2708,9 +2791,16 @@
                             }
                         }
                     });
+                    // Tune Tesseract for receipt-style content:
+                    //   PSM 6 = uniform block of text (vs the default 3 which is auto-segmentation)
+                    //   Whitelist constrains output to characters that actually appear on receipts
+                    await _tesseractWorker.setParameters({
+                        tessedit_pageseg_mode: '6',
+                        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,€$£%/&-+*()éèêëàâäîïôöùûüçÉÈÊËÀÂÄÎÏÔÖÙÛÜÇ '
+                    });
                 }
                 setLoadingStatus('Lecture du reçu…', 'Cela prend quelques secondes', 30);
-                const result = await _tesseractWorker.recognize(dataUrl);
+                const result = await _tesseractWorker.recognize(imageInput);
                 setLoadingStatus('Analyse terminée', '', 100);
                 const text = result.data.text || '';
                 processReceiptText(text);
@@ -2752,9 +2842,13 @@
             if (!list) return;
 
             if (receiptState.items.length === 0) {
-                list.innerHTML = `<div class="text-center py-12 text-xs text-slate-500">
+                list.innerHTML = `<div class="text-center py-10 px-4">
                     <i class="fa-solid fa-receipt text-3xl text-slate-700 block mb-3"></i>
-                    Aucune ligne détectée.<br>Essayez avec une photo plus nette ou ajoutez les lignes manuellement.
+                    <p class="text-xs text-slate-400 mb-1 font-bold">Aucune ligne détectée</p>
+                    <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Essayez avec une photo plus nette, en cadrant le reçu sur fond sombre et bien éclairé.</p>
+                    <button onclick="document.getElementById('receipt-camera-input').click(); closeReceiptScanner();" class="text-xs text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-2 rounded-lg border border-indigo-500/20 transition-all active:scale-95">
+                        <i class="fa-solid fa-camera-rotate mr-1.5"></i>Reprendre la photo
+                    </button>
                 </div>`;
             } else {
                 list.innerHTML = receiptState.items.map((item, idx) => `
