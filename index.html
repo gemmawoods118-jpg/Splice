@@ -888,10 +888,23 @@
     <div id="project-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xs p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <h3 class="text-sm font-bold text-white mb-4">Créer un nouveau projet</h3>
-            <div class="flex gap-2.5 mb-4">
+            <div class="flex gap-2.5 mb-3">
                 <input type="text" id="new-project-icon" value="📂" maxlength="2" class="w-14 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2 text-center text-xl text-slate-200 focus:outline-none">
                 <input type="text" id="new-project-input" placeholder="Ex: Vacances Rome" class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none">
             </div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Devise du projet</label>
+            <select id="new-project-currency" class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl py-2 px-3 text-sm text-slate-200 focus:outline-none mb-4">
+                <option value="€">€ Euro</option>
+                <option value="$">$ Dollar US</option>
+                <option value="£">£ Livre sterling</option>
+                <option value="CHF">CHF Franc suisse</option>
+                <option value="¥">¥ Yen</option>
+                <option value="C$">C$ Dollar canadien</option>
+                <option value="A$">A$ Dollar australien</option>
+                <option value="kr">kr Couronne</option>
+                <option value="zł">zł Zloty</option>
+                <option value="₹">₹ Roupie indienne</option>
+            </select>
             <div class="flex gap-2.5">
                 <button onclick="confirmNewProject()" class="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-950/50">Créer</button>
                 <button onclick="closeProjectModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition-colors">Annuler</button>
@@ -1283,7 +1296,15 @@
             state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
             state.config.sbUrl = document.getElementById('config-sb-url').value.trim() || '';
             state.config.sbKey = document.getElementById('config-sb-key').value.trim() || '';
-            state.config.currency = document.getElementById('config-currency').value || '€';
+            // Global currency is the fallback used by projects that don't override it.
+            // The live `currency` field is also updated so the active view refreshes immediately
+            // if the active project has no per-project currency.
+            const chosenCurrency = document.getElementById('config-currency').value || '€';
+            state.config.globalCurrency = chosenCurrency;
+            const activeProj = (state.config.projects || []).find(p => (p.id || p) === state.config.activeProject);
+            if (!(activeProj && typeof activeProj === 'object' && activeProj.currency)) {
+                state.config.currency = chosenCurrency;
+            }
 
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
             
@@ -1482,6 +1503,8 @@
 
         function openNewProjectModal() {
             document.getElementById('project-modal').classList.remove('hidden');
+            const curSel = document.getElementById('new-project-currency');
+            if (curSel) curSel.value = state.config.globalCurrency || '€';
             document.getElementById('new-project-input').focus();
         }
 
@@ -1494,8 +1517,10 @@
         function confirmNewProject() {
             const nameInput = document.getElementById('new-project-input');
             const iconInput = document.getElementById('new-project-icon');
+            const curInput = document.getElementById('new-project-currency');
             const name = nameInput.value.trim();
             const icon = iconInput.value.trim() || '📂';
+            const currency = (curInput && curInput.value) || state.config.globalCurrency || '€';
             if (!name) { closeProjectModal(); return; }
             const exists = state.config.projects.find(p => (p.id === name) || (p === name));
             if (exists) {
@@ -1505,7 +1530,7 @@
             }
 
             // Save the new project (but don't switch yet — we'll do that via switchProject for the cross-fade)
-            state.config.projects.push({id: name, name: name, icon: icon});
+            state.config.projects.push({id: name, name: name, icon: icon, currency: currency});
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
             populateProjectSelector();
 
@@ -1556,12 +1581,22 @@
             // Helper: actually swap the project data + re-render. Runs while invisible.
             const applySwitch = () => {
                 state.config.activeProject = name;
+                // Mirror the active project's currency into state.config.currency so all
+                // existing code reading state.config.currency picks up the right symbol.
+                // The persisted (global) currency stays as the fallback.
+                const activeProj = (state.config.projects || []).find(p => (p.id || p) === name);
+                if (activeProj && typeof activeProj === 'object' && activeProj.currency) {
+                    state.config.currency = activeProj.currency;
+                } else {
+                    state.config.currency = state.config.globalCurrency || state.config.currency || '€';
+                }
                 localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
                 state.historySearchQuery = '';
                 state.selectedHistoryCategory = 'all';
                 const searchInput = document.getElementById('history-search');
                 if (searchInput) searchInput.value = '';
                 renderHistoryCategoryFilters();
+                updateCurrencyUI();
                 // Keep the header dropdown in sync with the new active project
                 const sel = document.getElementById('project-selector');
                 if (sel) sel.value = name;
@@ -1613,19 +1648,31 @@
         function renderManageProjectsList() {
             const list = document.getElementById('manage-projects-list');
             if (!list) return;
+            const currencyOptions = ['€', '$', '£', 'CHF', '¥', 'C$', 'A$', 'kr', 'zł', '₹'];
             list.innerHTML = state.config.projects.map(p => {
                 const id = p.id || p;
                 const name = p.name || p;
                 const icon = p.icon || (id === 'Principal' ? '🏡' : '📂');
+                const currency = (p && typeof p === 'object' && p.currency) || state.config.globalCurrency || '€';
                 const isPrincipal = id === 'Principal';
                 const isActive = state.config.activeProject === id;
                 const expCount = state.expenses.filter(e => (e.project === id) || (!e.project && id === 'Principal')).length;
+                const currencySelectOptions = currencyOptions.map(c =>
+                    `<option value="${c}" ${c === currency ? 'selected' : ''}>${c}</option>`
+                ).join('');
                 return `
-                    <div class="flex items-center gap-2 p-3 bg-slate-950/40 rounded-xl ${isActive ? 'border border-indigo-500/60 bg-indigo-500/10' : 'border border-slate-800'}" data-project-row="${id}">
-                        <input type="text" value="${icon}" maxlength="2" class="w-11 h-11 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg text-center text-lg text-slate-200 focus:outline-none shrink-0" data-edit-icon ${isPrincipal ? 'disabled' : ''}>
-                        <input type="text" value="${name.replace(/"/g, '&quot;')}" class="flex-1 min-w-0 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none" data-edit-name ${isPrincipal ? 'disabled' : ''}>
-                        ${isPrincipal ? '' : `<button onclick="saveProjectEdit('${id.replace(/'/g, "\\'")}')" class="w-9 h-9 flex items-center justify-center bg-emerald-500/15 text-emerald-400 rounded-lg shrink-0 hover:bg-emerald-500/25 active:scale-95 transition-all" aria-label="Sauvegarder"><i class="fa-solid fa-check text-xs"></i></button>`}
-                        ${isPrincipal ? `<span class="text-[10px] text-slate-500 px-2 shrink-0">par défaut</span>` : `<button onclick="confirmDeleteProject('${id.replace(/'/g, "\\'")}', ${expCount})" class="w-9 h-9 flex items-center justify-center bg-rose-500/15 text-rose-400 rounded-lg shrink-0 hover:bg-rose-500/25 active:scale-95 transition-all" aria-label="Supprimer"><i class="fa-solid fa-trash-can text-xs"></i></button>`}
+                    <div class="space-y-2 p-3 bg-slate-950/40 rounded-xl ${isActive ? 'border border-indigo-500/60 bg-indigo-500/10' : 'border border-slate-800'}" data-project-row="${id}">
+                        <div class="flex items-center gap-2">
+                            <input type="text" value="${icon}" maxlength="2" class="w-11 h-11 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg text-center text-lg text-slate-200 focus:outline-none shrink-0 ${isPrincipal ? 'opacity-60' : ''}" data-edit-icon ${isPrincipal ? 'disabled' : ''}>
+                            <input type="text" value="${name.replace(/"/g, '&quot;')}" class="flex-1 min-w-0 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none ${isPrincipal ? 'opacity-60' : ''}" data-edit-name ${isPrincipal ? 'disabled' : ''}>
+                            ${isPrincipal ? `<span class="text-[10px] text-slate-500 px-2 shrink-0">par défaut</span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest shrink-0">Devise</span>
+                            <select class="flex-1 min-w-0 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg py-1.5 px-2 text-xs text-slate-200 focus:outline-none" data-edit-currency>${currencySelectOptions}</select>
+                            <button onclick="saveProjectEdit('${id.replace(/'/g, "\\'")}')" class="w-9 h-9 flex items-center justify-center bg-emerald-500/15 text-emerald-400 rounded-lg shrink-0 hover:bg-emerald-500/25 active:scale-95 transition-all" aria-label="Sauvegarder"><i class="fa-solid fa-check text-xs"></i></button>
+                            ${isPrincipal ? '' : `<button onclick="confirmDeleteProject('${id.replace(/'/g, "\\'")}', ${expCount})" class="w-9 h-9 flex items-center justify-center bg-rose-500/15 text-rose-400 rounded-lg shrink-0 hover:bg-rose-500/25 active:scale-95 transition-all" aria-label="Supprimer"><i class="fa-solid fa-trash-can text-xs"></i></button>`}
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -1633,13 +1680,17 @@
         function saveProjectEdit(oldId) {
             const row = document.querySelector(`[data-project-row="${oldId}"]`);
             if (!row) return;
-            const newName = row.querySelector('[data-edit-name]').value.trim();
-            const newIcon = row.querySelector('[data-edit-icon]').value.trim() || '📂';
+            const isPrincipal = oldId === 'Principal';
+            const newName = isPrincipal ? oldId : (row.querySelector('[data-edit-name]').value.trim() || oldId);
+            const newIcon = isPrincipal ? (state.config.projects.find(p => (p.id || p) === oldId)?.icon || '🏡') : (row.querySelector('[data-edit-icon]').value.trim() || '📂');
+            const newCurrency = row.querySelector('[data-edit-currency]').value || state.config.globalCurrency || '€';
             if (!newName) { showToast('Nom requis'); return; }
             // Find the project and update
             const proj = state.config.projects.find(p => (p.id || p) === oldId);
             if (!proj) return;
-            const newId = newName; // id == name for non-principal projects
+            // Capture old values before mutation to build a contextual toast at the end
+            const oldCurrency = (typeof proj === 'object' && proj.currency) || state.config.globalCurrency || '€';
+            const newId = isPrincipal ? oldId : newName; // Principal id is immutable
             // Avoid collisions
             if (newId !== oldId && state.config.projects.some(p => (p.id || p) === newId)) {
                 showToast('Ce nom existe déjà');
@@ -1648,11 +1699,12 @@
             if (typeof proj === 'string') {
                 // Legacy string project — replace
                 const idx = state.config.projects.indexOf(proj);
-                state.config.projects[idx] = { id: newId, name: newName, icon: newIcon };
+                state.config.projects[idx] = { id: newId, name: newName, icon: newIcon, currency: newCurrency };
             } else {
                 proj.id = newId;
                 proj.name = newName;
                 proj.icon = newIcon;
+                proj.currency = newCurrency;
             }
             // Migrate any expenses belonging to oldId
             if (newId !== oldId) {
@@ -1665,11 +1717,37 @@
                 }
             }
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            // Detect WHAT changed to build a useful toast (currency, name, or generic)
+            const currencyChanged = oldCurrency !== newCurrency;
+            // If we just edited the active project, refresh the live currency from its new value
+            if (state.config.activeProject === newId) {
+                state.config.currency = newCurrency;
+                localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                updateCurrencyUI();
+            }
             populateProjectSelector();
-            renderManageProjectsList();
             updateUI();
             haptic('success');
-            showToast('Projet modifié');
+
+            // Build a contextual toast that names the project so it's clear which one changed
+            let toastMsg = `${newName} : projet modifié`;
+            if (currencyChanged) toastMsg = `${newName} : devise → ${newCurrency}`;
+            else if (newId !== oldId) toastMsg = `Projet renommé : ${oldId} → ${newName}`;
+
+            // Animate the manage modal closed, then show the toast
+            const manageModal = document.getElementById('manage-projects-modal');
+            const inner = manageModal?.querySelector('div');
+            if (inner) {
+                inner.classList.add('modal-exit');
+                setTimeout(() => {
+                    inner.classList.remove('modal-exit');
+                    manageModal.classList.add('hidden');
+                    showToast(toastMsg);
+                }, 180);
+            } else {
+                closeManageProjectsModal();
+                showToast(toastMsg);
+            }
         }
         function confirmDeleteProject(id, expCount) {
             const msg = expCount > 0
@@ -1695,8 +1773,20 @@
             showToast('Projet supprimé');
         }
 
+        // Resolve the currency symbol for the currently active project.
+        // Projects can override the global currency (e.g. £ for a UK trip project).
+        function getActiveCurrency() {
+            try {
+                const active = state.config.activeProject;
+                const proj = (state.config.projects || []).find(p => (p.id || p) === active);
+                if (proj && typeof proj === 'object' && proj.currency) return proj.currency;
+            } catch(e) {}
+            return state.config.currency || '€';
+        }
+
         function updateCurrencyUI() {
-            document.querySelectorAll('.currency-display').forEach(el => el.innerText = state.config.currency);
+            const cur = getActiveCurrency();
+            document.querySelectorAll('.currency-display').forEach(el => el.innerText = cur);
         }
 
         function loadConfig() {
@@ -1706,7 +1796,17 @@
                 state.config = { ...state.config, ...parsed };
             }
             if(!state.config.currency) state.config.currency = '€';
+            // Initialize globalCurrency (the fallback) on first run / from migration
+            if(!state.config.globalCurrency) state.config.globalCurrency = state.config.currency;
             if(!state.config.projects) state.config.projects = [{id: 'Principal', name: 'Principal', icon: '🏡'}];
+
+            // On load, set the live currency to the active project's override (if any) — otherwise the global one
+            const activeProjOnLoad = state.config.projects.find(p => (p.id || p) === state.config.activeProject);
+            if (activeProjOnLoad && typeof activeProjOnLoad === 'object' && activeProjOnLoad.currency) {
+                state.config.currency = activeProjOnLoad.currency;
+            } else {
+                state.config.currency = state.config.globalCurrency;
+            }
             
             if(state.config.projects.length > 0 && typeof state.config.projects[0] === 'string') {
                 state.config.projects = state.config.projects.map(p => ({
@@ -1726,7 +1826,7 @@
             if (p2) p2.value = state.config.p2Name;
             if (url) url.value = state.config.sbUrl || '';
             if (key) key.value = state.config.sbKey || '';
-            if (cur) cur.value = state.config.currency;
+            if (cur) cur.value = state.config.globalCurrency || state.config.currency;
             
             safeSetInnerText('label-btn-p1', state.config.p1Name);
             safeSetInnerText('label-btn-p2', state.config.p2Name);
