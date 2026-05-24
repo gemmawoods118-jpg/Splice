@@ -650,9 +650,9 @@
             </div>
         </div>
 
-        <!-- Scrollable Content Area -->
         <!-- Pull-to-refresh indicator (visible during pull gesture) -->
-        <div id="pull-refresh-indicator" class="absolute left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(env(safe-area-inset-top, 47px) + 72px);">
+        <!-- Uses position: fixed so it's locked to the viewport and never moves with content/scroll. -->
+        <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 72px);">
             <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
                 <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
                     <!-- Faded full circle for context -->
@@ -1402,6 +1402,10 @@
                 flier.style.opacity = '1';
             });
 
+            // Toast slides in shortly after liftoff — the icon (✓) is shown in the toast banner itself,
+            // so the message text doesn't need its own checkmark.
+            setTimeout(() => showToast('Transaction enregistrée'), 120);
+
             // Compute control point for the arc — go UP and slightly outward, then curve down to target.
             // For a quadratic Bezier-ish feel, we'll animate position with two stages:
             //   Stage 1 (0-50%): move up + outward (the "launch" lift)
@@ -1613,7 +1617,8 @@
             haptic('light');
             try {
                 await fetchSupabaseExpenses();
-                showToast('Mis à jour');
+                // Success: the pull-refresh animation itself (full splash-style circle drawing)
+                // is the confirmation — no toast needed.
             } catch (e) {
                 console.error('Refresh failed:', e);
                 showToast('Échec de la mise à jour');
