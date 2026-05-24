@@ -353,6 +353,16 @@
         }
         .pull-refresh-pulsing { animation: pullRefreshPulse 1.4s ease-in-out infinite; }
 
+        /* During refresh, push the scroll content down so the indicator pill has clean empty space
+           to sit in (otherwise the indicator overlaps the first content card). The transition
+           gives a smooth content "make room" feel. */
+        #main-scroll-area {
+            transition: padding-top 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        #main-scroll-area.refreshing {
+            padding-top: 80px !important;
+        }
+
         /* Flying plane animation — when a transaction is saved, a clone of the plane icon
            flies in a curved arc from the submit button to the Historique tab in the nav. */
         .flying-plane {
@@ -638,9 +648,9 @@
             <span>Hors ligne. Synchronisation à la reconnexion.</span>
         </div>
 
-        <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2">
-            <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
-            <span id="toast-message" class="flex-1">Notification</span>
+        <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 whitespace-nowrap max-w-[calc(100vw-32px)]">
+            <i id="toast-icon" class="fa-solid fa-check-circle text-lg shrink-0"></i>
+            <span id="toast-message" class="overflow-hidden text-ellipsis">Notification</span>
         </div>
 
         <!-- Pull to refresh indicator -->
@@ -651,8 +661,11 @@
         </div>
 
         <!-- Pull-to-refresh indicator (visible during pull gesture) -->
-        <!-- Uses position: fixed so it's locked to the viewport and never moves with content/scroll. -->
-        <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 72px);">
+        <!-- Uses position: fixed so it's locked to the viewport and never moves with content/scroll.
+             Positioned just below the header in the breathing room above the first content card.
+             During refresh, the scroll area gets extra top padding (via .refreshing class) so the
+             cards push down out of the way and the indicator sits in clean empty space. -->
+        <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 70px);">
             <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
                 <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
                     <!-- Faded full circle for context -->
@@ -1701,6 +1714,8 @@
                 if (arcLeft) { arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH); arcLeft.classList.remove('pull-refresh-arc-anim-left'); }
                 if (arcRight) { arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH); arcRight.classList.remove('pull-refresh-arc-anim-right'); }
                 if (pill) pill.classList.remove('pull-refresh-pulsing');
+                // Remove the content push-down so cards return to their normal position
+                scrollArea.classList.remove('refreshing');
             };
             resetIndicator();
 
@@ -1764,6 +1779,9 @@
                     indicator.style.opacity = '1';
                     indicator.style.transform = 'translate(-50%, 0)';
                     if (pill) pill.classList.add('pull-refresh-pulsing');
+                    // Push the scroll content down so the indicator has clean empty space to sit in
+                    // (otherwise the pill overlaps the top edge of the first content card)
+                    scrollArea.classList.add('refreshing');
                     // Reset arcs, then trigger the same animation pattern as the splash screen.
                     // The left arc draws first (0s), then the right arc draws (0.55s delay).
                     if (arcLeft) {
