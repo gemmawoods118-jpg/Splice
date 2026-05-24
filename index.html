@@ -244,14 +244,14 @@
             left: 50%;
             transform: translateX(-50%);
             width: 100%;
-            max-width: 480px;
+            max-width: 448px; /* matches Tailwind max-w-md to match the app container's max width */
             z-index: 40;
             display: flex;
             justify-content: center;
-            /* Small top padding for breathing room from content above.
-               Bottom: minimal so the nav sits low; the iOS home indicator
-               renders subtly on top of the glass which looks fine. */
-            padding: 6px 16px 8px;
+            /* Top: breathing room from content above. Sides: 28px so the pill is visibly narrower
+               than the content cards (which sit at 16px padding) — creates a clear floating look.
+               Bottom: minimal so the nav sits low; the iOS home indicator renders subtly on the glass. */
+            padding: 6px 28px 8px;
             pointer-events: none; /* let taps fall through outside the pill */
         }
         .ios-nav-pill {
@@ -608,7 +608,7 @@
 
         <!-- Scrollable Content Area -->
         <!-- Pull-to-refresh indicator (visible during pull gesture) -->
-        <div id="pull-refresh-indicator" class="absolute left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(env(safe-area-inset-top, 0px) + 60px);">
+        <div id="pull-refresh-indicator" class="absolute left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(env(safe-area-inset-top, 47px) + 72px);">
             <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
                 <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
                     <!-- Faded full circle for context -->
@@ -1633,9 +1633,10 @@
                 pulling = false;
                 const shouldRefresh = currentPull >= THRESHOLD;
                 if (shouldRefresh) {
-                    // Lock indicator in the refresh position, kick off splash-style arc draw
+                    // Lock indicator in its resting position — just below the header, in the
+                    // breathing room above the first content card. Stays here for the full animation.
                     indicator.style.opacity = '1';
-                    indicator.style.transform = 'translate(-50%, 60px)';
+                    indicator.style.transform = 'translate(-50%, 0px)';
                     if (pill) pill.classList.add('pull-refresh-pulsing');
                     // Reset arcs, then trigger the same animation pattern as the splash screen.
                     // The left arc draws first (0s), then the right arc draws (0.55s delay).
@@ -1651,9 +1652,14 @@
                         void arcRight.offsetWidth;
                         arcRight.classList.add('pull-refresh-arc-anim-right');
                     }
-                    await performLightRefresh();
-                    // Hold the completed state briefly so the user sees the full circle, then fade out
-                    setTimeout(resetIndicator, 350);
+                    // Guarantee the full splash-style animation completes before fading away.
+                    // Arc timing: left starts at 0s (0.9s duration), right starts at 0.55s (0.9s duration),
+                    // so the right arc finishes at 1.45s. Plus a 600ms "completed circle" hold.
+                    // Total minimum visible time after release: ~2.05s — regardless of how fast the fetch returns.
+                    const MIN_VISIBLE = 2050;
+                    const animationDone = new Promise(resolve => setTimeout(resolve, MIN_VISIBLE));
+                    await Promise.all([performLightRefresh(), animationDone]);
+                    resetIndicator();
                 } else {
                     // Below threshold — retract immediately
                     resetIndicator();
