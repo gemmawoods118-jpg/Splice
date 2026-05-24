@@ -2230,9 +2230,11 @@
                 state.expenses.forEach(e => { if (e.project === oldId) e.project = newId; });
                 localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
                 if (state.config.activeProject === oldId) state.config.activeProject = newId;
-                // Sync to Supabase
+                // Sync to Supabase — rename the project field on all affected rows
                 if (state.supabaseClient && navigator.onLine) {
-                    state.supabaseClient.from('expenses').update({ project: newId }).eq('project', oldId).then(() => {});
+                    state.supabaseClient.from('expenses').update({ project: newId }).eq('project', oldId).then(({ error }) => {
+                        if (error) console.error('Project rename update error:', error);
+                    });
                 }
             }
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
@@ -2278,7 +2280,9 @@
             state.expenses = state.expenses.filter(e => e.project !== id);
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             if (state.supabaseClient && navigator.onLine && toDelete.length > 0) {
-                state.supabaseClient.from('expenses').delete().eq('project', id).then(() => {});
+                state.supabaseClient.from('expenses').delete().eq('project', id).then(({ error }) => {
+                    if (error) console.error('Project cascade delete error:', error);
+                });
             }
             // Remove the project itself
             state.config.projects = state.config.projects.filter(p => (p.id || p) !== id);
@@ -2290,6 +2294,14 @@
             updateUI();
             haptic('warn');
             showToast('Projet supprimé');
+        }
+
+        // Helper: returns true if an expense belongs to the currently active project.
+        // Handles the legacy case where an old expense lacks a `project` field — those
+        // are treated as belonging to the Principal project for backwards compatibility.
+        function isInActiveProject(exp) {
+            const active = state.config.activeProject;
+            return exp.project === active || (!exp.project && active === 'Principal');
         }
 
         // Resolve the currency symbol for the currently active project.
@@ -2716,11 +2728,8 @@
             state.expenses.unshift(newExpense); localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
 
-            // Capture the plane icon's rect BEFORE the form blur (which dismisses the keyboard and
-            // shifts the viewport on iOS, invalidating the rect).
-            // The animation function reads it internally, but we trigger before form reset to ensure
-            // a stable starting position.
-            flyTransactionToHistory();
+            // Celebration animation — best-effort, never lets a UI glitch interrupt the save flow.
+            try { flyTransactionToHistory(); } catch (e) { console.error('Fly animation failed:', e); }
 
             amtIn.value = ''; if (descIn) descIn.value = '';
             selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); amtIn.blur();
@@ -3293,14 +3302,16 @@
         }
 
         async function runReceiptOCR(dataUrl) {
+            let imageInput = dataUrl;
+            let objectUrlToRevoke = null;
             try {
                 await loadTesseract();
                 setLoadingStatus('Préparation de l\'image…', 'Optimisation pour la lecture', 10);
                 // Preprocess: grayscale + threshold + resize
-                let imageInput = dataUrl;
                 try {
                     const blob = await preprocessReceiptImage(dataUrl);
-                    imageInput = URL.createObjectURL(blob);
+                    objectUrlToRevoke = URL.createObjectURL(blob);
+                    imageInput = objectUrlToRevoke;
                 } catch (e) {
                     console.warn('Preprocessing failed, falling back to original image:', e);
                 }
@@ -3331,6 +3342,9 @@
                 console.error('OCR error:', err);
                 showToast('Échec de la lecture du reçu');
                 closeReceiptScanner();
+            } finally {
+                // Always release the preprocessed image blob to prevent memory leaks
+                if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
             }
         }
 
@@ -3581,9 +3595,13 @@
             await requestBadgePermission();
             const mock = { id: 'auto_' + Date.now(), amount: 32.50, payer: 'p1', description: 'Uber Eats', category: 'Resto & Café', icon: 'fa-utensils', p1SharePercent: 50, p2SharePercent: 50, approved: false, isEditing: false, type: 'depense', project: state.config.activeProject, created_at: new Date().toISOString() };
             state.expenses.unshift(mock); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); switchView('inbox');
+            const persistable = stripTransientFields(mock);
             if (state.supabaseClient && navigator.onLine) {
-                try { await state.supabaseClient.from('expenses').insert([mock]); } catch (e) { queueSync(mock); }
-            } else { queueSync(mock); }
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').insert([persistable]);
+                    if (error) { console.error('Simulate webhook insert error:', error); queueSync(persistable); }
+                } catch (e) { console.error('Simulate webhook threw:', e); queueSync(persistable); }
+            } else { queueSync(persistable); }
         }
 
         function toggleInboxEdit(id, show) {
@@ -3640,13 +3658,23 @@
         async function rejectTransaction(id) {
             await smoothDismiss(`inbox-item-${id}`, -100);
             state.expenses = state.expenses.filter(t => t.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-            if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').delete().eq('id', id); } catch (e) {} }
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
+                    if (error) console.error('Reject delete error:', error);
+                } catch (e) { console.error('Reject delete threw:', e); }
+            }
         }
 
         async function deleteExpense(id) {
             await smoothDismiss(`history-item-${id}`, -100);
             state.expenses = state.expenses.filter(exp => exp.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
-            if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').delete().eq('id', id); } catch (e) {} }
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
+                    if (error) console.error('Delete error:', error);
+                } catch (e) { console.error('Delete threw:', e); }
+            }
         }
 
         async function settleUp() {
@@ -3662,7 +3690,13 @@
             const diff = d2 - d1; if (Math.abs(diff) < 0.01) return;
             const settleLog = { id: Date.now() + '_' + Math.random().toString(36).substr(2, 5), amount: Math.abs(diff), payer: diff > 0 ? 'p2' : 'p1', description: '💸 Équilibrage', category: 'Settlement', icon: 'fa-handshake', p1SharePercent: diff > 0 ? 0 : 100, p2SharePercent: diff > 0 ? 100 : 0, approved: true, isEditing: false, type: 'transfert', project: state.config.activeProject, created_at: new Date().toISOString() };
             state.expenses.unshift(settleLog); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); confetti({ particleCount: 150, spread: 75, origin: { y: 0.6 } });
-            if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').insert([settleLog]); } catch (e) {} }
+            const persistable = stripTransientFields(settleLog);
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').insert([persistable]);
+                    if (error) { console.error('Settle insert error:', error); queueSync(persistable); }
+                } catch (e) { console.error('Settle insert threw:', e); queueSync(persistable); }
+            } else { queueSync(persistable); }
         }
 
         // Strip fields that don't belong in Supabase (transient UI metadata).
@@ -3676,7 +3710,30 @@
         
         async function processOfflineQueue() {
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
-            try { const { error } = await state.supabaseClient.from('expenses').insert([state.syncQueue[0]]); if (!error) { state.syncQueue.shift(); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); processOfflineQueue(); } } catch (e) {}
+            const row = state.syncQueue[0];
+            try {
+                const { error } = await state.supabaseClient.from('expenses').insert([row]);
+                if (!error) {
+                    // Success — pop the row and recurse for the next one
+                    state.syncQueue.shift();
+                    localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue));
+                    processOfflineQueue();
+                } else {
+                    // Insert failed (e.g. schema mismatch, RLS rejection). Bump a retry counter
+                    // on this row. After 3 attempts, drop it from the queue so it doesn't block
+                    // subsequent rows from syncing.
+                    row._syncAttempts = (row._syncAttempts || 0) + 1;
+                    console.warn(`[Sync] Queue row failed (attempt ${row._syncAttempts}/3):`, error.message || error, row);
+                    if (row._syncAttempts >= 3) {
+                        console.error('[Sync] Dropping row after 3 failed attempts:', row);
+                        state.syncQueue.shift();
+                    }
+                    localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue));
+                    // Don't recurse immediately — wait for next network event or refresh
+                }
+            } catch (e) {
+                console.error('[Sync] Queue insert threw:', e);
+            }
         }
         
         function handleNetworkChange() {
@@ -4280,7 +4337,9 @@
             // Also delete from Supabase, but only if undo doesn't fire
             const supabaseDeleteTimer = setTimeout(() => {
                 if (state.supabaseClient && navigator.onLine) {
-                    state.supabaseClient.from('expenses').delete().eq('id', id).then(() => {});
+                    state.supabaseClient.from('expenses').delete().eq('id', id).then(({ error }) => {
+                        if (error) console.error('Delete-after-undo error for id', id, error);
+                    });
                 }
             }, 4000);
             showUndoToast(`Transaction supprimée`, { snapshot, originalIdx, supabaseDeleteTimer }, (data) => {
@@ -4565,7 +4624,9 @@
             updateUI();
             const supabaseTimer = setTimeout(() => {
                 if (state.supabaseClient && navigator.onLine) {
-                    ids.forEach(id => state.supabaseClient.from('expenses').delete().eq('id', id).then(()=>{}));
+                    ids.forEach(id => state.supabaseClient.from('expenses').delete().eq('id', id).then(({ error }) => {
+                        if (error) console.error('Bulk delete error for id', id, error);
+                    }));
                 }
             }, 4000);
             showUndoToast(`${snapshots.length} transaction${snapshots.length > 1 ? 's' : ''} supprimée${snapshots.length > 1 ? 's' : ''}`, { snapshots, supabaseTimer }, (data) => {
