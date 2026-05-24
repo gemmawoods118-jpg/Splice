@@ -315,6 +315,15 @@
             padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
         }
 
+        /* Pull-to-refresh spinning state — once the user releases past threshold, the logo rotates */
+        @keyframes pullRefreshSpin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .pull-refresh-spinning {
+            animation: pullRefreshSpin 0.8s linear infinite;
+        }
+
         /* Recurring frequency chips */
         .recurring-freq-btn {
             padding: 7px 4px;
@@ -570,9 +579,17 @@
 
         <!-- Scrollable Content Area -->
         <!-- Pull-to-refresh indicator (visible during pull gesture) -->
-        <div id="pull-refresh-indicator" class="absolute left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(env(safe-area-inset-top, 0px) + 70px);">
-            <div class="bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-full w-10 h-10 flex items-center justify-center shadow-xl">
-                <i id="pull-refresh-icon" class="fa-solid fa-arrow-down text-indigo-400 text-sm transition-transform"></i>
+        <div id="pull-refresh-indicator" class="absolute left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(env(safe-area-inset-top, 0px) + 60px);">
+            <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
+                <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Faded full circle for context -->
+                    <path d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
+                    <path d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
+                    <!-- Left arc fills as user pulls (stroke-dashoffset animates) -->
+                    <path id="pull-refresh-arc-left" d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-dasharray="82" stroke-dashoffset="82"/>
+                    <!-- Right arc fills after left (when threshold crossed) -->
+                    <path id="pull-refresh-arc-right" d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-dasharray="82" stroke-dashoffset="82" opacity="0.85"/>
+                </svg>
             </div>
         </div>
 
@@ -1502,19 +1519,35 @@
         })();
 
         // Pull-to-refresh gesture handler. Attaches to the main scroll area;
-        // only fires when at scrollTop = 0 and the user drags down past a threshold.
+        // only fires when at scrollTop = 0 and the user drags down past a deliberate threshold.
         function initPullToRefresh() {
             const scrollArea = document.getElementById('main-scroll-area');
             const indicator = document.getElementById('pull-refresh-indicator');
-            const icon = document.getElementById('pull-refresh-icon');
+            const logo = document.getElementById('pull-refresh-logo');
+            const arcLeft = document.getElementById('pull-refresh-arc-left');
+            const arcRight = document.getElementById('pull-refresh-arc-right');
             if (!scrollArea || !indicator) return;
 
-            const THRESHOLD = 70;          // px pulled before refresh triggers
-            const MAX_PULL = 120;          // visual cap on the pull amount
+            // Deliberately HIGH thresholds — a casual upward flick won't pass the activation
+            // point. The user has to intentionally pull down a noticeable amount.
+            const ACTIVATION = 60;          // px pulled before the indicator starts showing at all
+            const THRESHOLD = 110;          // px pulled to trigger refresh on release
+            const MAX_PULL = 160;           // visual cap on the pull amount
+            const ARC_LENGTH = 82;          // matches the SVG stroke-dasharray
+
             let startY = 0;
             let currentPull = 0;
             let pulling = false;
             let triggered = false;
+
+            const resetIndicator = () => {
+                indicator.style.opacity = '0';
+                indicator.style.transform = 'translate(-50%, -20px)';
+                if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH);
+                if (arcRight) arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH);
+                if (logo) logo.classList.remove('pull-refresh-spinning');
+            };
+            resetIndicator();
 
             scrollArea.addEventListener('touchstart', (e) => {
                 if (scrollArea.scrollTop > 0) return;
@@ -1529,27 +1562,40 @@
                 if (!pulling) return;
                 const dy = e.touches[0].clientY - startY;
                 if (dy <= 0) {
-                    // User started pulling but moved upward — abandon
+                    // User reversed direction — cancel the gesture entirely
                     pulling = false;
-                    indicator.style.opacity = '0';
-                    indicator.style.transform = 'translate(-50%, 0)';
+                    resetIndicator();
                     return;
                 }
-                // Progressive opacity + downward translation, with rubber-band easing
-                currentPull = Math.min(MAX_PULL, dy * 0.5);
-                const progress = Math.min(1, currentPull / THRESHOLD);
-                indicator.style.opacity = progress.toString();
-                indicator.style.transform = `translate(-50%, ${currentPull * 0.6}px)`;
-                // When the user has pulled past the threshold, rotate the arrow into a check
-                if (icon) {
-                    if (currentPull >= THRESHOLD) {
-                        icon.className = 'fa-solid fa-arrow-down text-indigo-400 text-sm';
-                        icon.style.transform = 'rotate(180deg)';
-                        if (!triggered) { triggered = true; haptic('medium'); }
-                    } else {
-                        icon.style.transform = 'rotate(0deg)';
-                        triggered = false;
+                // Rubber-band easing: feels like pulling against resistance
+                currentPull = Math.min(MAX_PULL, dy * 0.55);
+
+                // Only show the indicator once the user has clearly committed past the activation point
+                if (currentPull < ACTIVATION) {
+                    indicator.style.opacity = '0';
+                    indicator.style.transform = 'translate(-50%, -20px)';
+                    return;
+                }
+
+                // Progress from ACTIVATION → THRESHOLD drives both opacity AND arc fill
+                const range = THRESHOLD - ACTIVATION;
+                const progress = Math.min(1, (currentPull - ACTIVATION) / range);
+                indicator.style.opacity = (0.4 + progress * 0.6).toString();
+                indicator.style.transform = `translate(-50%, ${(currentPull - ACTIVATION) * 0.7}px)`;
+
+                // Fill the LEFT arc as user pulls from ACTIVATION → THRESHOLD
+                if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH * (1 - progress));
+
+                // Once past threshold, fill the RIGHT arc and fire commit haptic
+                if (currentPull >= THRESHOLD) {
+                    if (arcRight) arcRight.setAttribute('stroke-dashoffset', '0');
+                    if (!triggered) {
+                        triggered = true;
+                        haptic('medium');
                     }
+                } else {
+                    if (arcRight) arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH);
+                    triggered = false;
                 }
             }, { passive: true });
 
@@ -1558,24 +1604,19 @@
                 pulling = false;
                 const shouldRefresh = currentPull >= THRESHOLD;
                 if (shouldRefresh) {
-                    // Show the spinner, run refresh, then hide
-                    if (icon) {
-                        icon.className = 'fa-solid fa-rotate-right text-indigo-400 text-sm animate-spin';
-                        icon.style.transform = '';
-                    }
+                    // Lock indicator in the refresh position, fill both arcs, start spin
+                    if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', '0');
+                    if (arcRight) arcRight.setAttribute('stroke-dashoffset', '0');
+                    if (logo) logo.classList.add('pull-refresh-spinning');
                     indicator.style.opacity = '1';
-                    indicator.style.transform = 'translate(-50%, 40px)';
+                    indicator.style.transform = 'translate(-50%, 50px)';
                     await performLightRefresh();
+                    // Brief pause so the user sees completion, then fade out
+                    setTimeout(resetIndicator, 200);
+                } else {
+                    // Below threshold — retract immediately
+                    resetIndicator();
                 }
-                // Slide indicator back up
-                indicator.style.opacity = '0';
-                indicator.style.transform = 'translate(-50%, 0)';
-                setTimeout(() => {
-                    if (icon) {
-                        icon.className = 'fa-solid fa-arrow-down text-indigo-400 text-sm';
-                        icon.style.transform = '';
-                    }
-                }, 300);
             };
 
             scrollArea.addEventListener('touchend', endPull);
