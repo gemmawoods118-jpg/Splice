@@ -248,10 +248,10 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            /* Top: breathing room from content above. Sides: 28px so the pill is visibly narrower
-               than the content cards (which sit at 16px padding) — creates a clear floating look.
-               Bottom: minimal so the nav sits low; the iOS home indicator renders subtly on the glass. */
-            padding: 6px 28px 8px;
+            /* Side padding (16px) matches the content area's px-4 — so the pill aligns with the
+               left/right edges of the cards above it. Top: breathing room. Bottom: minimal so the
+               nav sits low; the iOS home indicator renders subtly on the glass. */
+            padding: 6px 16px 8px;
             pointer-events: none; /* let taps fall through outside the pill */
         }
         .ios-nav-pill {
@@ -352,6 +352,50 @@
             50%      { transform: scale(1.05); box-shadow: 0 0 40px rgba(79, 70, 229, 0.7); }
         }
         .pull-refresh-pulsing { animation: pullRefreshPulse 1.4s ease-in-out infinite; }
+
+        /* Flying plane animation — when a transaction is saved, a clone of the plane icon
+           flies in a curved arc from the submit button to the Historique tab in the nav. */
+        .flying-plane {
+            position: fixed;
+            z-index: 95;
+            pointer-events: none;
+            color: #ffffff;
+            font-size: 18px;
+            will-change: transform, opacity;
+            filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.6));
+        }
+
+        /* Pulse animation on the Historique nav tab when the plane "lands".
+           Uses the same rounded-rectangle shape and indigo palette as an active tab,
+           so the visual language stays consistent with selection. */
+        @keyframes navTabLand {
+            0%   { transform: scale(1); }
+            30%  { transform: scale(1.35); }
+            60%  { transform: scale(0.92); }
+            100% { transform: scale(1); }
+        }
+        @keyframes navTabPulse {
+            0% {
+                background: linear-gradient(180deg, rgba(99, 102, 241, 0.0), rgba(99, 102, 241, 0.0));
+                box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.0);
+            }
+            30% {
+                background: linear-gradient(180deg, rgba(99, 102, 241, 0.45), rgba(139, 92, 246, 0.30));
+                box-shadow:
+                    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+                    inset 0 0 0 1px rgba(139, 92, 246, 0.5),
+                    0 0 28px 4px rgba(99, 102, 241, 0.55);
+            }
+            100% {
+                background: linear-gradient(180deg, rgba(99, 102, 241, 0.0), rgba(99, 102, 241, 0.0));
+                box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.0);
+            }
+        }
+        .nav-tab-landed-icon { animation: navTabLand 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .nav-tab-landed-bg   {
+            animation: navTabPulse 0.7s ease-out;
+            border-radius: 20px;  /* matches .ios-nav-btn radius so it pulses in the same shape as selection */
+        }
 
         /* Recurring frequency chips */
         .recurring-freq-btn {
@@ -835,8 +879,8 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.98] text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-950/50 flex items-center justify-center gap-2 text-md ripple-container">
-                            <span>Enregistrer la transaction</span><i class="fa-solid fa-paper-plane text-xs opacity-80"></i>
+                        <button type="submit" id="submit-tx-btn" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.98] text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-950/50 flex items-center justify-center gap-2 text-md ripple-container">
+                            <span>Enregistrer la transaction</span><i id="submit-plane-icon" class="fa-solid fa-paper-plane text-xs opacity-80"></i>
                         </button>
                     </form>
                 </section>
@@ -1324,6 +1368,82 @@
             }
         }
 
+        // Plane-fly animation: clones the submit button's plane icon and animates it along a
+        // curved arc to the Historique nav tab, then pulses the tab. The animation itself is
+        // the entire confirmation — no additional toast needed.
+        function flyTransactionToHistory() {
+            const sourceIcon = document.getElementById('submit-plane-icon');
+            const targetTab = document.getElementById('nav-btn-history');
+            // Fallback to the overlay if either element is missing
+            if (!sourceIcon || !targetTab) { showSuccessOverlay("Enregistré !"); return; }
+
+            const srcRect = sourceIcon.getBoundingClientRect();
+            const tgtRect = targetTab.getBoundingClientRect();
+
+            // Starting and ending centers
+            const startX = srcRect.left + srcRect.width / 2;
+            const startY = srcRect.top + srcRect.height / 2;
+            const endX = tgtRect.left + tgtRect.width / 2;
+            // Target the icon area of the nav tab (top-center, where the receipt icon sits)
+            const endY = tgtRect.top + tgtRect.height / 2 - 6;
+
+            // Create the flying clone
+            const flier = document.createElement('i');
+            flier.className = 'fa-solid fa-paper-plane flying-plane';
+            flier.style.left = '0';
+            flier.style.top = '0';
+            flier.style.transform = `translate(${startX}px, ${startY}px) scale(1.6) rotate(-25deg)`;
+            flier.style.opacity = '0';
+            document.body.appendChild(flier);
+
+            // Trigger fade-in after one frame
+            requestAnimationFrame(() => {
+                flier.style.transition = 'opacity 0.12s ease-out';
+                flier.style.opacity = '1';
+            });
+
+            // Compute control point for the arc — go UP and slightly outward, then curve down to target.
+            // For a quadratic Bezier-ish feel, we'll animate position with two stages:
+            //   Stage 1 (0-50%): move up + outward (the "launch" lift)
+            //   Stage 2 (50-100%): move down to the target (the "landing" descent)
+            // We approximate with cubic-bezier easings on a single transform transition by adding a
+            // midpoint via WAAPI keyframes — cleaner than fighting CSS transitions.
+            const peakX = (startX + endX) / 2;
+            const peakY = Math.min(startY, endY) - 100; // arc apex 100px above the higher of the two points
+
+            // Use Web Animations API for smooth multi-keyframe flight
+            const totalDuration = 800;
+            const anim = flier.animate([
+                { transform: `translate(${startX - 9}px, ${startY - 9}px) scale(1.6) rotate(-25deg)`, opacity: 1, offset: 0 },
+                { transform: `translate(${peakX - 9}px, ${peakY - 9}px) scale(1.2) rotate(15deg)`, opacity: 1, offset: 0.5 },
+                { transform: `translate(${endX - 9}px, ${endY - 9}px) scale(0.45) rotate(45deg)`, opacity: 0.95, offset: 0.95 },
+                { transform: `translate(${endX - 9}px, ${endY - 9}px) scale(0.2) rotate(60deg)`, opacity: 0, offset: 1 }
+            ], {
+                duration: totalDuration,
+                easing: 'cubic-bezier(0.5, 0, 0.5, 1)',
+                fill: 'forwards'
+            });
+
+            // When the plane lands, pulse the nav tab
+            anim.onfinish = () => {
+                flier.remove();
+                // Trigger landing pulse on the icon inside the nav tab
+                const tabIcon = targetTab.querySelector('i');
+                if (tabIcon) {
+                    tabIcon.classList.remove('nav-tab-landed-icon');
+                    void tabIcon.offsetWidth;
+                    tabIcon.classList.add('nav-tab-landed-icon');
+                    setTimeout(() => tabIcon.classList.remove('nav-tab-landed-icon'), 600);
+                }
+                // Glow ring around the tab
+                targetTab.classList.remove('nav-tab-landed-bg');
+                void targetTab.offsetWidth;
+                targetTab.classList.add('nav-tab-landed-bg');
+                setTimeout(() => targetTab.classList.remove('nav-tab-landed-bg'), 650);
+                haptic('success');
+            };
+        }
+
         function showToast(message) {
             const toast = document.getElementById('toast-banner');
             const toastMsg = document.getElementById('toast-message');
@@ -1572,7 +1692,7 @@
 
             const resetIndicator = () => {
                 indicator.style.opacity = '0';
-                indicator.style.transform = 'translate(-50%, -20px)';
+                indicator.style.transform = 'translate(-50%, 0)';
                 if (arcLeft) { arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH); arcLeft.classList.remove('pull-refresh-arc-anim-left'); }
                 if (arcRight) { arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH); arcRight.classList.remove('pull-refresh-arc-anim-right'); }
                 if (pill) pill.classList.remove('pull-refresh-pulsing');
@@ -1602,15 +1722,16 @@
 
                 if (currentPull < ACTIVATION) {
                     indicator.style.opacity = '0';
-                    indicator.style.transform = 'translate(-50%, -20px)';
                     return;
                 }
 
-                // Progress from ACTIVATION → THRESHOLD drives opacity + arc fill
+                // Progress from ACTIVATION → THRESHOLD drives opacity + arc fill.
+                // The indicator stays ANCHORED at its CSS position (no translate) — it appears
+                // in place via opacity and the arcs fill as the user pulls further.
                 const range = THRESHOLD - ACTIVATION;
                 const progress = Math.min(1, (currentPull - ACTIVATION) / range);
                 indicator.style.opacity = (0.35 + progress * 0.65).toString();
-                indicator.style.transform = `translate(-50%, ${(currentPull - ACTIVATION) * 0.65}px)`;
+                indicator.style.transform = 'translate(-50%, 0)';
 
                 // Fill the LEFT arc as user pulls from ACTIVATION → THRESHOLD
                 if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH * (1 - progress));
@@ -1633,10 +1754,10 @@
                 pulling = false;
                 const shouldRefresh = currentPull >= THRESHOLD;
                 if (shouldRefresh) {
-                    // Lock indicator in its resting position — just below the header, in the
-                    // breathing room above the first content card. Stays here for the full animation.
+                    // Indicator stays exactly where it is — no transform jump on release.
+                    // Just kick off the full splash-style arc draw and pulse the pill.
                     indicator.style.opacity = '1';
-                    indicator.style.transform = 'translate(-50%, 0px)';
+                    indicator.style.transform = 'translate(-50%, 0)';
                     if (pill) pill.classList.add('pull-refresh-pulsing');
                     // Reset arcs, then trigger the same animation pattern as the splash screen.
                     // The left arc draws first (0s), then the right arc draws (0.55s delay).
@@ -2571,11 +2692,15 @@
 
             state.expenses.unshift(newExpense); localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
-            
+
+            // Capture the plane icon's rect BEFORE the form blur (which dismisses the keyboard and
+            // shifts the viewport on iOS, invalidating the rect).
+            // The animation function reads it internally, but we trigger before form reset to ensure
+            // a stable starting position.
+            flyTransactionToHistory();
+
             amtIn.value = ''; if (descIn) descIn.value = '';
             selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); amtIn.blur();
-            
-            showSuccessOverlay("Enregistré !");
 
             // Build a stripped-down version for Supabase that only contains schema columns.
             // The local copy keeps extra metadata (receipt items, animation flags, etc).
