@@ -1430,8 +1430,30 @@
             if (!state.supabaseClient || !navigator.onLine) return;
             try {
                 const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
-                if (!error && data) { 
-                    state.expenses = data; 
+                if (!error && data) {
+                    // CRITICAL: never destructively overwrite local state with the Supabase response.
+                    // Any row that exists locally but is missing from the Supabase result is a row
+                    // that hasn't synced yet (offline insert, transient error, queued retry). We must
+                    // keep those rows or they would silently vanish on reload.
+                    const supabaseIds = new Set(data.map(r => r.id));
+                    const localOnly = (state.expenses || []).filter(e => !supabaseIds.has(e.id));
+                    // Preserve any local-only "_animateIn" / "receiptItems" metadata on rows that
+                    // ARE in Supabase by overlaying server values onto the local copy.
+                    const localById = new Map((state.expenses || []).map(e => [e.id, e]));
+                    const merged = data.map(serverRow => {
+                        const local = localById.get(serverRow.id);
+                        if (!local) return serverRow;
+                        // Keep transient/local-only metadata fields from the local copy
+                        const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn } = local;
+                        return Object.assign({}, serverRow, {
+                            ...(receiptItems !== undefined && { receiptItems }),
+                            ...(receiptAllItems !== undefined && { receiptAllItems }),
+                            ...(receiptDetectedTotal !== undefined && { receiptDetectedTotal }),
+                            ...(_animateIn !== undefined && { _animateIn })
+                        });
+                    });
+                    // Local-only rows go at the front (they're typically the freshest), then server rows
+                    state.expenses = [...localOnly, ...merged];
 
                     // Smart-categorize pending inbox items that came in as "Autre" / fa-asterisk
                     // (typical when sent by an iOS Shortcut). If scanCategory finds a match for the
@@ -1460,7 +1482,20 @@
                         });
                     }
 
-                    localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); 
+                    // Persist the merged result to localStorage (stripped of transient flags)
+                    localStorage.setItem('us_expenses', JSON.stringify(state.expenses.map(e => {
+                        const { _animateIn, ...rest } = e;
+                        return rest;
+                    })));
+
+                    // Trigger a re-sync of any locally-pending rows that aren't on the server yet
+                    if (localOnly.length > 0) {
+                        console.warn(`[Sync] ${localOnly.length} local row(s) not yet in Supabase — queueing for retry`);
+                        localOnly.forEach(row => {
+                            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, ...persistable } = row;
+                            queueSync(persistable);
+                        });
+                    }
                     
                     let projectAdded = false;
                     state.expenses.forEach(exp => {
@@ -2292,9 +2327,22 @@
             
             showSuccessOverlay("Enregistré !");
 
+            // Build a stripped-down version for Supabase that only contains schema columns.
+            // The local copy keeps extra metadata (receipt items, animation flags, etc).
+            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, ...persistable } = newExpense;
+
             if (state.supabaseClient && navigator.onLine) {
-                try { await state.supabaseClient.from('expenses').insert([newExpense]); } catch (e) { queueSync(newExpense); }
-            } else { queueSync(newExpense); }
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').insert([persistable]);
+                    if (error) {
+                        console.error('Supabase insert error (queued for retry):', error);
+                        queueSync(persistable);
+                    }
+                } catch (e) {
+                    console.error('Supabase insert threw (queued for retry):', e);
+                    queueSync(persistable);
+                }
+            } else { queueSync(persistable); }
         }
 
         // ==========================================
@@ -2599,9 +2647,10 @@
 
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    await state.supabaseClient.from('expenses').upsert([tx]);
-                } catch(e) {}
-            }
+                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(tx)]);
+                    if (error) { console.error('Edit upsert error:', error); queueSync(tx); }
+                } catch(e) { console.error('Edit upsert threw:', e); queueSync(tx); }
+            } else { queueSync(tx); }
         }
         // ==========================================
 
@@ -2616,9 +2665,13 @@
             updateUI();
             haptic('success');
             showToast('Dupliqué');
+            const persistable = stripTransientFields(clone);
             if (state.supabaseClient && navigator.onLine) {
-                const {_animateIn, ...persistable} = clone;
-                state.supabaseClient.from('expenses').insert([persistable]).then(()=>{});
+                state.supabaseClient.from('expenses').insert([persistable]).then(({ error }) => {
+                    if (error) { console.error('Duplicate insert error:', error); queueSync(persistable); }
+                });
+            } else {
+                queueSync(persistable);
             }
         }
 
@@ -3178,7 +3231,12 @@
             }
             
             updateUI(); 
-            if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').upsert([state.expenses[idx]]); } catch (e) {} }
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])]);
+                    if (error) { console.error('Approve upsert error:', error); queueSync(state.expenses[idx]); }
+                } catch (e) { console.error('Approve upsert threw:', e); queueSync(state.expenses[idx]); }
+            } else { queueSync(state.expenses[idx]); }
         }
 
         async function rejectTransaction(id) {
@@ -3209,7 +3267,14 @@
             if (state.supabaseClient && navigator.onLine) { try { await state.supabaseClient.from('expenses').insert([settleLog]); } catch (e) {} }
         }
 
-        function queueSync(expense) { state.syncQueue.push(expense); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
+        // Strip fields that don't belong in Supabase (transient UI metadata).
+        // Always call this before any insert/upsert/queue to prevent silent schema rejections.
+        function stripTransientFields(exp) {
+            if (!exp) return exp;
+            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, _previousCurrency, ...rest } = exp;
+            return rest;
+        }
+        function queueSync(expense) { state.syncQueue.push(stripTransientFields(expense)); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
         
         async function processOfflineQueue() {
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
@@ -4175,7 +4240,14 @@
             if (state.supabaseClient && navigator.onLine) {
                 ids.forEach(id => {
                     const exp = state.expenses.find(e => e.id === id);
-                    if (exp) state.supabaseClient.from('expenses').upsert([exp]).then(() => {});
+                    if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)]).then(({ error }) => {
+                        if (error) { console.error('Bulk-cat upsert error:', error); queueSync(exp); }
+                    });
+                });
+            } else {
+                ids.forEach(id => {
+                    const exp = state.expenses.find(e => e.id === id);
+                    if (exp) queueSync(exp);
                 });
             }
             showUndoToast(`${count} catégorie${count > 1 ? 's' : ''} → ${categoryLabel}`, { snapshots }, (data) => {
@@ -4188,7 +4260,14 @@
                 if (state.supabaseClient && navigator.onLine) {
                     data.snapshots.forEach(s => {
                         const exp = state.expenses.find(e => e.id === s.id);
-                        if (exp) state.supabaseClient.from('expenses').upsert([exp]).then(() => {});
+                        if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)]).then(({ error }) => {
+                            if (error) { console.error('Undo-cat upsert error:', error); queueSync(exp); }
+                        });
+                    });
+                } else {
+                    data.snapshots.forEach(s => {
+                        const exp = state.expenses.find(e => e.id === s.id);
+                        if (exp) queueSync(exp);
                     });
                 }
                 showToast('Catégories restaurées');
