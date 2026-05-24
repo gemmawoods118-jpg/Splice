@@ -89,10 +89,10 @@
             0%   { opacity: 0; transform: translateY(6px); }
             100% { opacity: 1; transform: translateY(0); }
         }
-        .splash-arc-left  { animation: splashArcDraw 0.7s cubic-bezier(0.65, 0, 0.35, 1) 0.1s forwards; }
-        .splash-arc-right { animation: splashArcDraw 0.7s cubic-bezier(0.65, 0, 0.35, 1) 0.55s forwards; }
+        .splash-arc-left  { animation: splashArcDraw 1.0s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards; }
+        .splash-arc-right { animation: splashArcDraw 1.0s cubic-bezier(0.65, 0, 0.35, 1) 0.75s forwards; }
         .splash-logo-pulse { animation: splashLogoPulse 1.4s ease-in-out infinite; }
-        .splash-tagline   { opacity: 0; animation: splashTaglineIn 0.4s ease 1.0s forwards; }
+        .splash-tagline   { opacity: 0; animation: splashTaglineIn 0.5s ease 1.5s forwards; }
 
         /* Active-state ripple */
         @keyframes ripple {
@@ -140,10 +140,12 @@
             bottom: 0;
             left: 100%;
             display: flex;
-            align-items: stretch;
+            align-items: center;
+            gap: 10px;
+            padding: 0 12px 0 4px;
             z-index: 1;
             transform: translateX(0);
-            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: transform 0.32s cubic-bezier(0.22, 1.2, 0.36, 1);
             will-change: transform;
         }
         .swipe-actions.swiping { transition: none; }
@@ -151,17 +153,39 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 72px;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
             color: #fff;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-size: 15px;
             border: none;
             cursor: pointer;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+            /* Scale-in spring tied to the reveal animation */
+            transform: scale(0.5);
+            opacity: 0;
+            transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s ease-out;
         }
-        .swipe-action-edit { background: linear-gradient(135deg, #d97706, #b45309); }
-        .swipe-action-delete { background: linear-gradient(135deg, #e11d48, #be123c); }
+        /* When the row is open (swiped past threshold), the buttons spring to full size */
+        .swipe-actions.revealed .swipe-action-btn {
+            transform: scale(1);
+            opacity: 1;
+        }
+        /* Stagger the delete button so it appears just after edit */
+        .swipe-actions.revealed .swipe-action-delete {
+            transition-delay: 0.05s;
+        }
+        .swipe-action-btn:active { transform: scale(0.92); }
+        .swipe-action-edit   { background: linear-gradient(135deg, rgba(217, 119, 6, 0.95), rgba(180, 83, 9, 0.9)); }
+        .swipe-action-delete { background: linear-gradient(135deg, rgba(225, 29, 72, 0.95), rgba(190, 18, 60, 0.9)); }
+
+        /* When a swipe drawer is open, freeze the main scroll area so only the open row is interactive */
+        body.swipe-drawer-open #main-scroll-area {
+            overflow: hidden !important;
+            touch-action: none;
+        }
         .swipe-content {
             position: relative;
             z-index: 2;
@@ -227,7 +251,7 @@
             /* Small top padding for breathing room from content above.
                Bottom: minimal so the nav sits low; the iOS home indicator
                renders subtly on top of the glass which looks fine. */
-            padding: 6px 10px 8px;
+            padding: 6px 16px 8px;
             pointer-events: none; /* let taps fall through outside the pill */
         }
         .ios-nav-pill {
@@ -315,14 +339,19 @@
             padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
         }
 
-        /* Pull-to-refresh spinning state — once the user releases past threshold, the logo rotates */
-        @keyframes pullRefreshSpin {
-            0%   { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        /* Pull-to-refresh spinning state — uses the same arc-draw pattern as the splash screen */
+        @keyframes pullRefreshArcDraw {
+            0%   { stroke-dashoffset: 82; }
+            100% { stroke-dashoffset: 0; }
         }
-        .pull-refresh-spinning {
-            animation: pullRefreshSpin 0.8s linear infinite;
+        .pull-refresh-arc-anim-left  { animation: pullRefreshArcDraw 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0s forwards; }
+        .pull-refresh-arc-anim-right { animation: pullRefreshArcDraw 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.55s forwards; }
+        /* Gentle pulse on the pill during refresh so it feels alive */
+        @keyframes pullRefreshPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(79, 70, 229, 0.5); }
+            50%      { transform: scale(1.05); box-shadow: 0 0 40px rgba(79, 70, 229, 0.7); }
         }
+        .pull-refresh-pulsing { animation: pullRefreshPulse 1.4s ease-in-out infinite; }
 
         /* Recurring frequency chips */
         .recurring-freq-btn {
@@ -827,7 +856,7 @@
                 </section>
                 <section class="space-y-3">
                     <div class="flex justify-between items-center"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4><span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span></div>
-                    <div id="inbox-list" class="max-h-[600px] overflow-y-auto pr-1"></div>
+                    <div id="inbox-list" class="pr-1"></div>
                 </section>
             </div>
 
@@ -904,7 +933,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1" id="history-list">
+                <div class="space-y-2.5" id="history-list">
                     <div class="text-center py-12 text-xs text-slate-600 font-medium" id="empty-state">
                         Aucune dépense enregistrée. Utilisez le premier onglet !
                     </div>
@@ -1523,16 +1552,17 @@
         function initPullToRefresh() {
             const scrollArea = document.getElementById('main-scroll-area');
             const indicator = document.getElementById('pull-refresh-indicator');
+            const pill = document.getElementById('pull-refresh-pill');
             const logo = document.getElementById('pull-refresh-logo');
             const arcLeft = document.getElementById('pull-refresh-arc-left');
             const arcRight = document.getElementById('pull-refresh-arc-right');
             if (!scrollArea || !indicator) return;
 
-            // Deliberately HIGH thresholds — a casual upward flick won't pass the activation
-            // point. The user has to intentionally pull down a noticeable amount.
-            const ACTIVATION = 60;          // px pulled before the indicator starts showing at all
-            const THRESHOLD = 110;          // px pulled to trigger refresh on release
-            const MAX_PULL = 160;           // visual cap on the pull amount
+            // Deliberately HIGH thresholds — a casual upward flick won't trigger.
+            // The user has to intentionally pull down a substantial amount.
+            const ACTIVATION = 70;          // px pulled before the indicator starts showing
+            const THRESHOLD = 160;          // px pulled to trigger refresh on release
+            const MAX_PULL = 220;           // visual cap on the pull amount
             const ARC_LENGTH = 82;          // matches the SVG stroke-dasharray
 
             let startY = 0;
@@ -1543,9 +1573,9 @@
             const resetIndicator = () => {
                 indicator.style.opacity = '0';
                 indicator.style.transform = 'translate(-50%, -20px)';
-                if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH);
-                if (arcRight) arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH);
-                if (logo) logo.classList.remove('pull-refresh-spinning');
+                if (arcLeft) { arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH); arcLeft.classList.remove('pull-refresh-arc-anim-left'); }
+                if (arcRight) { arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH); arcRight.classList.remove('pull-refresh-arc-anim-right'); }
+                if (pill) pill.classList.remove('pull-refresh-pulsing');
             };
             resetIndicator();
 
@@ -1562,26 +1592,25 @@
                 if (!pulling) return;
                 const dy = e.touches[0].clientY - startY;
                 if (dy <= 0) {
-                    // User reversed direction — cancel the gesture entirely
                     pulling = false;
                     resetIndicator();
                     return;
                 }
-                // Rubber-band easing: feels like pulling against resistance
-                currentPull = Math.min(MAX_PULL, dy * 0.55);
+                // Stiffer rubber-band: requires more finger travel for the same pull amount,
+                // which makes the gesture feel weightier and prevents accidental triggers.
+                currentPull = Math.min(MAX_PULL, dy * 0.45);
 
-                // Only show the indicator once the user has clearly committed past the activation point
                 if (currentPull < ACTIVATION) {
                     indicator.style.opacity = '0';
                     indicator.style.transform = 'translate(-50%, -20px)';
                     return;
                 }
 
-                // Progress from ACTIVATION → THRESHOLD drives both opacity AND arc fill
+                // Progress from ACTIVATION → THRESHOLD drives opacity + arc fill
                 const range = THRESHOLD - ACTIVATION;
                 const progress = Math.min(1, (currentPull - ACTIVATION) / range);
-                indicator.style.opacity = (0.4 + progress * 0.6).toString();
-                indicator.style.transform = `translate(-50%, ${(currentPull - ACTIVATION) * 0.7}px)`;
+                indicator.style.opacity = (0.35 + progress * 0.65).toString();
+                indicator.style.transform = `translate(-50%, ${(currentPull - ACTIVATION) * 0.65}px)`;
 
                 // Fill the LEFT arc as user pulls from ACTIVATION → THRESHOLD
                 if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH * (1 - progress));
@@ -1604,15 +1633,27 @@
                 pulling = false;
                 const shouldRefresh = currentPull >= THRESHOLD;
                 if (shouldRefresh) {
-                    // Lock indicator in the refresh position, fill both arcs, start spin
-                    if (arcLeft) arcLeft.setAttribute('stroke-dashoffset', '0');
-                    if (arcRight) arcRight.setAttribute('stroke-dashoffset', '0');
-                    if (logo) logo.classList.add('pull-refresh-spinning');
+                    // Lock indicator in the refresh position, kick off splash-style arc draw
                     indicator.style.opacity = '1';
-                    indicator.style.transform = 'translate(-50%, 50px)';
+                    indicator.style.transform = 'translate(-50%, 60px)';
+                    if (pill) pill.classList.add('pull-refresh-pulsing');
+                    // Reset arcs, then trigger the same animation pattern as the splash screen.
+                    // The left arc draws first (0s), then the right arc draws (0.55s delay).
+                    if (arcLeft) {
+                        arcLeft.classList.remove('pull-refresh-arc-anim-left');
+                        arcLeft.setAttribute('stroke-dashoffset', ARC_LENGTH);
+                        void arcLeft.offsetWidth; // reflow to restart animation
+                        arcLeft.classList.add('pull-refresh-arc-anim-left');
+                    }
+                    if (arcRight) {
+                        arcRight.classList.remove('pull-refresh-arc-anim-right');
+                        arcRight.setAttribute('stroke-dashoffset', ARC_LENGTH);
+                        void arcRight.offsetWidth;
+                        arcRight.classList.add('pull-refresh-arc-anim-right');
+                    }
                     await performLightRefresh();
-                    // Brief pause so the user sees completion, then fade out
-                    setTimeout(resetIndicator, 200);
+                    // Hold the completed state briefly so the user sees the full circle, then fade out
+                    setTimeout(resetIndicator, 350);
                 } else {
                     // Below threshold — retract immediately
                     resetIndicator();
@@ -1735,9 +1776,9 @@
                 const splash = document.getElementById('splash-screen');
                 if(splash) {
                     splash.style.opacity = '0';
-                    setTimeout(() => splash.style.display = 'none', 300);
+                    setTimeout(() => splash.style.display = 'none', 400);
                 }
-            }, 1400);
+            }, 2100);
 
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
@@ -4104,8 +4145,8 @@
         state.selectedIds = new Set();
         const TAP_TOLERANCE = 12;       // total movement that still counts as a tap
         const SWIPE_AXIS_LOCK = 8;      // movement before deciding swipe vs scroll
-        const SWIPE_MAX = -144;
-        const SWIPE_THRESHOLD = -80;
+        const SWIPE_MAX = -120;
+        const SWIPE_THRESHOLD = -60;
         const LONG_PRESS_MS = 500;
 
         // Track the single currently-open swipe drawer (if any) so tapping elsewhere closes it
@@ -4115,8 +4156,9 @@
             const c = openSwipeWrapper.querySelector('.swipe-content');
             const a = openSwipeWrapper.querySelector('.swipe-actions');
             if (c) c.style.transform = '';
-            if (a) a.style.transform = '';
+            if (a) { a.style.transform = ''; a.classList.remove('revealed'); }
             openSwipeWrapper = null;
+            document.body.classList.remove('swipe-drawer-open');
         }
         // Global "tap outside" listener — closes any open drawer when tapping elsewhere.
         // Uses touchstart (and mousedown for desktop) on document so it runs BEFORE any other handler.
@@ -4153,16 +4195,27 @@
                 // If another drawer is open, close it first
                 if (openSwipeWrapper && openSwipeWrapper !== wrapper) closeOpenSwipe();
                 content.classList.remove('swiping');
-                if (actions) actions.classList.remove('swiping');
+                if (actions) {
+                    actions.classList.remove('swiping');
+                    actions.classList.add('revealed');
+                }
                 setTransform(SWIPE_MAX);
                 openSwipeWrapper = wrapper;
+                // Lock the main scroll area so only this row is interactive while drawer is open
+                document.body.classList.add('swipe-drawer-open');
+                haptic('light');
             };
             const snapClosed = () => {
                 content.classList.remove('swiping');
-                if (actions) actions.classList.remove('swiping');
+                if (actions) {
+                    actions.classList.remove('swiping');
+                    actions.classList.remove('revealed');
+                }
                 content.style.transform = '';
                 if (actions) actions.style.transform = '';
                 if (openSwipeWrapper === wrapper) openSwipeWrapper = null;
+                // Unlock body scroll
+                if (!openSwipeWrapper) document.body.classList.remove('swipe-drawer-open');
             };
             const clearLP = () => {
                 if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
