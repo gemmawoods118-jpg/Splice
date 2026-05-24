@@ -334,6 +334,24 @@
             color: rgb(165, 180, 252);
         }
 
+        /* Transaction-type content transitions — subtle slide-in when a section appears
+           after switching between Dépense / Revenu / Transfert, plus a fade-pulse on labels
+           that change text content */
+        @keyframes txContentSlideIn {
+            0%   { opacity: 0; transform: translateY(-4px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .tx-slide-in {
+            animation: txContentSlideIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes txLabelPulse {
+            0%   { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+        .tx-label-pulse {
+            animation: txLabelPulse 0.2s ease-out;
+        }
+
         /* Project switch animation */
         /* Project switch animation — pure cross-fade for smoothness on mobile.
            Blur and scale on a large scrolling container cause jank, so we use
@@ -617,9 +635,9 @@
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner space-y-4">
                     
                     <div class="grid grid-cols-3 gap-1.5 bg-slate-950/40 p-1.5 rounded-2xl border border-slate-800">
-                        <button type="button" id="type-btn-depense" onclick="selectTxType('depense')" class="py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white transition-all">💸 Dépense</button>
-                        <button type="button" id="type-btn-revenu" onclick="selectTxType('revenu')" class="py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all">💰 Revenu</button>
-                        <button type="button" id="type-btn-transfert" onclick="selectTxType('transfert')" class="py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all">🔄 Transfert</button>
+                        <button type="button" id="type-btn-depense" data-no-ripple onclick="selectTxType('depense')" class="py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white">💸 Dépense</button>
+                        <button type="button" id="type-btn-revenu" data-no-ripple onclick="selectTxType('revenu')" class="py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white">💰 Revenu</button>
+                        <button type="button" id="type-btn-transfert" data-no-ripple onclick="selectTxType('transfert')" class="py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white">🔄 Transfert</button>
                     </div>
 
                     <form id="expense-form" class="space-y-4" onsubmit="handleFormSubmission(event)">
@@ -644,7 +662,7 @@
                             <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">2. Description / Détails</span>
                             <div class="relative flex gap-2">
                                 <div class="relative flex-1 min-w-0">
-                                    <input type="text" id="description" oninput="handleDescriptionTyping(this.value)" placeholder="Détail de l'achat (ex: Leclerc...)"
+                                    <input type="text" id="description" oninput="handleDescriptionTyping(this.value)" placeholder="Détail de l'achat"
                                         class="w-full bg-slate-950/40 border border-slate-800 focus:border-slate-700 rounded-xl py-3.5 pl-4 pr-10 text-base text-slate-200 focus:outline-none transition-colors shadow-inner">
                                     <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"><i class="fa-solid fa-signature text-xs"></i></div>
                                 </div>
@@ -659,7 +677,7 @@
                         </div>
 
                         <!-- Catégorie avec fonction d'accordéon (Collapse) -->
-                        <div id="category-selector-container" class="bg-slate-950/20 rounded-xl border border-slate-800 transition-all overflow-hidden">
+                        <div id="category-selector-container" class="bg-slate-950/20 rounded-xl border border-slate-800 overflow-hidden">
                             <div class="p-3.5 flex justify-between items-center cursor-pointer select-none" onclick="toggleCategorySection()">
                                 <div class="space-y-0.5">
                                     <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block">3. Catégorie & Raccourcis</span>
@@ -2017,25 +2035,48 @@
         }
 
         function selectTxType(type) {
+            const previousType = state.txType;
+            if (previousType === type) return; // no-op if already selected
             state.txType = type;
             ['depense', 'revenu', 'transfert'].forEach(t => {
                 const btn = document.getElementById(`type-btn-${t}`);
-                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white transition-all";
+                if (btn) btn.className = "py-2 text-[11px] font-bold rounded-xl text-slate-400 hover:text-white";
             });
             const activeBtn = document.getElementById(`type-btn-${type}`);
-            if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white transition-all";
+            if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-xl bg-indigo-600 text-white";
+
+            // Helper: replay an animation class cleanly (remove → reflow → add)
+            const replayAnim = (el, cls) => {
+                if (!el) return;
+                el.classList.remove(cls);
+                void el.offsetWidth;
+                el.classList.add(cls);
+            };
+            const pulseLabel = (id) => replayAnim(document.getElementById(id), 'tx-label-pulse');
 
             const catBlock = document.getElementById('category-selector-container');
             const splitBlock = document.getElementById('split-selector-container');
-            if (type === 'transfert') {
+            const wasTransfert = previousType === 'transfert';
+            const isTransfert = type === 'transfert';
+
+            if (isTransfert) {
                 if (catBlock) catBlock.classList.add('hidden'); if (splitBlock) splitBlock.classList.add('hidden');
                 safeSetInnerText('payer-toggle-label', "Qui a envoyé l'argent ? (De)");
+                pulseLabel('payer-toggle-label');
                 safeSetInnerText('step-amount-label', "1. Montant du transfert");
+                pulseLabel('step-amount-label');
                 const desc = document.getElementById('description'); if (desc && !desc.value) desc.value = "Remboursement direct";
             } else {
                 if (catBlock) catBlock.classList.remove('hidden'); if (splitBlock) splitBlock.classList.remove('hidden');
+                // If we just came from Transfert, the containers were hidden → animate them in
+                if (wasTransfert) {
+                    replayAnim(catBlock, 'tx-slide-in');
+                    replayAnim(splitBlock, 'tx-slide-in');
+                }
                 safeSetInnerText('payer-toggle-label', type === 'revenu' ? "Qui a reçu l'argent ?" : "Qui a payé ?");
+                pulseLabel('payer-toggle-label');
                 safeSetInnerText('step-amount-label', type === 'revenu' ? "1. Montant reçu" : "1. Saisir le montant");
+                pulseLabel('step-amount-label');
                 const desc = document.getElementById('description'); if (desc && desc.value === "Remboursement direct") desc.value = "";
             }
             updateSplitBadgeText();
@@ -3521,7 +3562,7 @@
 
         // ---------- 2. RIPPLE EFFECT ----------
         function attachRipples() {
-            document.querySelectorAll('button:not([data-ripple-bound])').forEach(btn => {
+            document.querySelectorAll('button:not([data-ripple-bound]):not([data-no-ripple])').forEach(btn => {
                 btn.setAttribute('data-ripple-bound', '1');
                 btn.classList.add('ripple-container');
                 btn.addEventListener('click', e => {
