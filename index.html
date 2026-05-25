@@ -239,40 +239,38 @@
 /* iOS-style floating glass nav bar — fixed to the viewport so it always sits at the true screen bottom */
         .ios-nav-bar {
             position: fixed;
-            /* BYPASS CONTAINER: Forces the bar to anchor to the viewport window, dropping it lower */
             bottom: 0 !important;
             left: 50% !important;
             transform: translateX(-50%) !important;
             width: 100%;
             max-width: 448px;
-            z-index: 99; /* Higher z-index to break free from the clipped layout wrapper boundaries */
+            z-index: 99;
             display: flex;
             justify-content: center;
-            /* PROXIMITY LOWERING: Drops the island right to the native gesture threshold margin */
-            padding: 4px 16px max(4px, env(safe-area-inset-bottom, 4px));
+            /* PERFECT LOW PLACEMENT: Trimmed down to a precise 2px bottom gap, 
+               forcing the capsule to slide right down just over the iOS home line */
+            padding: 4px 16px 2px !important;
             pointer-events: none;
         }
         
-        /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Completely replaces the hard border with a feathered wash */
+        /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Shrunk and adjusted to blend perfectly with the lower capsule position */
         .ios-nav-bar::before {
             content: '';
             position: absolute;
             left: 0;
             right: 0;
             bottom: 0;
-            /* Height covers from just above the capsule bottom, extending to the physical device edge */
-            height: max(45px, calc(env(safe-area-inset-bottom, 4px) + 38px));
+            /* Shrunk to only wrap the lower lip gap beneath the lower pill position */
+            height: 34px;
             z-index: -1;
             
-            /* DISSOLVING BLUR MASK: Uses standard gradients to dissolve the blur effect gracefully 
-               upward, removing any noticeable hard lines or abrupt borders underneath the floating pill */
             -webkit-backdrop-filter: blur(20px);
             backdrop-filter: blur(20px);
-            -webkit-mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%);
-            mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%);
+            /* Feathered masking seamlessly fades the blur out into the layout view above the bar line */
+            -webkit-mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0) 100%);
+            mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0) 100%);
             
-            /* Soft ambient background mapping */
-            background: linear-gradient(to top, rgba(8, 11, 17, 0.9) 0%, rgba(8, 11, 17, 0.2) 100%);
+            background: linear-gradient(to top, rgba(8, 11, 17, 0.9) 0%, rgba(8, 11, 17, 0.1) 100%);
             pointer-events: none;
         }
         
@@ -284,9 +282,7 @@
             gap: 2px;
             width: 100%;
             max-width: 480px;
-            /* Tight symmetric padding — pill height = content only, no extra bottom space */
             padding: 5px 5px 5px;
-            /* Large radius = true oval capsule shape */
             border-radius: 40px;
             background: rgba(15, 23, 42, 0.72);
             -webkit-backdrop-filter: saturate(180%) blur(28px);
