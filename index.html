@@ -244,32 +244,29 @@
             left: 50%;
             transform: translateX(-50%);
             width: 100%;
-            max-width: 448px; /* matches Tailwind max-w-md to match the app container's max width */
+            max-width: 448px;
             z-index: 40;
             display: flex;
             justify-content: center;
-            /* Side padding (16px) matches the content area's px-4 — so the pill aligns with the
-               left/right edges of the cards above it. Top: breathing room. Bottom: minimal so the
-               nav sits low; the iOS home indicator renders subtly on the glass. */
-            padding: 6px 16px 8px;
-            pointer-events: none; /* let taps fall through outside the pill */
+            padding: 4px 16px 8px;
+            pointer-events: none;
         }
         .ios-nav-pill {
             pointer-events: auto;
             display: flex;
             justify-content: space-around;
-            align-items: stretch;
-            gap: 4px;
+            align-items: center;
+            gap: 2px;
             width: 100%;
             max-width: 480px;
-            /* Extra bottom padding inside the pill so the labels clear the iOS home indicator
-               while the pill itself sits low on the screen */
-            padding: 8px 10px 22px;
-            border-radius: 28px;
-            background: rgba(15, 23, 42, 0.62);
+            /* Tall bottom padding so the pill extends low but icons sit above the home indicator */
+            padding: 6px 6px 24px;
+            /* Very high border-radius = true oval pill shape like the reference screenshot */
+            border-radius: 40px;
+            background: rgba(15, 23, 42, 0.72);
             -webkit-backdrop-filter: saturate(180%) blur(28px);
             backdrop-filter: saturate(180%) blur(28px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.07);
             box-shadow:
                 0 14px 38px rgba(0, 0, 0, 0.55),
                 0 2px 8px rgba(0, 0, 0, 0.35),
@@ -284,8 +281,9 @@
             align-items: center;
             justify-content: center;
             gap: 3px;
-            padding: 8px 4px 6px;
-            border-radius: 20px;
+            padding: 9px 4px 7px;
+            /* Round active background — matches the oval buttons in the reference screenshot */
+            border-radius: 28px;
             background: transparent;
             border: none;
             color: rgb(148, 163, 184);
@@ -294,7 +292,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         .ios-nav-btn i {
-            font-size: 17px;
+            font-size: 18px;
             line-height: 1;
             transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         }
@@ -308,10 +306,10 @@
         .ios-nav-btn:active { transform: scale(0.94); }
         .ios-nav-btn.active {
             color: rgb(129, 140, 248);
-            background: linear-gradient(180deg, rgba(99, 102, 241, 0.18), rgba(99, 102, 241, 0.10));
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.22), rgba(99, 102, 241, 0.12));
             box-shadow:
-                inset 0 1px 0 rgba(255, 255, 255, 0.08),
-                inset 0 0 0 1px rgba(99, 102, 241, 0.22);
+                inset 0 1px 0 rgba(255, 255, 255, 0.10),
+                inset 0 0 0 1px rgba(99, 102, 241, 0.28);
         }
         .ios-nav-btn.active i {
             transform: translateY(-1px) scale(1.08);
@@ -404,7 +402,7 @@
         .nav-tab-landed-icon { animation: navTabLand 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .nav-tab-landed-bg   {
             animation: navTabPulse 0.7s ease-out;
-            border-radius: 20px;  /* matches .ios-nav-btn radius so it pulses in the same shape as selection */
+            border-radius: 28px;  /* matches .ios-nav-btn radius so it pulses in the same shape as selection */
         }
 
         /* Recurring frequency chips */
