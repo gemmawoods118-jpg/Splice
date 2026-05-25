@@ -1214,6 +1214,29 @@
                 <button onclick="saveConfiguration()" class="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-2.5 rounded-xl text-xs">Sauvegarder</button>
                 <button onclick="toggleSettingsModal(false)" class="flex-1 bg-slate-800 text-slate-300 font-bold py-2.5 rounded-xl text-xs">Fermer</button>
             </div>
+
+            <!-- Powens Bank Connection Section -->
+            <div class="space-y-3 border-t border-slate-800 pt-3">
+                <div class="flex justify-between items-center">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">🏦 Comptes bancaires</h4>
+                    <span class="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">Powens</span>
+                </div>
+                <div id="powens-connections-list" class="space-y-2"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="connectPowensAccount('p1')" class="flex items-center justify-center gap-1.5 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700 text-slate-300 font-bold py-2 rounded-xl text-[11px] transition-all active:scale-95">
+                        <i class="fa-solid fa-plus text-[9px]"></i>
+                        <span id="powens-btn-p1-label">Connecter (toi)</span>
+                    </button>
+                    <button onclick="connectPowensAccount('p2')" class="flex items-center justify-center gap-1.5 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700 text-slate-300 font-bold py-2 rounded-xl text-[11px] transition-all active:scale-95">
+                        <i class="fa-solid fa-plus text-[9px]"></i>
+                        <span id="powens-btn-p2-label">Connecter (partenaire)</span>
+                    </button>
+                </div>
+                <button onclick="syncAllPowensAccounts()" id="powens-sync-btn" class="w-full flex items-center justify-center gap-2 bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 text-indigo-300 font-bold py-2.5 rounded-xl text-xs transition-all active:scale-[0.98]">
+                    <i id="powens-sync-icon" class="fa-solid fa-rotate"></i>
+                    Synchroniser les transactions
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1505,8 +1528,12 @@
 
         function toggleSettingsModal(show) {
             const modal = document.getElementById('settings-modal');
-            if (show) modal.classList.remove('hidden'); 
-            else modal.classList.add('hidden');
+            if (show) {
+                modal.classList.remove('hidden');
+                try { renderPowensConnectionsList(); } catch(e) {}
+            } else {
+                modal.classList.add('hidden');
+            }
         }
 
         // GENERATE iOS PWA APP ICON DYNAMICALLY 
@@ -1945,6 +1972,276 @@
             if (queue) state.syncQueue = JSON.parse(queue);
         }
 
+        // ============================================================
+        // POWENS BANK INTEGRATION
+        // ============================================================
+        // All state is stored in localStorage under 'us_powens_connections'.
+        // Each connection: { payer, powensUserId, userToken, lastSync, bankName }
+        // The user token is kept client-side in localStorage (acceptable for a 
+        // personal 2-user app — for a public app you'd store it server-side).
+        // Edge Function URLs: <supabase-url>/functions/v1/powens-connect
+        //                     <supabase-url>/functions/v1/powens-sync
+
+        function loadPowensConnections() {
+            try { return JSON.parse(localStorage.getItem('us_powens') || '[]'); }
+            catch(e) { return []; }
+        }
+        function savePowensConnections(arr) {
+            localStorage.setItem('us_powens', JSON.stringify(arr));
+        }
+        // Edge function helper — calls a Supabase Edge Function by name
+        async function callEdgeFunction(name, body) {
+            const base = state.config.sbUrl?.replace(/\/$/, '');
+            const key  = state.config.sbKey;
+            if (!base || !key) throw new Error('Supabase not configured');
+            const res = await fetch(`${base}/functions/v1/${name}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${key}`
+                },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Edge function ${name} failed (${res.status}): ${text}`);
+            }
+            return res.json();
+        }
+
+        // Render the list of connected accounts in the Settings modal
+        function renderPowensConnectionsList() {
+            const list = document.getElementById('powens-connections-list');
+            if (!list) return;
+            const connections = loadPowensConnections();
+            const p1Name = state.config.p1Name || 'Toi';
+            const p2Name = state.config.p2Name || 'Partenaire';
+            // Update button labels
+            const btn1 = document.getElementById('powens-btn-p1-label');
+            const btn2 = document.getElementById('powens-btn-p2-label');
+            if (btn1) btn1.textContent = `Connecter (${p1Name})`;
+            if (btn2) btn2.textContent = `Connecter (${p2Name})`;
+            if (connections.length === 0) {
+                list.innerHTML = `<p class="text-[11px] text-slate-500 text-center py-1">Aucun compte connecté</p>`;
+                return;
+            }
+            list.innerHTML = connections.map((c, i) => {
+                const payerName = c.payer === 'p1' ? p1Name : p2Name;
+                const payerColor = c.payer === 'p1' ? 'text-indigo-400' : 'text-violet-400';
+                const lastSync = c.lastSync ? new Date(c.lastSync).toLocaleDateString('fr-FR', { day:'numeric', month:'short' }) : 'jamais';
+                const statusIcon = c.expired ? 'fa-triangle-exclamation text-amber-400' : 'fa-circle-check text-emerald-400';
+                const statusLabel = c.expired ? 'À reconnecter' : `Sync : ${lastSync}`;
+                return `
+                    <div class="flex items-center gap-2.5 p-2.5 bg-slate-950/40 border border-slate-800 rounded-xl">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-building-columns text-sm ${payerColor}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-200 truncate">${c.bankName || 'Banque connectée'}</p>
+                            <p class="text-[10px] text-slate-500 flex items-center gap-1">
+                                <i class="fa-solid ${statusIcon} text-[9px]"></i>
+                                <span class="${payerColor} font-bold">${payerName}</span>
+                                · ${statusLabel}
+                            </p>
+                        </div>
+                        ${c.expired
+                            ? `<button onclick="reconnectPowens(${i})" class="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg font-bold active:scale-95">Reconnecter</button>`
+                            : `<button onclick="disconnectPowens(${i})" class="text-[10px] text-slate-500 hover:text-rose-400 p-1.5 rounded-lg" aria-label="Déconnecter"><i class="fa-solid fa-xmark"></i></button>`
+                        }
+                    </div>`;
+            }).join('');
+        }
+
+        // Step 1: Open the Powens webview for a given payer (p1 or p2)
+        async function connectPowensAccount(payer) {
+            if (!state.config.sbUrl || !state.config.sbKey) {
+                showToast('Configure Supabase d\'abord');
+                return;
+            }
+            try {
+                showToast('Connexion en cours…');
+                // The redirect URI must be your GitHub Pages URL (or wherever the app is hosted).
+                // We append ?powens_callback=<payer> so the app knows which payer to attach.
+                const redirectUri = window.location.origin + window.location.pathname + `?powens_callback=${payer}`;
+                const result = await callEdgeFunction('powens-connect', { redirect_uri: redirectUri });
+                if (!result.webviewUrl) throw new Error('No webview URL returned');
+                // Store the pending token keyed by payer — we'll complete after callback
+                sessionStorage.setItem(`powens_pending_${payer}`, JSON.stringify({
+                    payer,
+                    userToken: result.userToken,
+                    powensUserId: result.powensUserId
+                }));
+                // Open the Powens webview — user logs into their bank here
+                window.open(result.webviewUrl, '_self');
+            } catch(e) {
+                console.error('Powens connect error:', e);
+                showToast('Erreur de connexion Powens');
+            }
+        }
+
+        // Called on page load — checks if we just returned from a Powens webview callback
+        function checkPowensCallback() {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has('powens_callback')) return;
+            const payer = params.get('powens_callback');
+            const connectionId = params.get('connection_id'); // Powens sends this on success
+            const error = params.get('error');
+            // Clean the URL so the callback param doesn't persist on reload
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+            if (error) {
+                showToast('Connexion bancaire annulée');
+                return;
+            }
+            const pending = sessionStorage.getItem(`powens_pending_${payer}`);
+            if (!pending) { showToast('Session expirée — réessayez'); return; }
+            sessionStorage.removeItem(`powens_pending_${payer}`);
+            const { userToken, powensUserId } = JSON.parse(pending);
+            // Save the connection — bank name will be fetched on first sync
+            const connections = loadPowensConnections();
+            const existing = connections.findIndex(c => c.payer === payer);
+            const conn = { payer, powensUserId, userToken, connectionId, bankName: null, lastSync: null, expired: false };
+            if (existing >= 0) connections[existing] = conn;
+            else connections.push(conn);
+            savePowensConnections(connections);
+            haptic('success');
+            showToast('✓ Compte bancaire connecté !');
+            // Immediately trigger a first sync to populate the inbox
+            setTimeout(() => syncAllPowensAccounts(), 800);
+        }
+
+        // Disconnect a bank account by index
+        function disconnectPowens(index) {
+            if (!confirm('Déconnecter ce compte ? Les transactions déjà importées restent.')) return;
+            const connections = loadPowensConnections();
+            connections.splice(index, 1);
+            savePowensConnections(connections);
+            renderPowensConnectionsList();
+            haptic('light');
+            showToast('Compte déconnecté');
+        }
+
+        // Re-connect an expired account (same payer, opens webview again)
+        function reconnectPowens(index) {
+            const connections = loadPowensConnections();
+            const conn = connections[index];
+            if (conn) connectPowensAccount(conn.payer);
+        }
+
+        // ──────────────────────────────────────────────────────────────
+        // MAIN SYNC FUNCTION
+        // Calls powens-sync edge function, deduplicates, adds to inbox.
+        // ──────────────────────────────────────────────────────────────
+        async function syncAllPowensAccounts() {
+            const connections = loadPowensConnections();
+            if (connections.length === 0) { showToast('Aucun compte connecté'); return; }
+            if (!state.config.sbUrl) { showToast('Configure Supabase d\'abord'); return; }
+            // Visual feedback on the sync button
+            const syncBtn  = document.getElementById('powens-sync-btn');
+            const syncIcon = document.getElementById('powens-sync-icon');
+            if (syncIcon) syncIcon.classList.add('animate-spin');
+            if (syncBtn)  syncBtn.disabled = true;
+            let totalNew = 0;
+            let hadError = false;
+            for (const conn of connections) {
+                try {
+                    // Only fetch transactions since last sync (or last 90 days on first sync)
+                    const sinceDate = conn.lastSync
+                        ? conn.lastSync.split('T')[0]
+                        : new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+                    const result = await callEdgeFunction('powens-sync', {
+                        userToken: conn.userToken,
+                        since_date: sinceDate
+                    });
+                    if (result.expired) {
+                        // Powens returned 401 — token is expired, flag the connection
+                        conn.expired = true;
+                        savePowensConnections(connections);
+                        continue;
+                    }
+                    const { transactions, bankName } = result;
+                    // Persist bank name if we didn't have it yet
+                    if (bankName && !conn.bankName) conn.bankName = bankName;
+                    conn.expired = false;
+                    conn.lastSync = new Date().toISOString();
+                    // Build a Set of already-known powens_ids for O(1) dedup lookup
+                    const knownPowensIds = new Set(
+                        state.expenses.filter(e => e.powens_id != null).map(e => String(e.powens_id))
+                    );
+                    const newExpenses = [];
+                    for (const tx of (transactions || [])) {
+                        // ── Layer 1: exact powens_id dedup ──
+                        if (knownPowensIds.has(String(tx.powens_id))) continue;
+                        // ── Layer 2: fuzzy dedup — same amount & date within 1 day ──
+                        const txDate = new Date(tx.date);
+                        const isFuzzyDupe = state.expenses.some(e => {
+                            if (!e.approved) return false; // skip pending inbox items
+                            if (Math.abs(e.amount - tx.amount) > 0.01) return false;
+                            const d = Math.abs(new Date(e.created_at) - txDate);
+                            return d < 86400000 * 1.5; // within 1.5 days
+                        });
+                        const cat = scanCategory(tx.description);
+                        const exp = {
+                            id: `powens_${tx.powens_id}_${Date.now()}`,
+                            powens_id: tx.powens_id,
+                            amount: tx.amount,
+                            description: tx.description,
+                            category: cat?.label || 'Autre',
+                            icon: cat?.icon || 'fa-asterisk',
+                            payer: conn.payer,
+                            p1SharePercent: 50,
+                            p2SharePercent: 50,
+                            approved: false, // → lands in Inbox for review
+                            type: tx.type || 'depense',
+                            project: state.config.activeProject,
+                            created_at: tx.date + 'T12:00:00.000Z',
+                            // Flag fuzzy dupes — shown as a warning in the Inbox row
+                            _fuzzyDupe: isFuzzyDupe
+                        };
+                        newExpenses.push(exp);
+                        knownPowensIds.add(String(tx.powens_id));
+                        totalNew++;
+                    }
+                    if (newExpenses.length > 0) {
+                        state.expenses.unshift(...newExpenses);
+                        localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                        // Upsert to Supabase — powens_id UNIQUE constraint prevents dupes server-side too
+                        if (state.supabaseClient && navigator.onLine) {
+                            const toInsert = newExpenses.map(e => {
+                                const { _fuzzyDupe, ...rest } = stripTransientFields(e);
+                                return rest;
+                            });
+                            const { error } = await state.supabaseClient
+                                .from('expenses')
+                                .upsert(toInsert, { onConflict: 'powens_id', ignoreDuplicates: true });
+                            if (error) console.error('[Powens] Supabase upsert error:', error);
+                        }
+                    }
+                } catch(e) {
+                    console.error('[Powens] Sync error for payer', conn.payer, e);
+                    hadError = true;
+                }
+            }
+            savePowensConnections(connections);
+            renderPowensConnectionsList();
+            updateUI();
+            if (syncIcon) syncIcon.classList.remove('animate-spin');
+            if (syncBtn)  syncBtn.disabled = false;
+            if (totalNew > 0) {
+                showToast(`${totalNew} transaction${totalNew > 1 ? 's' : ''} importée${totalNew > 1 ? 's' : ''}`);
+                // Switch to Inbox so they can review
+                setTimeout(() => switchView('inbox'), 600);
+            } else if (hadError) {
+                showToast('Erreur de synchronisation — vérifiez la connexion');
+            } else {
+                showToast('Déjà à jour');
+            }
+        }
+
+        // ============================================================
+        // END POWENS INTEGRATION
+        // ============================================================
+
         function initApp() {
             generateAndSetAppIcon();
             initPullToRefresh();
@@ -1961,6 +2258,7 @@
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
             try { initializeSupabase(); } catch(e) {}
+            try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             
             try {
                 const now = new Date();
@@ -4002,7 +4300,7 @@
                             const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                             const payerColor = exp.payer === 'p1' ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/25' : 'text-violet-300 bg-violet-500/10 border-violet-500/25';
                             const exactDate = isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">Payé par <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600">·</span><span class="text-slate-400 font-semibold">${exactDate}</span>` : ''}</p></div></div><span class="text-sm font-black text-indigo-400 shrink-0">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">Payé par <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600">·</span><span class="text-slate-400 font-semibold">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black text-indigo-400 shrink-0">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
