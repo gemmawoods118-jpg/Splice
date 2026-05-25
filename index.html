@@ -247,8 +247,25 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            /* No extra padding layout on the wrapper container anymore */
-            padding: 0;
+            /* LOWERED PILL: Significantly dropped the safe-area padding floor 
+               to push the floating island closer to the screen baseline */
+            padding: 4px 12px max(6px, env(safe-area-inset-bottom, 6px));
+            pointer-events: none;
+        }
+        /* LOCALIZED UNDER-BLUR: Injects a glassy blur layer ONLY in the layout gap 
+           extending precisely beneath the floating capsule bar down to the screen edge */
+        .ios-nav-bar::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            /* Anchored to start exactly where the pill ends, masking only the bottom margin space */
+            top: calc(100% - max(6px, env(safe-area-inset-bottom, 6px)));
+            z-index: -1;
+            background: rgba(8, 11, 17, 0.4);
+            -webkit-backdrop-filter: blur(20px) saturate(140%);
+            backdrop-filter: blur(20px) saturate(140%);
             pointer-events: none;
         }
         .ios-nav-pill {
@@ -258,23 +275,20 @@
             align-items: center;
             gap: 2px;
             width: 100%;
-            
-            /* LOWER POSITION & TIGHT BLUR AREA: Converts the pill into a flat, 
-               full-width docking dock stretching right to the bottom edge */
-            padding: 6px 12px env(safe-area-inset-bottom, 10px);
-            border-radius: 0px; /* Square edges to blend flush into screen boundaries */
-            
-            background: rgba(15, 23, 42, 0.76);
-            -webkit-backdrop-filter: saturate(180%) blur(24px);
-            backdrop-filter: saturate(180%) blur(24px);
-            
-            /* Clean structural border dividing the content layer from the nav background plate */
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            border-left: none;
-            border-right: none;
-            border-bottom: none;
-            
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 480px;
+            /* Tight symmetric padding — pill height = content only, no extra bottom space */
+            padding: 5px 5px 5px;
+            /* Large radius = true oval capsule shape */
+            border-radius: 40px;
+            background: rgba(15, 23, 42, 0.72);
+            -webkit-backdrop-filter: saturate(180%) blur(28px);
+            backdrop-filter: saturate(180%) blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow:
+                0 14px 38px rgba(0, 0, 0, 0.55),
+                0 2px 8px rgba(0, 0, 0, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.25);
         }
         .ios-nav-btn {
             position: relative;
