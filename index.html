@@ -247,20 +247,21 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            /* REVERTED TO STRUCTURAL CODE: Swapped forced layout overrides back to the original layout 
-               structure, setting the bottom buffer space to a safe 24px so it hovers cleanly over the white line */
-            padding: 4px 16px 24px;
+            /* 1-2mm LOWER: Reduced from 24px to a precise 17px bottom gap to perfectly 
+               clear the white bar line without overlapping it */
+            padding: 4px 16px 17px;
             pointer-events: none;
         }
         
-        /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Reverted back to the original working version */
+        /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Nedged down to follow the capsule position perfectly */
         .ios-nav-bar::before {
             content: '';
             position: absolute;
             left: 0;
             right: 0;
             bottom: 0;
-            top: calc(100% - 32px);
+            /* Tracks the layout floor perfectly to prevent a harsh border lines */
+            top: calc(100% - 24px);
             z-index: -1;
             
             -webkit-backdrop-filter: blur(20px);
@@ -271,7 +272,6 @@
             background: linear-gradient(to top, rgba(8, 11, 17, 0.9) 0%, rgba(8, 11, 17, 0.2) 100%);
             pointer-events: none;
         }
-        
         .ios-nav-pill {
             pointer-events: auto;
             display: flex;
