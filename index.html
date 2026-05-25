@@ -239,39 +239,58 @@
 /* iOS-style floating glass nav bar — fixed to the viewport so it always sits at the true screen bottom */
         .ios-nav-bar {
             position: fixed;
-            bottom: 0 !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
             width: 100%;
             max-width: 448px;
-            z-index: 99;
+            z-index: 40;
             display: flex;
             justify-content: center;
-            /* FINELY TUNED GAP: Increased bottom spacing to exactly 14px 
-               so the pill cleanly clears and floats right above the iOS home bar line */
-            padding: 4px 16px 14px !important;
+            /* REVERTED TO STRUCTURAL CODE: Swapped forced layout overrides back to the original layout 
+               structure, setting the bottom buffer space to a safe 24px so it hovers cleanly over the white line */
+            padding: 4px 16px 24px;
             pointer-events: none;
         }
         
-        /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Dynamically scaled to match the new 14px clearance gap */
+        /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Reverted back to the original working version */
         .ios-nav-bar::before {
             content: '';
             position: absolute;
             left: 0;
             right: 0;
             bottom: 0;
-            /* Height increased to 46px to cleanly cover the entire home line zone up to the capsule floor */
-            height: 46px;
+            top: calc(100% - 32px);
             z-index: -1;
             
             -webkit-backdrop-filter: blur(20px);
             backdrop-filter: blur(20px);
-            /* Seamlessly dissolves the blur into the main layout without hard edges */
-            -webkit-mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0) 100%);
-            mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0) 100%);
+            -webkit-mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%);
+            mask: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%);
             
-            background: linear-gradient(to top, rgba(8, 11, 17, 0.92) 0%, rgba(8, 11, 17, 0.15) 100%);
+            background: linear-gradient(to top, rgba(8, 11, 17, 0.9) 0%, rgba(8, 11, 17, 0.2) 100%);
             pointer-events: none;
+        }
+        
+        .ios-nav-pill {
+            pointer-events: auto;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            gap: 2px;
+            width: 100%;
+            max-width: 480px;
+            padding: 5px 5px 5px;
+            border-radius: 40px;
+            background: rgba(15, 23, 42, 0.72);
+            -webkit-backdrop-filter: saturate(180%) blur(28px);
+            backdrop-filter: saturate(180%) blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow:
+                0 14px 38px rgba(0, 0, 0, 0.55),
+                0 2px 8px rgba(0, 0, 0, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.25);
         }
         .ios-nav-btn {
             position: relative;
