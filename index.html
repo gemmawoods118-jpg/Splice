@@ -248,7 +248,9 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            padding: 4px 16px 8px;
+            /* Safe-area inset lives here in the wrapper, NOT inside the pill.
+               This keeps the pill compact while still clearing the home indicator. */
+            padding: 4px 16px env(safe-area-inset-bottom, 8px);
             pointer-events: none;
         }
         .ios-nav-pill {
@@ -259,9 +261,9 @@
             gap: 2px;
             width: 100%;
             max-width: 480px;
-            /* Tall bottom padding so the pill extends low but icons sit above the home indicator */
-            padding: 6px 6px 24px;
-            /* Very high border-radius = true oval pill shape like the reference screenshot */
+            /* Tight symmetric padding — pill height = content only, no extra bottom space */
+            padding: 5px 5px 5px;
+            /* Large radius = true oval capsule shape */
             border-radius: 40px;
             background: rgba(15, 23, 42, 0.72);
             -webkit-backdrop-filter: saturate(180%) blur(28px);
@@ -281,9 +283,10 @@
             align-items: center;
             justify-content: center;
             gap: 3px;
-            padding: 9px 4px 7px;
-            /* Round active background — matches the oval buttons in the reference screenshot */
-            border-radius: 28px;
+            padding: 8px 4px 7px;
+            /* Button radius slightly smaller than pill radius so it visually
+               follows the pill's inner curvature — same design language */
+            border-radius: 32px;
             background: transparent;
             border: none;
             color: rgb(148, 163, 184);
@@ -402,7 +405,7 @@
         .nav-tab-landed-icon { animation: navTabLand 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .nav-tab-landed-bg   {
             animation: navTabPulse 0.7s ease-out;
-            border-radius: 28px;  /* matches .ios-nav-btn radius so it pulses in the same shape as selection */
+            border-radius: 32px;  /* matches .ios-nav-btn so it pulses in the same shape as selection */
         }
 
         /* Recurring frequency chips */
