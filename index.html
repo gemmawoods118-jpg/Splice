@@ -382,7 +382,7 @@
         .inbox-item-selected::after {
             content: '✓';
             position: absolute;
-            top: 10px; right: 10px;
+            top: 10px; left: 10px;
             width: 20px; height: 20px;
             background: rgb(99,102,241);
             color: white;
@@ -394,7 +394,8 @@
             justify-content: center;
             z-index: 5;
         }
-        [id^="inbox-item-"] { position: relative; }
+[id^="inbox-item-"] { position: relative; }
+        [id^="inbox-item-"] * { user-select: none; -webkit-user-select: none; }
 
         /* Multi-select: selected item ring */
         .history-item-selected {
@@ -406,7 +407,7 @@
         .history-item-selected::before {
             content: '✓';
             position: absolute;
-            top: 8px; right: 8px;
+            top: 8px; left: 8px;
             width: 20px; height: 20px;
             background: rgb(99,102,241);
             color: white;
@@ -420,7 +421,8 @@
             padding-top: 1px;
             z-index: 5;
         }
-        [id^="history-item-"] { position: relative; }
+[id^="history-item-"] { position: relative; }
+        [id^="history-item-"] * { user-select: none; -webkit-user-select: none; }
 
         /* Push scrollable content above the floating nav */
         #main-scroll-area {
@@ -712,9 +714,9 @@
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
         
         <!-- Header & Projects -->
-        <header onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 cursor-pointer active:opacity-80 transition-opacity" style="padding-top: max(1rem, env(safe-area-inset-top));">
-            <!-- Logo Splittr (left) -->
-            <div class="flex items-center gap-2 shrink-0">
+        <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30" style="padding-top: max(1rem, env(safe-area-inset-top));">
+            <!-- Logo Splittr (left) — tap to scroll to top -->
+            <div class="flex items-center gap-2 shrink-0 cursor-pointer active:opacity-70 transition-opacity" onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})">
                 <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
                     <svg viewBox="0 0 64 64" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
                         <path d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
@@ -991,13 +993,16 @@
                 <section class="space-y-3">
                     <div class="flex justify-between items-center">
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4>
-                        <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
+                        <div class="flex items-center gap-2">
+                            <span id="last-sync-label" class="text-[10px] text-slate-600 font-medium hidden"></span>
+                            <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
+                        </div>
                     </div>
                     <!-- Inbox multiselect toolbar — shown when ≥1 item selected -->
                     <div id="inbox-multiselect-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
                         <div class="flex items-center gap-2 shrink-0">
                             <span class="bg-indigo-500 text-white text-xs font-black rounded-full min-w-[24px] h-6 inline-flex items-center justify-center px-1.5" id="inbox-ms-count">0</span>
-                            <span class="text-xs font-bold text-indigo-300">sélectionné(s)</span>
+                            <button onclick="inboxSelectAll()" class="text-xs font-bold text-indigo-300 hover:text-white transition-colors" id="inbox-ms-select-all">Tout</button>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <button onclick="inboxBulkValidate()" class="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 w-9 h-9 rounded-lg border border-emerald-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Valider">
@@ -1077,7 +1082,7 @@
                 <div id="multi-select-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl p-3 flex items-center justify-between gap-2 shadow-lg shadow-indigo-950/30">
                     <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
                         <span class="bg-indigo-500 text-white text-sm font-black rounded-full min-w-[28px] h-[28px] inline-flex items-center justify-center px-2" id="multi-select-count">0</span>
-                        <span class="text-sm font-bold text-indigo-300">Sélectionné(s)</span>
+                        <button onclick="historySelectAll()" class="text-sm font-bold text-indigo-300 hover:text-white transition-colors" id="hist-ms-select-all">Tout</button>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         <button onclick="bulkValidateSelected()" class="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-emerald-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Valider">
@@ -1877,8 +1882,11 @@
             haptic('light');
             try {
                 await fetchSupabaseExpenses();
-                // Success: the pull-refresh animation itself (full splash-style circle drawing)
-                // is the confirmation — no toast needed.
+                // Also sync bank transactions if any Powens connections exist
+                const _conns = loadPowensConnections().filter(c => c.accessToken);
+                if (_conns.length > 0) {
+                    try { await syncAllPowensAccounts(true); } catch(e) { console.warn('Powens sync during refresh:', e); }
+                }
             } catch (e) {
                 console.error('Refresh failed:', e);
                 showToast('Échec de la mise à jour');
@@ -2499,15 +2507,14 @@
         // MAIN SYNC FUNCTION
         // Calls powens-sync edge function, deduplicates, adds to inbox.
         // ──────────────────────────────────────────────────────────────
-        async function syncAllPowensAccounts() {
+        async function syncAllPowensAccounts(silent = false) {
             const connections = loadPowensConnections();
-            if (connections.length === 0) { showToast('Aucun compte connecté'); return; }
-            if (!state.config.sbUrl) { showToast('Configure Supabase d\'abord'); return; }
-            // Visual feedback on the sync button
+            if (connections.length === 0) { if (!silent) showToast('Aucun compte connecté'); return; }
+            if (!state.config.sbUrl) { if (!silent) showToast('Configure Supabase d\'abord'); return; }
+            // Visual feedback on the sync button (skip in silent/auto mode)
             const syncBtn  = document.getElementById('powens-sync-btn');
             const syncIcon = document.getElementById('powens-sync-icon');
-            if (syncIcon) syncIcon.classList.add('animate-spin');
-            if (syncBtn)  syncBtn.disabled = true;
+            if (!silent) { if (syncIcon) syncIcon.classList.add('animate-spin'); if (syncBtn) syncBtn.disabled = true; }
             let totalNew = 0;
             let hadError = false;
             for (const conn of connections) {
@@ -2597,14 +2604,16 @@
             updateUI();
             if (syncIcon) syncIcon.classList.remove('animate-spin');
             if (syncBtn)  syncBtn.disabled = false;
+            try { updateLastSyncLabel(); } catch(e) {}
             if (totalNew > 0) {
-                showToast(`${totalNew} transaction${totalNew > 1 ? 's' : ''} importée${totalNew > 1 ? 's' : ''}`);
+                if (!silent) showToast(`${totalNew} transaction${totalNew > 1 ? 's' : ''} importée${totalNew > 1 ? 's' : ''}`);
+                else showToast(`🔄 ${totalNew} nouvelle${totalNew > 1 ? 's' : ''} transaction${totalNew > 1 ? 's' : ''}`);
                 // Switch to Inbox so they can review
                 setTimeout(() => switchView('inbox'), 600);
             } else if (hadError) {
-                showToast('Erreur de synchronisation — vérifiez la connexion');
+                if (!silent) showToast('Erreur de synchronisation — vérifiez la connexion');
             } else {
-                showToast('Déjà à jour');
+                if (!silent) showToast('Déjà à jour');
             }
         }
 
@@ -2631,22 +2640,33 @@
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
-            try { cleanupOldPowensInboxFlood(); } catch(e) {} // remove flood of 90-day old inbox items
+            try { cleanupOldPowensInboxFlood(); } catch(e) {} // one-time flood cleanup
+            try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
             try { initializeSupabase(); } catch(e) {}
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
             try { syncPowensConnectionsFromServer(); } catch(e) {}
 
             // Re-sync when PWA regains focus after returning from Powens webview in Safari
+            // Track last auto-sync time to throttle (min 5 min between auto-syncs)
+            let _lastAutoSync = 0;
+            async function autoSyncOnFocus() {
+                try { syncPowensConnectionsFromServer(); } catch(e) {}
+                const now = Date.now();
+                if (now - _lastAutoSync < 5 * 60 * 1000) return; // throttle: 5 min
+                const conns = loadPowensConnections().filter(c => c.accessToken);
+                if (conns.length === 0) return;
+                _lastAutoSync = now;
+                try { autoExpireInboxItems(); } catch(e) {}
+                try {
+                    await syncAllPowensAccounts(true); // true = silent (no loading spinner)
+                } catch(e) { console.warn('[AutoSync]', e); }
+            }
             document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') {
-                    try { syncPowensConnectionsFromServer(); } catch(e) {}
-                }
+                if (document.visibilityState === 'visible') autoSyncOnFocus();
             });
             window.addEventListener('pageshow', (e) => {
-                if (e.persisted) {
-                    try { syncPowensConnectionsFromServer(); } catch(e) {}
-                }
+                if (e.persisted) autoSyncOnFocus();
             });
 
             try {
@@ -4803,7 +4823,7 @@
                     if (inBadge) { inBadge.classList.remove('hidden'); inBadge.innerText = unapprovedExpenses.length; }
                     if (inCount) { inCount.innerText = `${unapprovedExpenses.length} à valider`; inCount.className = "text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2.5 py-0.5 rounded-full"; }
                     if (inList) {
-                        clearInboxMultiselect(); inList.innerHTML = '';
+                        clearInboxMultiselect(); inList.innerHTML = ''; try { updateLastSyncLabel(); } catch(e) {}
                         // Sort newest first, then group by date label (same labels as history: Aujourd'hui, Hier, Cette semaine, etc.)
                         const sorted = [...unapprovedExpenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                         let currentGroup = null;
@@ -4834,7 +4854,7 @@
                             const typeBadge = isRevenu
                                 ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-bold">💰 Revenu</span>`
                                 : `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[9px] font-bold">💸 Dépense</span>`;
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} ${actionLabel} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600">·</span><span class="text-slate-400 font-semibold">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p>${exactDate ? `<span class="text-[10px] text-slate-500 shrink-0 font-medium">${exactDate}</span>` : ''}</div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} ${actionLabel} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
@@ -5485,9 +5505,12 @@
         function updateMultiSelectUI() {
             const toolbar = document.getElementById('multi-select-toolbar');
             const count = state.selectedIds.size;
+            const selectAllBtn = document.getElementById('hist-ms-select-all');
+            const total = document.querySelectorAll('[id^="history-item-"]').length;
             if (count > 0) {
                 toolbar.classList.remove('hidden');
                 document.getElementById('multi-select-count').innerText = count;
+                if (selectAllBtn) selectAllBtn.textContent = (count >= total) ? 'Aucun' : 'Tout';
             } else {
                 toolbar.classList.add('hidden');
             }
@@ -5502,6 +5525,18 @@
 
         function clearMultiSelect() {
             state.selectedIds.clear();
+            updateMultiSelectUI();
+        }
+
+        function historySelectAll() {
+            const allIds = Array.from(document.querySelectorAll('[id^="history-item-"]'))
+                .map(el => el.id.replace('history-item-', ''));
+            const allSelected = allIds.every(id => state.selectedIds.has(id));
+            if (allSelected) {
+                state.selectedIds.clear();
+            } else {
+                allIds.forEach(id => state.selectedIds.add(id));
+            }
             updateMultiSelectUI();
         }
 
@@ -5530,10 +5565,13 @@
         function updateInboxMultiselectUI() {
             const toolbar = document.getElementById('inbox-multiselect-toolbar');
             const countEl = document.getElementById('inbox-ms-count');
+            const selectAllBtn = document.getElementById('inbox-ms-select-all');
             const n = state.inboxSelectedIds.size;
+            const total = document.querySelectorAll('[id^="inbox-item-"]').length;
             if (n > 0) {
                 toolbar.classList.remove('hidden');
                 countEl.innerText = n;
+                if (selectAllBtn) selectAllBtn.textContent = (n >= total) ? 'Aucun' : 'Tout';
             } else {
                 toolbar.classList.add('hidden');
             }
@@ -5556,6 +5594,19 @@
 
         function clearInboxMultiselect() {
             state.inboxSelectedIds.clear();
+            updateInboxMultiselectUI();
+        }
+
+        function inboxSelectAll() {
+            const allIds = Array.from(document.querySelectorAll('[id^="inbox-item-"]'))
+                .map(el => el.id.replace('inbox-item-', ''));
+            const allSelected = allIds.every(id => state.inboxSelectedIds.has(id));
+            if (allSelected) {
+                // Deselect all
+                state.inboxSelectedIds.clear();
+            } else {
+                allIds.forEach(id => state.inboxSelectedIds.add(id));
+            }
             updateInboxMultiselectUI();
         }
 
@@ -5703,6 +5754,52 @@
             document.getElementById('bulk-cat-modal').classList.add('hidden');
             toggleBulkNewCategoryInput(false);
         }
+
+        function updateLastSyncLabel() {
+            const el = document.getElementById('last-sync-label');
+            if (!el) return;
+            const conns = loadPowensConnections().filter(c => c.lastSync);
+            if (conns.length === 0) { el.classList.add('hidden'); return; }
+            // Use the most recent lastSync across all connections
+            const latest = conns.reduce((max, c) => c.lastSync > max ? c.lastSync : max, '');
+            if (!latest) { el.classList.add('hidden'); return; }
+            const d = new Date(latest);
+            const now = new Date();
+            const diffMin = Math.round((now - d) / 60000);
+            let label;
+            if (diffMin < 1) label = 'Sync à l'instant';
+            else if (diffMin < 60) label = `Sync il y a ${diffMin} min`;
+            else if (diffMin < 1440) {
+                const h = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+                label = `Sync à ${h}`;
+            } else {
+                const dateStr = d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+                label = `Sync le ${dateStr}`;
+            }
+            el.textContent = label;
+            el.classList.remove('hidden');
+        }
+
+        function autoExpireInboxItems() {
+            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+            const toExpire = state.expenses.filter(exp =>
+                exp.approved === false && exp.powens_id &&
+                (exp.created_at || '').split('T')[0] < cutoff
+            );
+            if (toExpire.length === 0) return;
+            toExpire.forEach(exp => { trackDismissedPowensId(exp.powens_id); trackDeletedId(exp.id); });
+            state.expenses = state.expenses.filter(exp => {
+                if (exp.approved !== false || !exp.powens_id) return true;
+                return (exp.created_at || '').split('T')[0] >= cutoff;
+            });
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            console.log('[Splittr] Auto-expired', toExpire.length, 'inbox items');
+        }
+        function openSingleCategoryPicker(id) {
+            const prev = new Set(state.selectedIds);
+            state.selectedIds = new Set([id]);
+            openBulkCategoryPicker();
+        }
         async function applyBulkCategory(categoryLabel, iconClass) {
             const ids = Array.from(state.selectedIds);
             const snapshots = [];
@@ -5831,8 +5928,8 @@
                     }
                     wrapper.innerHTML = `
                         <div class="swipe-actions">
-                            <button class="swipe-action-btn swipe-action-edit" onclick="toggleHistoryEdit('${exp.id}',true)" aria-label="Modifier">
-                                <i class="fa-solid fa-pen-to-square"></i>
+                            <button class="swipe-action-btn swipe-action-edit" onclick="openSingleCategoryPicker('${exp.id}')" aria-label="Catégorie">
+                                <i class="fa-solid fa-tag"></i>
                             </button>
                             <button class="swipe-action-btn swipe-action-delete" onclick="deleteExpense('${exp.id}')" aria-label="Supprimer">
                                 <i class="fa-solid fa-trash-can"></i>
