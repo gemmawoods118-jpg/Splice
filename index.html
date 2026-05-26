@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr" style="overscroll-behavior: none; overflow: hidden;">
 <head>
@@ -2205,19 +2206,20 @@
             }
         }
 
-function checkPowensCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const connectionId = params.get('connection_id');
-  const stateRaw = params.get('state');
-  if (!connectionId || !stateRaw) return;
-
-  let payer = 'p1';
-  try { payer = JSON.parse(decodeURIComponent(stateRaw)).payer || 'p1'; } catch(e) {}
-
-  // rest of your existing callback logic using payer + connectionId
-  // clean URL after reading
-  window.history.replaceState({}, '', window.location.pathname);
-}
+        // Called on page load — checks if we just returned from a Powens webview callback
+        function checkPowensCallback() {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has('powens_callback')) return;
+            const payer = params.get('powens_callback');
+            const connectionId = params.get('connection_id'); // Powens sends this on success
+            const error = params.get('error');
+            // Clean the URL so the callback param doesn't persist on reload
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+            if (error) {
+                showToast('Connexion bancaire annulée');
+                return;
+            }
             const pending = sessionStorage.getItem(`powens_pending_${payer}`);
             if (!pending) { showToast('Session expirée — réessayez'); return; }
             sessionStorage.removeItem(`powens_pending_${payer}`);
