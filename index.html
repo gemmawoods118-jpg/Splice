@@ -1882,6 +1882,7 @@
             } finally {
                 if (btnIcon) btnIcon.classList.remove('animate-spin');
                 _refreshInProgress = false;
+                try { updateLastSyncLabel(); } catch(e) {}
             }
         }
 
@@ -4874,7 +4875,7 @@
                             const typeBadge = isRevenu
                                 ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-bold">💰 Revenu</span>`
                                 : `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[9px] font-bold">💸 Dépense</span>`;
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap"><span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
@@ -5598,7 +5599,7 @@
             if (n > 0) {
                 toolbar.classList.remove('hidden');
                 countEl.innerText = n;
-                if (selectAllBtn) selectAllBtn.textContent = (n >= total) ? 'Aucun' : 'Tout';
+                if (selectAllBtn) selectAllBtn.textContent = (n >= total) ? 'Tout désélectionner' : 'Tout sélectionner';
             } else {
                 toolbar.classList.add('hidden');
             }
@@ -5807,7 +5808,7 @@
             el.classList.remove('hidden');
         }
 
-        function autoExpireInboxItems() {
+        async function autoExpireInboxItems() {
             const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
             const toExpire = state.expenses.filter(exp =>
                 exp.approved === false && exp.powens_id &&
@@ -5821,6 +5822,18 @@
             });
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             console.log('[Splittr] Auto-expired', toExpire.length, 'inbox items');
+            // Also delete from Supabase so they don't re-appear on next sync
+            if (state.supabaseClient && navigator.onLine && toExpire.length > 0) {
+                try {
+                    const ids = toExpire.map(e => e.id);
+                    const { error } = await state.supabaseClient
+                        .from('expenses')
+                        .delete()
+                        .in('id', ids);
+                    if (error) console.warn('[Splittr] Supabase expire delete error:', error);
+                    else console.log('[Splittr] Deleted', ids.length, 'expired items from Supabase');
+                } catch(e) { console.warn('[Splittr] Supabase expire delete failed:', e); }
+            }
         }
         function openSingleCategoryPicker(id) {
             const prev = new Set(state.selectedIds);
