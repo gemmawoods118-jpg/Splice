@@ -854,8 +854,8 @@
                         <div class="space-y-1">
                             <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block" id="payer-toggle-label">Qui a payé ?</span>
                             <div class="grid grid-cols-2 gap-2.5">
-                                <button type="button" id="btn-p1" onclick="selectPayer('p1')" class="py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide transition-all shadow-sm"><i class="fa-solid fa-user-ninja mr-2 opacity-80 text-xs"></i><span id="label-btn-p1">Toi</span></button>
-                                <button type="button" id="btn-p2" onclick="selectPayer('p2')" class="py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide transition-all"><i class="fa-solid fa-user-astronaut mr-2 opacity-80 text-xs"></i><span id="label-btn-p2">Partenaire</span></button>
+                                <button type="button" id="btn-p1" data-no-ripple onclick="selectPayer('p1')" class="py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide shadow-sm"><i class="fa-solid fa-user-ninja mr-2 opacity-80 text-xs"></i><span id="label-btn-p1">Toi</span></button>
+                                <button type="button" id="btn-p2" data-no-ripple onclick="selectPayer('p2')" class="py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide"><i class="fa-solid fa-user-astronaut mr-2 opacity-80 text-xs"></i><span id="label-btn-p2">Partenaire</span></button>
                             </div>
                         </div>
 
@@ -1193,8 +1193,17 @@
             </div>
             <div class="space-y-3">
                 <div class="grid grid-cols-2 gap-2">
-                    <div><label class="text-[10px] text-slate-500 font-bold block mb-1">Ton prénom</label><input type="text" id="config-p1" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500"></div>
-                    <div><label class="text-[10px] text-slate-500 font-bold block mb-1">Prénom du partenaire</label><input type="text" id="config-p2" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500"></div>
+                    <div><label class="text-[10px] text-slate-500 font-bold block mb-1">Personne 1 (bouton gauche)</label><input type="text" id="config-p1" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500"></div>
+                    <div><label class="text-[10px] text-slate-500 font-bold block mb-1">Personne 2 (bouton droit)</label><input type="text" id="config-p2" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 px-3 text-base text-slate-200 focus:outline-none focus:border-indigo-500"></div>
+                    <!-- Device-level preference: which person is using THIS phone -->
+                    <div class="col-span-2">
+                        <label class="text-[10px] text-slate-500 font-bold block mb-1.5">Sur cet appareil, je suis…</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="device-pref-p1" onclick="setDevicePayer('p1')" class="py-2 rounded-xl border text-xs font-bold transition-all active:scale-95">— Personne 1</button>
+                            <button type="button" id="device-pref-p2" onclick="setDevicePayer('p2')" class="py-2 rounded-xl border text-xs font-bold transition-all active:scale-95">— Personne 2</button>
+                        </div>
+                        <p class="text-[10px] text-slate-600 mt-1.5">Le payeur par défaut sera pré-sélectionné à chaque saisie.</p>
+                    </div>
                 </div>
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold block mb-1">Devise</label>
@@ -1395,7 +1404,7 @@
             expenses: [],
             categories: [],
             config: { p1Name: 'Alex', p2Name: 'Sam', sbUrl: '', sbKey: '', currency: '€', projects: ['Principal'], activeProject: 'Principal' },
-            currentPayer: 'p1',
+            currentPayer: localStorage.getItem('us_device_payer') || 'p1',
             splitType: '50_50',
             p1SplitPercent: 50,
             selectedCategory: 'Autre',
@@ -1526,11 +1535,45 @@
             }
         }
 
+        // ---------- DEVICE-LEVEL PAYER PREFERENCE ----------
+        // Stored in localStorage on THIS device only — completely independent of Supabase.
+        // Lets each phone default to its owner as the payer without affecting the other device.
+        function getDevicePayer() {
+            return localStorage.getItem('us_device_payer') || 'p1';
+        }
+        function setDevicePayer(payer) {
+            localStorage.setItem('us_device_payer', payer);
+            renderDevicePayerPref();
+            selectPayer(payer); // immediately update the form too
+            haptic('light');
+            showToast(payer === 'p1'
+                ? `Par défaut : ${state.config.p1Name || 'Personne 1'}`
+                : `Par défaut : ${state.config.p2Name || 'Personne 2'}`);
+        }
+        function renderDevicePayerPref() {
+            const pref = getDevicePayer();
+            const btn1 = document.getElementById('device-pref-p1');
+            const btn2 = document.getElementById('device-pref-p2');
+            if (!btn1 || !btn2) return;
+            const p1Name = state.config.p1Name || 'Personne 1';
+            const p2Name = state.config.p2Name || 'Personne 2';
+            btn1.textContent = p1Name;
+            btn2.textContent = p2Name;
+            if (pref === 'p1') {
+                btn1.className = 'py-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 text-xs font-bold transition-all active:scale-95';
+                btn2.className = 'py-2 rounded-xl border border-slate-700 bg-slate-800/40 text-slate-400 text-xs font-bold transition-all active:scale-95';
+            } else {
+                btn2.className = 'py-2 rounded-xl border border-violet-500 bg-violet-600/20 text-violet-300 text-xs font-bold transition-all active:scale-95';
+                btn1.className = 'py-2 rounded-xl border border-slate-700 bg-slate-800/40 text-slate-400 text-xs font-bold transition-all active:scale-95';
+            }
+        }
+
         function toggleSettingsModal(show) {
             const modal = document.getElementById('settings-modal');
             if (show) {
                 modal.classList.remove('hidden');
                 try { renderPowensConnectionsList(); } catch(e) {}
+                try { renderDevicePayerPref(); } catch(e) {}
             } else {
                 modal.classList.add('hidden');
             }
@@ -1646,6 +1689,9 @@
             safeSetInnerText('label-btn-p2', state.config.p2Name);
             safeSetInnerText('split-input-label-p1', `Part de ${state.config.p1Name}`);
             safeSetInnerText('split-input-label-p2', `Part de ${state.config.p2Name}`);
+            // Re-apply device payer selection so the button highlights the correct person
+            // after names may have changed
+            selectPayer(getDevicePayer());
             
             updateSplitSliderLabels();
             updateCurrencyUI();
@@ -2054,28 +2100,30 @@
 
         // Step 1: Open the Powens webview for a given payer (p1 or p2)
         async function connectPowensAccount(payer) {
+            console.log('[Powens] connectPowensAccount called for payer:', payer);
             if (!state.config.sbUrl || !state.config.sbKey) {
-                showToast('Configure Supabase d\'abord');
+                showToast('Configure Supabase d\'abord dans les paramètres');
+                console.warn('[Powens] Supabase not configured — sbUrl:', !!state.config.sbUrl, 'sbKey:', !!state.config.sbKey);
                 return;
             }
+            showToast('Connexion en cours…');
             try {
-                showToast('Connexion en cours…');
-                // The redirect URI must be your GitHub Pages URL (or wherever the app is hosted).
-                // We append ?powens_callback=<payer> so the app knows which payer to attach.
                 const redirectUri = window.location.origin + window.location.pathname + `?powens_callback=${payer}`;
+                console.log('[Powens] Calling powens-connect edge function, redirect:', redirectUri);
                 const result = await callEdgeFunction('powens-connect', { redirect_uri: redirectUri });
-                if (!result.webviewUrl) throw new Error('No webview URL returned');
-                // Store the pending token keyed by payer — we'll complete after callback
+                console.log('[Powens] Edge function result:', JSON.stringify(result));
+                if (!result.webviewUrl) throw new Error('No webviewUrl in response: ' + JSON.stringify(result));
                 sessionStorage.setItem(`powens_pending_${payer}`, JSON.stringify({
                     payer,
                     userToken: result.userToken,
                     powensUserId: result.powensUserId
                 }));
-                // Open the Powens webview — user logs into their bank here
-                window.open(result.webviewUrl, '_self');
+                console.log('[Powens] Opening webview:', result.webviewUrl);
+                // Use location.href instead of window.open — more reliable in iOS PWA
+                window.location.href = result.webviewUrl;
             } catch(e) {
-                console.error('Powens connect error:', e);
-                showToast('Erreur de connexion Powens');
+                console.error('[Powens] Connect error:', e);
+                showToast('Erreur: ' + (e.message || 'inconnue'));
             }
         }
 
@@ -2774,12 +2822,20 @@
 
         function selectPayer(payer) {
             state.currentPayer = payer;
-            const btn1 = document.getElementById('btn-p1'); const btn2 = document.getElementById('btn-p2');
-            const activeClass = "py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm shadow-sm";
-            const inactiveClass = "py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm";
-            
-            if (payer === 'p1') { btn1.className = activeClass; btn2.className = inactiveClass; }
-            else { btn2.className = activeClass; btn1.className = inactiveClass; }
+            const btn1 = document.getElementById('btn-p1');
+            const btn2 = document.getElementById('btn-p2');
+            [btn1, btn2].forEach(b => {
+                if (!b) return;
+                b.classList.remove('border-indigo-500', 'bg-indigo-600/20', 'text-indigo-200', 'shadow-sm',
+                                   'border-slate-800', 'bg-slate-950/40', 'text-slate-400');
+            });
+            if (payer === 'p1') {
+                btn1?.classList.add('border-indigo-500', 'bg-indigo-600/20', 'text-indigo-200', 'shadow-sm');
+                btn2?.classList.add('border-slate-800', 'bg-slate-950/40', 'text-slate-400');
+            } else {
+                btn2?.classList.add('border-indigo-500', 'bg-indigo-600/20', 'text-indigo-200', 'shadow-sm');
+                btn1?.classList.add('border-slate-800', 'bg-slate-950/40', 'text-slate-400');
+            }
             if (state.splitType === '100_other') updateSplitBadgeText();
         }
 
@@ -3057,7 +3113,7 @@
             try { flyTransactionToHistory(); } catch (e) { console.error('Fly animation failed:', e); }
 
             amtIn.value = ''; if (descIn) descIn.value = '';
-            selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); amtIn.blur();
+            selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); selectPayer(getDevicePayer()); amtIn.blur();
 
             // Build a stripped-down version for Supabase that only contains schema columns.
             // The local copy keeps extra metadata (receipt items, animation flags, etc).
