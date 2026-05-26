@@ -2403,6 +2403,35 @@
             window.addEventListener('online', handleNetworkChange);
             window.addEventListener('offline', handleNetworkChange);
             try { handleNetworkChange(); } catch(e) {}
+
+            // ── AUTO-REFRESH ON APP RESUME ─────────────────────────────────────────
+            // When the user switches away and comes back to the app, iOS suspends it
+            // and the Supabase Realtime WebSocket drops. On resume, we do a lightweight
+            // fetch so changes made on the partner's phone while this app was in the
+            // background appear immediately — no pull-to-refresh needed.
+            //
+            // Two events cover all cases:
+            //   visibilitychange: fires when switching apps on iOS (most reliable)
+            //   pageshow: fires on iOS PWA when returning from Safari/another app
+            let _lastFetchTime = Date.now();
+            const MIN_REFETCH_INTERVAL = 30000; // 30s — avoid hammering Supabase
+            const handleAppResume = () => {
+                if (document.hidden) return; // only act when becoming visible
+                const now = Date.now();
+                if (now - _lastFetchTime < MIN_REFETCH_INTERVAL) return;
+                _lastFetchTime = now;
+                // Re-subscribe to realtime in case the WebSocket dropped during suspension
+                try { initRealtimeSubscription(); } catch(e) {}
+                // Lightweight data fetch — same as pull-to-refresh but silent (no toast)
+                if (state.supabaseClient && navigator.onLine) {
+                    fetchSupabaseExpenses().then(() => updateUI()).catch(() => {});
+                }
+            };
+            document.addEventListener('visibilitychange', handleAppResume);
+            window.addEventListener('pageshow', (e) => {
+                // pageshow with persisted=true means iOS restored from cache (bfcache)
+                if (e.persisted) handleAppResume();
+            });
         }
 
         if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initApp);
