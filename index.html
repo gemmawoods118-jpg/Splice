@@ -2080,6 +2080,8 @@
             try {
                 const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
                 if (!error && data) {
+                    // Also pull latest dismissed powens ids
+                    try { fetchDismissedPowensIds(); } catch(e) {}
                     const supabaseIds = new Set(data.map(r => r.id));
 
                     // ── MULTI-DEVICE DELETE FIX ──────────────────────────────────────────────
@@ -2507,10 +2509,32 @@
         // MAIN SYNC FUNCTION
         // Calls powens-sync edge function, deduplicates, adds to inbox.
         // ──────────────────────────────────────────────────────────────
+
+        async function fetchDismissedPowensIds() {
+            if (!state.supabaseClient || !navigator.onLine) return;
+            try {
+                const { data, error } = await state.supabaseClient
+                    .from('dismissed_powens')
+                    .select('powens_id');
+                if (error) { console.warn('[Dismissed] fetch error:', error.message); return; }
+                if (!data || data.length === 0) return;
+                const local = loadDismissedPowensIds();
+                let changed = false;
+                data.forEach(row => {
+                    if (!local.has(row.powens_id)) { local.add(row.powens_id); changed = true; }
+                });
+                if (changed) {
+                    localStorage.setItem('us_dismissed_powens_ids', JSON.stringify([...local].slice(-2000)));
+                    console.log('[Dismissed] Synced', data.length, 'dismissed ids from Supabase');
+                }
+            } catch(e) { console.warn('[Dismissed] fetch exception:', e); }
+        }
         async function syncAllPowensAccounts(silent = false) {
             const connections = loadPowensConnections();
             if (connections.length === 0) { if (!silent) showToast('Aucun compte connecté'); return; }
             if (!state.config.sbUrl) { if (!silent) showToast('Configure Supabase d\'abord'); return; }
+            // Pull latest dismissed ids from Supabase before deduping
+            await fetchDismissedPowensIds();
             // Visual feedback on the sync button (skip in silent/auto mode)
             const syncBtn  = document.getElementById('powens-sync-btn');
             const syncIcon = document.getElementById('powens-sync-icon');
@@ -4500,10 +4524,17 @@
         }
         function trackDismissedPowensId(powensId) {
             if (!powensId) return;
+            const pid = String(powensId);
             const ids = loadDismissedPowensIds();
-            ids.add(String(powensId));
+            ids.add(pid);
             const arr = [...ids].slice(-2000);
             localStorage.setItem('us_dismissed_powens_ids', JSON.stringify(arr));
+            // Sync to Supabase so partner's phone also ignores this transaction
+            if (state.supabaseClient && navigator.onLine) {
+                state.supabaseClient.from('dismissed_powens')
+                    .upsert({ powens_id: pid, dismissed_at: new Date().toISOString() }, { onConflict: 'powens_id' })
+                    .then(({ error }) => { if (error) console.warn('[Dismissed] Supabase upsert failed:', error.message); });
+            }
         }
 
 
