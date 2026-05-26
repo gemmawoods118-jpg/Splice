@@ -2322,13 +2322,13 @@
             const _sbUrl = sbUrl || (state.config && state.config.sbUrl);
             const _sbKey = sbKey || (state.config && state.config.sbKey);
             if (_sbUrl && _sbKey) {
-                fetch(_sbUrl + '/rest/v1/powens_connections', {
+                fetch(_sbUrl + '/rest/v1/powens_connections?on_conflict=payer', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'apikey': _sbKey,
                         'Authorization': 'Bearer ' + _sbKey,
-                        'Prefer': 'resolution=merge-duplicates'
+                        'Prefer': 'resolution=merge-duplicates,return=minimal'
                     },
                     body: JSON.stringify({
                         payer: conn.payer,
