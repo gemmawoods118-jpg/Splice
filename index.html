@@ -387,7 +387,7 @@
             transition: padding-top 0.25s cubic-bezier(0.22, 1, 0.36, 1);
         }
         #main-scroll-area.refreshing {
-            padding-top: 80px !important;
+            padding-top: 88px !important;
         }
 
         /* Flying plane animation — when a transaction is saved, a clone of the plane icon
@@ -692,7 +692,7 @@
              Positioned just below the header in the breathing room above the first content card.
              During refresh, the scroll area gets extra top padding (via .refreshing class) so the
              cards push down out of the way and the indicator sits in clean empty space. -->
-        <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-30 flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 70px);">
+        <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-[35] flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 80px);">
             <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
                 <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
                     <!-- Faded full circle for context -->
@@ -928,7 +928,7 @@
 
             <!-- VIEW 2: AUTOMATIC WEBHOOK INBOX -->
             <div id="view-inbox" class="tab-view hidden space-y-3">
-                <section class="bg-slate-950/40 border border-slate-800/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3">
+                <section class="bg-slate-950/40 border border-slate-800/80 rounded-xl px-3.5 py-2.5 flex items-center gap-3">
                     <div class="flex items-center gap-2.5 min-w-0">
                         <div class="w-8 h-8 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center shrink-0"><i class="fa-solid fa-mobile-screen-button text-xs"></i></div>
                         <div class="min-w-0">
@@ -936,7 +936,6 @@
                             <p class="text-[10px] text-slate-500 truncate">Validation des transactions entrantes</p>
                         </div>
                     </div>
-                    <button onclick="simulateIncomingWebhook()" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/5 hover:bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/15 transition-all shrink-0">💡 Simuler</button>
                 </section>
                 <section class="space-y-3">
                     <div class="flex justify-between items-center"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4><span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span></div>
