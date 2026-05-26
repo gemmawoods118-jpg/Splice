@@ -1924,25 +1924,28 @@
             try {
                 const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
                 if (!error && data) {
-                    // CRITICAL: never destructively overwrite local state with the Supabase response.
-                    // Any row that exists locally but is missing from the Supabase result is a row
-                    // that hasn't synced yet (offline insert, transient error, queued retry). We must
-                    // keep those rows or they would silently vanish on reload.
                     const supabaseIds = new Set(data.map(r => r.id));
-                    const deletedIds = loadDeletedIds();
-                    // Keep local-only rows that haven't synced yet — but NOT rows that were
-                    // intentionally deleted (on either device). Deleted rows are absent from
-                    // Supabase AND in our deletedIds set; we drop them on next refresh.
+
+                    // ── MULTI-DEVICE DELETE FIX ──────────────────────────────────────────────
+                    // The `us_deleted_ids` set only exists on the device that performed the
+                    // delete — it's useless for the partner's phone. The CORRECT authority for
+                    // "this row is a pending unsent insert that we must preserve" is the sync
+                    // queue itself: if a row is missing from Supabase AND is in the queue, it
+                    // hasn't made it to the server yet and we must keep it. If it's missing
+                    // from Supabase AND is NOT in the queue, it was deleted (by either device)
+                    // and must be dropped — never re-inserted.
+                    const syncQueueIds = new Set(state.syncQueue.map(e => e.id));
                     const localOnly = (state.expenses || []).filter(e =>
-                        !supabaseIds.has(e.id) && !deletedIds.has(e.id)
+                        !supabaseIds.has(e.id) && syncQueueIds.has(e.id)
                     );
-                    // Preserve any local-only "_animateIn" / "receiptItems" metadata on rows that
-                    // ARE in Supabase by overlaying server values onto the local copy.
+                    // ── END FIX ──────────────────────────────────────────────────────────────
+
+                    // Preserve any local-only "_animateIn" / "receiptItems" metadata on rows
+                    // that ARE in Supabase by overlaying server values onto the local copy.
                     const localById = new Map((state.expenses || []).map(e => [e.id, e]));
                     const merged = data.map(serverRow => {
                         const local = localById.get(serverRow.id);
                         if (!local) return serverRow;
-                        // Keep transient/local-only metadata fields from the local copy
                         const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn } = local;
                         return Object.assign({}, serverRow, {
                             ...(receiptItems !== undefined && { receiptItems }),
@@ -1951,7 +1954,6 @@
                             ...(_animateIn !== undefined && { _animateIn })
                         });
                     });
-                    // Local-only rows go at the front (they're typically the freshest), then server rows
                     state.expenses = [...localOnly, ...merged];
 
                     // Smart-categorize pending inbox items that came in as "Autre" / fa-asterisk
@@ -1987,14 +1989,8 @@
                         return rest;
                     })));
 
-                    // Trigger a re-sync of any locally-pending rows that aren't on the server yet
-                    if (localOnly.length > 0) {
-                        console.warn(`[Sync] ${localOnly.length} local row(s) not yet in Supabase — queueing for retry`);
-                        localOnly.forEach(row => {
-                            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, ...persistable } = row;
-                            queueSync(persistable);
-                        });
-                    }
+                    // localOnly rows are already in the sync queue by definition (that's how we
+                    // identified them). No need to re-queue — processOfflineQueue handles them.
                     
                     let projectAdded = false;
                     state.expenses.forEach(exp => {
@@ -4066,8 +4062,12 @@
             if (state.supabaseClient && navigator.onLine) {
                 try {
                     const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
-                    if (error) console.error('Reject delete error:', error);
-                } catch (e) { console.error('Reject delete threw:', e); }
+                    if (error) {
+                        console.error('[Reject] Supabase delete failed — row may reappear on partner device:', error);
+                        // Surface this to the user so they know the delete didn't propagate
+                        showToast('⚠️ Suppression non synchronisée');
+                    }
+                } catch (e) { console.error('[Reject] Delete threw:', e); }
             }
         }
 
