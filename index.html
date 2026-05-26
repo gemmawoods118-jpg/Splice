@@ -731,9 +731,12 @@
 
             <!-- Boutons de droite (Rafraîchir + Paramètres) -->
             <div class="flex items-center justify-end gap-1.5 shrink-0">
-                <button onclick="performLightRefresh()" id="header-refresh-btn" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
-                    <i class="fa-solid fa-rotate-right text-sm"></i>
-                </button>
+                <div class="flex flex-col items-center gap-0">
+                    <button onclick="performLightRefresh()" id="header-refresh-btn" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
+                        <i class="fa-solid fa-rotate-right text-sm"></i>
+                    </button>
+                    <span id="header-sync-label" class="text-[8px] text-slate-600 font-medium hidden leading-none -mt-0.5 pb-1"></span>
+                </div>
                 <button onclick="toggleSettingsModal(true)" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
                     <i class="fa-solid fa-gear text-sm"></i>
                 </button>
@@ -2067,6 +2070,7 @@
 
         async function fetchSupabaseExpenses() {
             if (!state.supabaseClient || !navigator.onLine) return;
+            try { await flushPendingDeletes(); } catch(e) {}
             try {
                 const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
                 if (!error && data) {
@@ -2108,7 +2112,14 @@
                             ...(_animateIn !== undefined && { _animateIn })
                         });
                     });
-                    state.expenses = [...localOnly, ...merged];
+                    // Strip dismissed powens IDs that server may still hold
+                    const _dismissedIds = loadDismissedPowensIds();
+                    const _REVPOINTS_RE = /revpoint|spare.?change|round.?up|cashback.?reward/i;
+                    state.expenses = [...localOnly, ...merged].filter(exp => {
+                        if (_REVPOINTS_RE.test(exp.description || '')) return false;
+                        if (exp.powens_id && _dismissedIds.has(String(exp.powens_id))) return false;
+                        return true;
+                    });
 
                     // Smart-categorize pending inbox items that came in as "Autre" / fa-asterisk
                     // (typical when sent by an iOS Shortcut). If scanCategory finds a match for the
@@ -2565,11 +2576,16 @@
                         if (knownPowensIds.has(String(tx.powens_id))) continue;
                         // ── Layer 2: fuzzy dedup — same amount & date within 1 day ──
                         const txDate = new Date(tx.date);
+                        const _txWords = (tx.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
                         const isFuzzyDupe = state.expenses.some(e => {
                             if (!e.approved) return false; // skip pending inbox items
                             if (Math.abs(e.amount - tx.amount) > 0.01) return false;
                             const d = Math.abs(new Date(e.created_at) - txDate);
-                            return d < 86400000 * 1.5; // within 1.5 days
+                            if (d >= 86400000 * 1.5) return false; // within 1.5 days
+                            // Description overlap: at least 1 meaningful word in common
+                            const _eWords = (e.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                            if (_txWords.length === 0 || _eWords.length === 0) return true; // no desc → match on amount+date
+                            return _txWords.some(w => _eWords.includes(w));
                         });
                         const cat = scanCategory(tx.description);
                         const exp = {
@@ -2656,6 +2672,7 @@
             try { loadLocalExpenses(); } catch(e) {}
             try { cleanupOldPowensInboxFlood(); } catch(e) {} // one-time flood cleanup
             try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
+            try { cleanupRevpointsLocal(); } catch(e) {}   // strip Revpoints from localStorage
             try { initializeSupabase(); } catch(e) {}
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
@@ -2682,6 +2699,19 @@
             window.addEventListener('pageshow', (e) => {
                 if (e.persisted) autoSyncOnFocus();
             });
+
+            // Auto-sync bank every 30 min while app is open
+            setInterval(() => {
+                if (document.visibilityState !== 'visible') return;
+                const conns = loadPowensConnections().filter(c => c.accessToken);
+                if (conns.length === 0) return;
+                try { syncAllPowensAccounts(true); } catch(e) {}
+            }, 30 * 60 * 1000);
+
+            // Refresh sync label every minute so relative time stays accurate
+            setInterval(() => {
+                try { updateLastSyncLabel(); } catch(e) {}
+            }, 60 * 1000);
 
             try {
                 const now = new Date();
@@ -4528,6 +4558,28 @@
         }
 
 
+        function queuePendingDelete(id) {
+            const key = 'us_pending_deletes';
+            const ids = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+            ids.add(id);
+            localStorage.setItem(key, JSON.stringify([...ids]));
+        }
+        async function flushPendingDeletes() {
+            if (!state.supabaseClient || !navigator.onLine) return;
+            const key = 'us_pending_deletes';
+            const ids = JSON.parse(localStorage.getItem(key) || '[]');
+            if (ids.length === 0) return;
+            const remaining = [];
+            for (const id of ids) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
+                    if (error) { remaining.push(id); }
+                } catch(e) { remaining.push(id); }
+            }
+            localStorage.setItem(key, JSON.stringify(remaining));
+            if (remaining.length < ids.length) console.log('[PendingDeletes] Flushed', ids.length - remaining.length, 'queued deletes');
+        }
+
         async function rejectTransaction(id) {
             await smoothDismiss(`inbox-item-${id}`, -100);
             trackDeletedId(id);
@@ -4540,9 +4592,8 @@
                 try {
                     const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
                     if (error) {
-                        console.error('[Reject] Supabase delete failed — row may reappear on partner device:', error);
-                        // Surface this to the user so they know the delete didn't propagate
-                        showToast('⚠️ Suppression non synchronisée');
+                        console.error('[Reject] Supabase delete failed — queued for retry:', error);
+                        queuePendingDelete(id);
                     }
                 } catch (e) { console.error('[Reject] Delete threw:', e); }
             }
@@ -5806,6 +5857,24 @@
             }
             el.textContent = label;
             el.classList.remove('hidden');
+            // Also update global header sync label (visible on all tabs)
+            const headerEl = document.getElementById('header-sync-label');
+            if (headerEl) {
+                headerEl.textContent = label;
+                headerEl.classList.remove('hidden');
+            }
+        }
+
+        function cleanupRevpointsLocal() {
+            const REVPOINTS_RE = /revpoint|spare.?change|round.?up|cashback.?reward/i;
+            const before = state.expenses.length;
+            state.expenses = state.expenses.filter(exp =>
+                !REVPOINTS_RE.test(exp.description || '')
+            );
+            if (state.expenses.length < before) {
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                console.log('[Splittr] Stripped', before - state.expenses.length, 'Revpoints items from localStorage');
+            }
         }
 
         async function autoExpireInboxItems() {
