@@ -5798,7 +5798,7 @@
             const now = new Date();
             const diffMin = Math.round((now - d) / 60000);
             let label;
-            if (diffMin < 1) label = 'Sync à l'instant';
+            if (diffMin < 1) label = "Sync à l'instant";
             else if (diffMin < 60) label = `Sync il y a ${diffMin} min`;
             else if (diffMin < 1440) {
                 const h = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
