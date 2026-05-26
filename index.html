@@ -2191,7 +2191,7 @@
                 const result = await callEdgeFunction('powens-connect', { payer });
                 console.log('[Powens] Edge function result:', JSON.stringify(result));
                 if (!result.webviewUrl) throw new Error('No webviewUrl in response: ' + JSON.stringify(result));
-                sessionStorage.setItem(`powens_pending_${payer}`, JSON.stringify({
+                localStorage.setItem(`powens_pending_${payer}`, JSON.stringify({
                     payer,
                     userToken: result.userToken,
                     powensUserId: result.powensUserId
@@ -2229,9 +2229,9 @@
                 showToast('Connexion bancaire annulée');
                 return;
             }
-            const pending = sessionStorage.getItem(`powens_pending_${payer}`);
+            const pending = localStorage.getItem(`powens_pending_${payer}`);
             if (!pending) { showToast('Session expirée — réessayez'); return; }
-            sessionStorage.removeItem(`powens_pending_${payer}`);
+            localStorage.removeItem(`powens_pending_${payer}`);
             const { userToken, powensUserId } = JSON.parse(pending);
             // Save the connection — bank name will be fetched on first sync
             const connections = loadPowensConnections();
