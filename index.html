@@ -1665,15 +1665,98 @@
                     state.supabaseClient = supabase.createClient(state.config.sbUrl, state.config.sbKey);
                     handleNetworkChange();
                     await fetchSupabaseExpenses();
-                    state.supabaseClient.channel('any')
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => { fetchSupabaseExpenses(); })
-                        .subscribe();
+                    initRealtimeSubscription();
                 } catch (e) { state.supabaseClient = null; }
             } else { 
                 state.supabaseClient = null; 
                 handleNetworkChange(); 
             }
         }
+
+        // ── SUPABASE REALTIME ─────────────────────────────────────────────────────
+        // Subscribes to row-level changes on the expenses table.
+        // Instead of a full refetch on every event (expensive, causes races), we
+        // apply surgical in-memory patches: INSERT adds a row, UPDATE patches a row,
+        // DELETE removes a row. This gives the partner's device ~100-500ms latency
+        // on all changes without any manual refresh.
+        //
+        // Self-originated events (from the current device's own writes) are skipped
+        // because we already updated local state synchronously before the DB round-trip.
+        let _realtimeChannel = null;
+        function initRealtimeSubscription() {
+            if (!state.supabaseClient) return;
+            // Remove any existing subscription first (prevents duplicate listeners
+            // when initializeSupabase is called multiple times e.g. after Settings save)
+            if (_realtimeChannel) {
+                state.supabaseClient.removeChannel(_realtimeChannel);
+                _realtimeChannel = null;
+            }
+            _realtimeChannel = state.supabaseClient
+                .channel('expenses-realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, (payload) => {
+                    handleRealtimeEvent(payload);
+                })
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('[Realtime] Connected to expenses table');
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        console.warn('[Realtime] Subscription issue:', status, '— falling back to manual refresh');
+                    }
+                });
+        }
+
+        function handleRealtimeEvent(payload) {
+            const { eventType, new: newRow, old: oldRow } = payload;
+            const id = (newRow?.id) || (oldRow?.id);
+            if (!id) return;
+
+            // Skip events for rows currently being edited/saved by THIS device.
+            // We already have the authoritative local version — the DB event is redundant
+            // and could overwrite _pendingEdits before the upsert promise resolves.
+            if (_pendingEdits.has(id)) return;
+
+            switch (eventType) {
+                case 'INSERT': {
+                    // Only add if not already in local state (avoids double-adding own inserts)
+                    const exists = state.expenses.some(e => e.id === id);
+                    if (!exists && newRow) {
+                        state.expenses.unshift(newRow);
+                        localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                        updateUI();
+                        // Subtle notification so the partner knows something arrived
+                        if (newRow.approved === false) haptic('light');
+                    }
+                    break;
+                }
+                case 'UPDATE': {
+                    const index = state.expenses.findIndex(e => e.id === id);
+                    if (index !== -1 && newRow) {
+                        // Preserve local-only metadata the server doesn't know about
+                        const local = state.expenses[index];
+                        state.expenses[index] = Object.assign({}, newRow, {
+                            ...(local.receiptItems !== undefined && { receiptItems: local.receiptItems }),
+                            ...(local.receiptAllItems !== undefined && { receiptAllItems: local.receiptAllItems }),
+                        });
+                    } else if (newRow) {
+                        // Row exists on server but not locally yet — add it
+                        state.expenses.unshift(newRow);
+                    }
+                    localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                    updateUI();
+                    break;
+                }
+                case 'DELETE': {
+                    const beforeLen = state.expenses.length;
+                    state.expenses = state.expenses.filter(e => e.id !== id);
+                    if (state.expenses.length !== beforeLen) {
+                        localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                        updateUI();
+                    }
+                    break;
+                }
+            }
+        }
+        // ── END REALTIME ──────────────────────────────────────────────────────────
 
         // ---------- PULL-TO-REFRESH ----------
         // Lightweight refresh: re-fetches data from Supabase WITHOUT reloading the page.
@@ -1902,8 +1985,14 @@
 
                     // Preserve any local-only "_animateIn" / "receiptItems" metadata on rows
                     // that ARE in Supabase by overlaying server values onto the local copy.
+                    // ALSO: if a row has a pending local edit (upsert in-flight), keep the
+                    // local version — don't let stale server data overwrite it mid-network.
                     const localById = new Map((state.expenses || []).map(e => [e.id, e]));
                     const merged = data.map(serverRow => {
+                        // Pending edit wins unconditionally — server data is stale
+                        if (_pendingEdits.has(serverRow.id)) {
+                            return _pendingEdits.get(serverRow.id);
+                        }
                         const local = localById.get(serverRow.id);
                         if (!local) return serverRow;
                         const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn } = local;
@@ -1989,8 +2078,16 @@
             }
         }
 
-        // ============================================================
-        // POWENS BANK INTEGRATION
+        // ── PENDING EDITS TRACKER ──────────────────────────────────────────────────
+        // When the user saves an edit, the modal closes and toast fires BEFORE the
+        // Supabase upsert completes (~200-500ms network round-trip). If the user
+        // pulls to refresh during that window, fetchSupabaseExpenses returns the OLD
+        // server data and the merge overwrites the local change — edit disappears.
+        //
+        // Fix: track in-flight edits here. The merge in fetchSupabaseExpenses checks
+        // this map and uses the LOCAL version for any row currently being synced.
+        // The entry is removed once the upsert confirms success on the server.
+        const _pendingEdits = new Map(); // id → local expense object
         // ============================================================
         // All state is stored in localStorage under 'us_powens_connections'.
         // Each connection: { payer, powensUserId, userToken, lastSync, bankName }
@@ -3400,16 +3497,32 @@
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
             
-            // Douce fermeture
             closeEditTxModal();
             showToast("Modifié avec succès !");
 
             if (state.supabaseClient && navigator.onLine) {
+                // Register this edit as pending BEFORE the upsert fires.
+                // If a refresh happens during the network round-trip, the merge
+                // will use this local version instead of the stale server data.
+                _pendingEdits.set(tx.id, JSON.parse(JSON.stringify(tx)));
                 try {
                     const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(tx)], { onConflict: 'id' });
-                    if (error) { console.error('Edit upsert error:', error); queueSync(tx); }
-                } catch(e) { console.error('Edit upsert threw:', e); queueSync(tx); }
-            } else { queueSync(tx); }
+                    if (error) {
+                        console.error('Edit upsert error:', error);
+                        queueSync(tx);
+                    }
+                    // Whether it succeeded or failed+queued, the edit is now safely persisted
+                    // (either on server or in queue). Remove from pending so future refreshes
+                    // use the authoritative server data.
+                    _pendingEdits.delete(tx.id);
+                } catch(e) {
+                    console.error('Edit upsert threw:', e);
+                    queueSync(tx);
+                    _pendingEdits.delete(tx.id);
+                }
+            } else {
+                queueSync(tx);
+            }
         }
         // ==========================================
 
