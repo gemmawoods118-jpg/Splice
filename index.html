@@ -260,10 +260,18 @@
             z-index: 40;
             display: flex;
             justify-content: center;
-            /* 1-2mm LOWER: Reduced from 24px to a precise 17px bottom gap to perfectly 
-               clear the white bar line without overlapping it */
+            /* PWA: 17px bottom gap clears the home indicator line */
             padding: 4px 16px 17px;
             pointer-events: none;
+        }
+        /* In Safari browser (non-standalone), accommodate the bottom address bar */
+        @supports not (display: standalone) {
+            body:not(.is-pwa) .ios-nav-bar {
+                padding-bottom: max(env(safe-area-inset-bottom, 20px), 20px);
+            }
+            body:not(.is-pwa) #main-scroll-area {
+                padding-bottom: calc(112px + env(safe-area-inset-bottom, 20px)) !important;
+            }
         }
         
         /* SEAMLESS GRADIENT BLUR BACKDROPPLATE: Nedged down to follow the capsule position perfectly */
@@ -1577,6 +1585,12 @@
             const modal = document.getElementById('settings-modal');
             if (show) {
                 modal.classList.remove('hidden');
+                // Always re-populate config fields — WebKit blanks password fields on resume
+                const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+                setVal('config-p1', state.config.p1Name);
+                setVal('config-p2', state.config.p2Name);
+                setVal('config-sb-url', state.config.sbUrl);
+                setVal('config-sb-key', state.config.sbKey);
                 try { renderPowensConnectionsList(); } catch(e) {}
                 try { renderDevicePayerPref(); } catch(e) {}
             } else {
@@ -1640,8 +1654,10 @@
             haptic('success');
             state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
             state.config.p2Name = document.getElementById('config-p2').value.trim() || 'Sam';
-            state.config.sbUrl = document.getElementById('config-sb-url').value.trim() || '';
-            state.config.sbKey = document.getElementById('config-sb-key').value.trim() || '';
+            const _newUrl = document.getElementById('config-sb-url').value.trim();
+            if (_newUrl) state.config.sbUrl = _newUrl; // never overwrite with blank (WebKit wipes password fields)
+            const _newKey = document.getElementById('config-sb-key').value.trim();
+            if (_newKey) state.config.sbKey = _newKey; // never overwrite with blank
             // Global currency is the fallback used by projects that don't override it.
             // The live `currency` field is also updated so the active view refreshes immediately
             // if the active project has no per-project currency.
@@ -2155,13 +2171,13 @@
             // browser context (Safari vs PWA) originally saved the connection.
             if (state.config.sbUrl && state.config.sbKey) {
                 arr.forEach(conn => {
-                    fetch(state.config.sbUrl + '/rest/v1/powens_connections', {
+                    fetch(state.config.sbUrl + '/rest/v1/powens_connections?on_conflict=payer', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'apikey': state.config.sbKey,
                             'Authorization': 'Bearer ' + state.config.sbKey,
-                            'Prefer': 'resolution=merge-duplicates'
+                            'Prefer': 'resolution=merge-duplicates,return=minimal'
                         },
                         body: JSON.stringify({
                             payer: conn.payer,
@@ -2346,7 +2362,16 @@
 
             haptic('success');
             showToast('✓ Compte bancaire connecté !');
-            setTimeout(() => syncAllPowensAccounts(), 800);
+            setTimeout(async () => {
+                await syncAllPowensAccounts();
+                // After sync, bank name is populated — update the toast
+                const updatedConns = loadPowensConnections();
+                const updatedConn = updatedConns.find(c => c.payer === payer);
+                if (updatedConn && updatedConn.bankName) {
+                    showToast('✓ ' + updatedConn.bankName + ' connectée !');
+                }
+                try { renderPowensConnectionsList(); } catch(e) {}
+            }, 800);
         }
         function disconnectPowens(index) {
             if (!confirm('Déconnecter ce compte ? Les transactions déjà importées restent.')) return;
@@ -2480,6 +2505,10 @@
         // ============================================================
 
         function initApp() {
+            // Mark PWA context immediately — prevents nav bar layout flicker on resume
+            if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+                document.body.classList.add('is-pwa');
+            }
             generateAndSetAppIcon();
             initPullToRefresh();
 
@@ -2498,7 +2527,19 @@
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
             try { syncPowensConnectionsFromServer(); } catch(e) {}
-            
+
+            // Re-sync when PWA regains focus after returning from Powens webview in Safari
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    try { syncPowensConnectionsFromServer(); } catch(e) {}
+                }
+            });
+            window.addEventListener('pageshow', (e) => {
+                if (e.persisted) {
+                    try { syncPowensConnectionsFromServer(); } catch(e) {}
+                }
+            });
+
             try {
                 const now = new Date();
                 const mEl = document.getElementById('filter-month');
