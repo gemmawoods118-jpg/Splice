@@ -2186,9 +2186,9 @@
             }
             showToast('Connexion en cours…');
             try {
-                const redirectUri = window.location.origin + window.location.pathname + `?powens_callback=${payer}`;
-                console.log('[Powens] Calling powens-connect edge function, redirect:', redirectUri);
-                const result = await callEdgeFunction('powens-connect', { redirect_uri: redirectUri });
+                // redirect_uri is hardcoded in the edge function — just pass payer
+                console.log('[Powens] Calling powens-connect edge function for payer:', payer);
+                const result = await callEdgeFunction('powens-connect', { payer });
                 console.log('[Powens] Edge function result:', JSON.stringify(result));
                 if (!result.webviewUrl) throw new Error('No webviewUrl in response: ' + JSON.stringify(result));
                 sessionStorage.setItem(`powens_pending_${payer}`, JSON.stringify({
@@ -2208,13 +2208,23 @@
         // Called on page load — checks if we just returned from a Powens webview callback
         function checkPowensCallback() {
             const params = new URLSearchParams(window.location.search);
-            if (!params.has('powens_callback')) return;
-            const payer = params.get('powens_callback');
-            const connectionId = params.get('connection_id'); // Powens sends this on success
+            const connectionId = params.get('connection_id');
             const error = params.get('error');
-            // Clean the URL so the callback param doesn't persist on reload
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, '', cleanUrl);
+            const stateRaw = params.get('state');
+            const legacyPayer = params.get('powens_callback');
+
+            // Only act if this looks like a Powens redirect
+            if (!connectionId && !error && !stateRaw && !legacyPayer) return;
+
+            // Decode payer: new flow uses state param, legacy used powens_callback
+            let payer = legacyPayer || 'p1';
+            if (stateRaw) {
+                try { payer = JSON.parse(decodeURIComponent(stateRaw)).payer || payer; } catch(e) {}
+            }
+
+            // Clean the URL so params don't persist on reload
+            window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+
             if (error) {
                 showToast('Connexion bancaire annulée');
                 return;
