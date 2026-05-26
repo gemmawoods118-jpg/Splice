@@ -262,7 +262,7 @@
             justify-content: center;
             /* 1-2mm LOWER: Reduced from 24px to a precise 17px bottom gap to perfectly 
                clear the white bar line without overlapping it */
-            padding: 4px 16px max(17px, env(safe-area-inset-bottom, 17px));
+            padding: 4px 16px 17px;
             pointer-events: none;
         }
         
@@ -2106,12 +2106,76 @@
         // Edge Function URLs: <supabase-url>/functions/v1/powens-connect
         //                     <supabase-url>/functions/v1/powens-sync
 
+        async function syncPowensConnectionsFromServer() {
+            if (!state.config.sbUrl || !state.config.sbKey) return;
+            try {
+                const res = await fetch(state.config.sbUrl + '/rest/v1/powens_connections?select=*', {
+                    headers: {
+                        'apikey': state.config.sbKey,
+                        'Authorization': 'Bearer ' + state.config.sbKey
+                    }
+                });
+                if (!res.ok) return;
+                const rows = await res.json();
+                if (!rows.length) return;
+                // Map DB columns back to app format
+                const serverConns = rows.map(r => ({
+                    payer: r.payer,
+                    powensUserId: r.powens_user_id,
+                    userToken: r.user_token,
+                    connectionId: r.connection_id,
+                    bankName: r.bank_name,
+                    lastSync: r.last_sync,
+                    expired: r.expired || false
+                }));
+                // Merge: server wins for connections not in local, local wins for newer lastSync
+                const local = loadPowensConnections();
+                let changed = false;
+                for (const sc of serverConns) {
+                    const li = local.findIndex(c => c.payer === sc.payer);
+                    if (li < 0) { local.push(sc); changed = true; }
+                    else if (!local[li].userToken && sc.userToken) { local[li] = sc; changed = true; }
+                }
+                if (changed) {
+                    localStorage.setItem('us_powens', JSON.stringify(local));
+                    renderPowensSettings();
+                    showToast('✓ Compte bancaire restauré');
+                    setTimeout(() => syncAllPowensAccounts(), 1000);
+                }
+            } catch(e) {}
+        }
+
         function loadPowensConnections() {
             try { return JSON.parse(localStorage.getItem('us_powens') || '[]'); }
             catch(e) { return []; }
         }
         function savePowensConnections(arr) {
             localStorage.setItem('us_powens', JSON.stringify(arr));
+            // Also persist to Supabase so the PWA can read it regardless of which
+            // browser context (Safari vs PWA) originally saved the connection.
+            if (state.config.sbUrl && state.config.sbKey) {
+                arr.forEach(conn => {
+                    fetch(state.config.sbUrl + '/rest/v1/powens_connections', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': state.config.sbKey,
+                            'Authorization': 'Bearer ' + state.config.sbKey,
+                            'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify({
+                            payer: conn.payer,
+                            powens_user_id: conn.powensUserId,
+                            user_token: conn.userToken,
+                            connection_id: conn.connectionId || null,
+                            bank_name: conn.bankName || null,
+                            last_sync: conn.lastSync || null,
+                            expired: conn.expired || false,
+                            updated_at: new Date().toISOString()
+                        })
+                    }).catch(() => {});
+                });
+            }
         }
         // Edge function helper — calls a Supabase Edge Function by name
         async function callEdgeFunction(name, body) {
@@ -2258,17 +2322,8 @@
             haptic('success');
             showToast('✓ Compte bancaire connecté !');
 
-            // ── Cross-context persistence fix ──────────────────────────────
-            // If this callback is running in Safari (not the PWA), the connection
-            // was just saved into SAFARI's localStorage, which the PWA can't read.
-            // We encode the connection data into a URL hash fragment and redirect
-            // to the same page. iOS will re-open the PWA from that URL, and the
-            // app's init code will import the connection into PWA localStorage.
-            const encodedConn = btoa(JSON.stringify(conn));
-            const importUrl = window.location.origin + window.location.pathname + '#powens-import=' + encodedConn;
-            // Small delay so the toast is visible before navigation
-            setTimeout(() => { window.location.replace(importUrl); }, 900);
-            // Sync will be triggered by the import handler on the PWA side
+            // Immediately trigger a first sync to populate the inbox
+            setTimeout(() => syncAllPowensAccounts(), 800);
         }
 
         // Disconnect a bank account by index
@@ -2419,6 +2474,8 @@
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
             try { initializeSupabase(); } catch(e) {}
+            // Restore any connections saved in a different browser context (Safari vs PWA)
+            try { syncPowensConnectionsFromServer(); } catch(e) {}
             // ── Import connection from URL hash (cross-context delivery) ──────
             // When Powens callback fires in Safari, it encodes the connection into
             // the URL hash (#powens-import=BASE64) and redirects here.
