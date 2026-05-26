@@ -219,18 +219,7 @@
             border-color: rgba(99, 102, 241, 0.5) !important;
             padding-left: 36px !important;
         }
-        .history-item-selected::before {
-            content: '\f00c';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            position: absolute;
-            top: 50%;
-            left: 12px;
-            transform: translateY(-50%);
-            color: #6366f1;
-            font-size: 14px;
-            z-index: 2;
-        }
+        /* FA tick removed — using .history-wrapper-selected::before */
 
         /* Slide-in for newly-duplicated history rows */
         @keyframes rowSlideIn {
@@ -404,23 +393,26 @@
             box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
         }
         /* Checkbox appears on selected items */
-        .history-item-selected::before {
+        /* tick moved to wrapper — see .history-wrapper-selected::before */
+        .history-wrapper-selected::before {
             content: '✓';
             position: absolute;
             top: 8px; left: 8px;
-            width: 20px; height: 20px;
+            width: 22px; height: 22px;
             background: rgb(99,102,241);
             color: white;
             border-radius: 50%;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 900;
             display: flex;
             align-items: center;
             justify-content: center;
             line-height: 1;
             padding-top: 1px;
-            z-index: 5;
+            z-index: 10;
+            pointer-events: none;
         }
+}
 [id^="history-item-"] { position: relative; }
         [id^="history-item-"] * { user-select: none; -webkit-user-select: none; }
 
@@ -759,6 +751,9 @@
             <span id="toast-message" class="overflow-hidden text-ellipsis">Notification</span>
         </div>
 
+        <!-- Scroll fade: softens content as it disappears under the header -->
+        <div aria-hidden="true" style="position:sticky;top:0;z-index:28;height:22px;margin-bottom:-22px;pointer-events:none;flex-shrink:0;background:linear-gradient(to bottom,#090d16 0%,rgba(9,13,22,0.65) 40%,transparent 100%);"></div>
+
         <div id="main-scroll-area" class="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-28" style="overscroll-behavior-y: contain;">
 
             <!-- TRICOUNT STYLE BALANCE DASHBOARD -->
@@ -1085,12 +1080,6 @@
                         <button onclick="historySelectAll()" class="text-sm font-bold text-indigo-300 hover:text-white transition-colors" id="hist-ms-select-all">Tout</button>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <button onclick="bulkValidateSelected()" class="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-emerald-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Valider">
-                            <i class="fa-solid fa-check text-base"></i>
-                        </button>
-                        <button onclick="bulkIgnoreSelected()" class="bg-slate-700/50 hover:bg-slate-700 text-slate-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-slate-600/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Ignorer">
-                            <i class="fa-solid fa-ban text-base"></i>
-                        </button>
                         <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-amber-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Changer la catégorie">
                             <i class="fa-solid fa-tag text-base"></i>
                         </button>
@@ -4885,7 +4874,7 @@
                             const typeBadge = isRevenu
                                 ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-bold">💰 Revenu</span>`
                                 : `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[9px] font-bold">💸 Dépense</span>`;
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p>${exactDate ? `<span class="text-[10px] text-slate-500 shrink-0 font-medium">${exactDate}</span>` : ''}</div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} ${actionLabel} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap"><span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
@@ -4953,7 +4942,7 @@
                         item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                         const expDate = new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'});
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 truncate">${expDate} · <span class="text-slate-600">${payerName}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
@@ -5541,7 +5530,7 @@
             if (count > 0) {
                 toolbar.classList.remove('hidden');
                 document.getElementById('multi-select-count').innerText = count;
-                if (selectAllBtn) selectAllBtn.textContent = (count >= total) ? 'Aucun' : 'Tout';
+                if (selectAllBtn) selectAllBtn.textContent = (count >= total) ? 'Tout désélectionner' : 'Tout sélectionner';
             } else {
                 toolbar.classList.add('hidden');
             }
@@ -5549,13 +5538,20 @@
             document.querySelectorAll('[id^="history-item-"]').forEach(el => {
                 const id = el.id.replace('history-item-', '');
                 const inner = el.querySelector('.swipe-content') || el;
-                if (state.selectedIds.has(id)) inner.classList.add('history-item-selected');
-                else inner.classList.remove('history-item-selected');
+                const wrapper = el.closest('.swipe-wrapper') || el.parentElement;
+                if (state.selectedIds.has(id)) {
+                    inner.classList.add('history-item-selected');
+                    if (wrapper) wrapper.classList.add('history-wrapper-selected');
+                } else {
+                    inner.classList.remove('history-item-selected');
+                    if (wrapper) wrapper.classList.remove('history-wrapper-selected');
+                }
             });
         }
 
         function clearMultiSelect() {
             state.selectedIds.clear();
+            document.querySelectorAll('.history-wrapper-selected').forEach(el => el.classList.remove('history-wrapper-selected'));
             updateMultiSelectUI();
         }
 
@@ -5973,7 +5969,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p>
-                                    <p class="text-[10px] text-slate-500 truncate">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} · <span class="${exp.payer === 'p1' ? 'text-indigo-400/70' : 'text-violet-400/70'}">${exp.payer === 'p1' ? state.config.p1Name : state.config.p2Name}</span></p>
+                                    <p class="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">${new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'})} · <span class="${exp.payer === 'p1' ? 'text-indigo-400/70' : 'text-violet-400/70'}">${exp.payer === 'p1' ? state.config.p1Name : state.config.p2Name}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 shrink-0 pl-2">
@@ -5992,6 +5988,7 @@
                     // Restore selected state if any
                     if (state.selectedIds.has(exp.id)) {
                         wrapper.querySelector('.swipe-content').classList.add('history-item-selected');
+                        wrapper.classList.add('history-wrapper-selected');
                     }
                 });
             });
