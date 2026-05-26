@@ -2178,6 +2178,8 @@
             }
         }
         // Edge function helper — calls a Supabase Edge Function by name
+
+        
         async function callEdgeFunction(name, body) {
             const base = state.config.sbUrl?.replace(/\/$/, '');
             const key  = state.config.sbKey;
@@ -2258,7 +2260,8 @@
                 if (!result.webviewUrl) throw new Error('No webviewUrl in response: ' + JSON.stringify(result));
                 // Encode tokens into redirect_uri to survive iOS PWA <-> Safari storage isolation.
                 // When Powens redirects back, pt/pu params carry the session — no localStorage lookup needed.
-                const tokenizedRedirect = baseUri + '?pt=' + encodeURIComponent(result.userToken) + '&pu=' + encodeURIComponent(result.powensUserId) + '&pp=' + payer;
+                // Include Supabase config in the redirect so Safari callback can write to DB
+                const tokenizedRedirect = baseUri + '?pt=' + encodeURIComponent(result.userToken) + '&pu=' + encodeURIComponent(result.powensUserId) + '&pp=' + payer + '&su=' + encodeURIComponent(state.config.sbUrl) + '&sk=' + encodeURIComponent(state.config.sbKey);
                 const patchedWebviewUrl = result.webviewUrl.replace(
                     encodeURIComponent(baseUri),
                     encodeURIComponent(tokenizedRedirect)
@@ -2282,6 +2285,8 @@
             const ptParam = params.get('pt');   // userToken
             const puParam = params.get('pu');   // powensUserId
             const ppParam = params.get('pp');   // payer
+            const suParam = params.get('su');   // Supabase URL (for Safari context write)
+            const skParam = params.get('sk');   // Supabase anon key
 
             // Only act if this looks like a Powens redirect
             if (!connectionId && !error && !stateRaw && !legacyPayer && !ptParam) return;
@@ -2319,10 +2324,35 @@
             if (existing >= 0) connections[existing] = conn;
             else connections.push(conn);
             savePowensConnections(connections);
+            // ── Cross-context Supabase write ─────────────────────────────────
+            // In Safari context, state.config may be empty. Use URL-embedded
+            // su/sk params to write directly to Supabase so PWA can read on next open.
+            const _sbUrl = suParam ? decodeURIComponent(suParam) : (state.config && state.config.sbUrl);
+            const _sbKey = skParam ? decodeURIComponent(skParam) : (state.config && state.config.sbKey);
+            if (_sbUrl && _sbKey) {
+                fetch(_sbUrl + '/rest/v1/powens_connections', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': _sbKey,
+                        'Authorization': 'Bearer ' + _sbKey,
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                        payer: conn.payer,
+                        powens_user_id: conn.powensUserId,
+                        user_token: conn.userToken,
+                        connection_id: conn.connectionId || null,
+                        bank_name: conn.bankName || null,
+                        last_sync: conn.lastSync || null,
+                        expired: conn.expired || false,
+                        updated_at: new Date().toISOString()
+                    })
+                }).then(() => console.log('[Powens] connection written to Supabase'))
+                  .catch(e => console.error('[Powens] Supabase write failed:', e));
+            }
             haptic('success');
             showToast('✓ Compte bancaire connecté !');
-
-            // Immediately trigger a first sync to populate the inbox
             setTimeout(() => syncAllPowensAccounts(), 800);
         }
 
@@ -2474,28 +2504,9 @@
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
             try { initializeSupabase(); } catch(e) {}
+            try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
             try { syncPowensConnectionsFromServer(); } catch(e) {}
-            // ── Import connection from URL hash (cross-context delivery) ──────
-            // When Powens callback fires in Safari, it encodes the connection into
-            // the URL hash (#powens-import=BASE64) and redirects here.
-            // This runs in the PWA context and saves it into PWA localStorage.
-            try {
-                if (window.location.hash.startsWith('#powens-import=')) {
-                    const encoded = window.location.hash.slice('#powens-import='.length);
-                    const conn = JSON.parse(atob(encoded));
-                    const connections = loadPowensConnections();
-                    const existing = connections.findIndex(c => c.payer === conn.payer);
-                    if (existing >= 0) connections[existing] = conn;
-                    else connections.push(conn);
-                    savePowensConnections(connections);
-                    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
-                    setTimeout(() => { haptic('success'); showToast('✓ Compte bancaire connecté !'); }, 300);
-                    setTimeout(() => syncAllPowensAccounts(), 1200);
-                }
-            } catch(e) { console.error('[import] hash import failed:', e); }
-
-            try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             
             try {
                 const now = new Date();
