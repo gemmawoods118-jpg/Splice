@@ -731,12 +731,9 @@
 
             <!-- Boutons de droite (Rafraîchir + Paramètres) -->
             <div class="flex items-center justify-end gap-1.5 shrink-0">
-                <div class="flex flex-col items-center gap-0">
-                    <button onclick="performLightRefresh()" id="header-refresh-btn" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
-                        <i class="fa-solid fa-rotate-right text-sm"></i>
-                    </button>
-                    <span id="header-sync-label" class="text-[8px] text-slate-600 font-medium hidden leading-none -mt-0.5 pb-1"></span>
-                </div>
+                <button onclick="performLightRefresh()" id="header-refresh-btn" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
+                    <i class="fa-solid fa-rotate-right text-sm"></i>
+                </button>
                 <button onclick="toggleSettingsModal(true)" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95">
                     <i class="fa-solid fa-gear text-sm"></i>
                 </button>
@@ -1863,25 +1860,44 @@
         // ---------- PULL-TO-REFRESH ----------
         // Lightweight refresh: re-fetches data from Supabase WITHOUT reloading the page.
         // Used by both the pull-to-refresh gesture and the header refresh button.
+        // Auto-sync state — top-level so iOS Safari doesn't choke on nested async fn in initApp
+        let _lastAutoSync = 0;
+        async function autoSyncOnFocus() {
+            try { syncPowensConnectionsFromServer(); } catch(e) {}
+            const now = Date.now();
+            if (now - _lastAutoSync < 5 * 60 * 1000) return; // throttle: 5 min
+            const conns = loadPowensConnections().filter(c => c.userToken || c.accessToken);
+            if (conns.length === 0) return;
+            _lastAutoSync = now;
+            try { autoExpireInboxItems(); } catch(e) {}
+            try {
+                await syncAllPowensAccounts(true); // true = silent (no loading spinner)
+            } catch(e) { console.warn('[AutoSync]', e); }
+        }
+
         let _refreshInProgress = false;
+        let _refreshStartedAt = 0;
         async function performLightRefresh() {
             if (_refreshInProgress) return;
             _refreshInProgress = true;
+            _refreshStartedAt = Date.now();
             const btn = document.getElementById('header-refresh-btn');
             const btnIcon = btn?.querySelector('i');
             // Visual feedback on the header button
             if (btnIcon) btnIcon.classList.add('animate-spin');
             haptic('light');
             try {
-                await fetchSupabaseExpenses();
-                // Also sync bank transactions if any Powens connections exist
-                const _conns = loadPowensConnections().filter(c => c.accessToken);
+                // Run both independently — bank sync must not be blocked by a Supabase fetch failure
+                try { await fetchSupabaseExpenses(); } catch(e) { console.warn('[PTR] Supabase fetch failed:', e); }
+                const _conns = loadPowensConnections().filter(c => c.userToken || c.accessToken);
                 if (_conns.length > 0) {
-                    try { await syncAllPowensAccounts(true); } catch(e) { console.warn('Powens sync during refresh:', e); }
+                    try {
+                        await syncAllPowensAccounts(true);
+                    } catch(e) {
+                        console.warn('[PTR] Powens sync failed:', e);
+                        showToast('⚠️ Banque non joignable');
+                    }
                 }
-            } catch (e) {
-                console.error('Refresh failed:', e);
-                showToast('Échec de la mise à jour');
             } finally {
                 if (btnIcon) btnIcon.classList.remove('animate-spin');
                 _refreshInProgress = false;
@@ -1969,6 +1985,10 @@
 
             scrollArea.addEventListener('touchstart', (e) => {
                 if (scrollArea.scrollTop > 0) return;
+                // Unstick if a previous refresh got stranded (e.g. promise never resolved)
+                if (_refreshInProgress && (Date.now() - _refreshStartedAt > 10000)) {
+                    _refreshInProgress = false;
+                }
                 if (_refreshInProgress) return;
                 startY = e.touches[0].clientY;
                 pulling = true;
@@ -2679,20 +2699,6 @@
             try { syncPowensConnectionsFromServer(); } catch(e) {}
 
             // Re-sync when PWA regains focus after returning from Powens webview in Safari
-            // Track last auto-sync time to throttle (min 5 min between auto-syncs)
-            let _lastAutoSync = 0;
-            async function autoSyncOnFocus() {
-                try { syncPowensConnectionsFromServer(); } catch(e) {}
-                const now = Date.now();
-                if (now - _lastAutoSync < 5 * 60 * 1000) return; // throttle: 5 min
-                const conns = loadPowensConnections().filter(c => c.accessToken);
-                if (conns.length === 0) return;
-                _lastAutoSync = now;
-                try { autoExpireInboxItems(); } catch(e) {}
-                try {
-                    await syncAllPowensAccounts(true); // true = silent (no loading spinner)
-                } catch(e) { console.warn('[AutoSync]', e); }
-            }
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') autoSyncOnFocus();
             });
@@ -2703,7 +2709,7 @@
             // Auto-sync bank every 30 min while app is open
             setInterval(() => {
                 if (document.visibilityState !== 'visible') return;
-                const conns = loadPowensConnections().filter(c => c.accessToken);
+                const conns = loadPowensConnections().filter(c => c.userToken || c.accessToken);
                 if (conns.length === 0) return;
                 try { syncAllPowensAccounts(true); } catch(e) {}
             }, 30 * 60 * 1000);
@@ -5857,12 +5863,6 @@
             }
             el.textContent = label;
             el.classList.remove('hidden');
-            // Also update global header sync label (visible on all tabs)
-            const headerEl = document.getElementById('header-sync-label');
-            if (headerEl) {
-                headerEl.textContent = label;
-                headerEl.classList.remove('hidden');
-            }
         }
 
         function cleanupRevpointsLocal() {
