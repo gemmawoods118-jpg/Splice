@@ -262,7 +262,7 @@
             justify-content: center;
             /* 1-2mm LOWER: Reduced from 24px to a precise 17px bottom gap to perfectly 
                clear the white bar line without overlapping it */
-            padding: 4px 16px 17px;
+            padding: 4px 16px max(17px, env(safe-area-inset-bottom, 17px));
             pointer-events: none;
         }
         
@@ -2257,8 +2257,18 @@
             savePowensConnections(connections);
             haptic('success');
             showToast('✓ Compte bancaire connecté !');
-            // Immediately trigger a first sync to populate the inbox
-            setTimeout(() => syncAllPowensAccounts(), 800);
+
+            // ── Cross-context persistence fix ──────────────────────────────
+            // If this callback is running in Safari (not the PWA), the connection
+            // was just saved into SAFARI's localStorage, which the PWA can't read.
+            // We encode the connection data into a URL hash fragment and redirect
+            // to the same page. iOS will re-open the PWA from that URL, and the
+            // app's init code will import the connection into PWA localStorage.
+            const encodedConn = btoa(JSON.stringify(conn));
+            const importUrl = window.location.origin + window.location.pathname + '#powens-import=' + encodedConn;
+            // Small delay so the toast is visible before navigation
+            setTimeout(() => { window.location.replace(importUrl); }, 900);
+            // Sync will be triggered by the import handler on the PWA side
         }
 
         // Disconnect a bank account by index
@@ -2409,6 +2419,25 @@
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
             try { initializeSupabase(); } catch(e) {}
+            // ── Import connection from URL hash (cross-context delivery) ──────
+            // When Powens callback fires in Safari, it encodes the connection into
+            // the URL hash (#powens-import=BASE64) and redirects here.
+            // This runs in the PWA context and saves it into PWA localStorage.
+            try {
+                if (window.location.hash.startsWith('#powens-import=')) {
+                    const encoded = window.location.hash.slice('#powens-import='.length);
+                    const conn = JSON.parse(atob(encoded));
+                    const connections = loadPowensConnections();
+                    const existing = connections.findIndex(c => c.payer === conn.payer);
+                    if (existing >= 0) connections[existing] = conn;
+                    else connections.push(conn);
+                    savePowensConnections(connections);
+                    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+                    setTimeout(() => { haptic('success'); showToast('✓ Compte bancaire connecté !'); }, 300);
+                    setTimeout(() => syncAllPowensAccounts(), 1200);
+                }
+            } catch(e) { console.error('[import] hash import failed:', e); }
+
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             
             try {
