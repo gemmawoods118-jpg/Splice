@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" style="overscroll-behavior: none; overflow: hidden;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -24,6 +24,18 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     
     <style>
+        html, body {
+            overscroll-behavior: none;  /* Prevent iOS rubber-band bounce at document level.
+                                           Without this, non-scrollable tab content (e.g. Inbox
+                                           with few items) lets the native bounce propagate to
+                                           the body, making the entire app shift down during a
+                                           pull gesture and the pull indicator appear above the
+                                           header. Our custom PTR uses JS touchmove so this is safe. */
+            overflow: hidden;
+            position: fixed;  /* Belt-and-suspenders: position:fixed on body also prevents
+                                  Safari bounce on older iOS versions */
+            width: 100%;
+        }
         body {
             -webkit-tap-highlight-color: transparent;
             background-color: #080b11;
@@ -601,7 +613,7 @@
         }
     </style>
 </head>
-<body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]">
+<body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]" style="overscroll-behavior: none; overflow: hidden;">
 
     <!-- Splash Screen (Animation de bienvenue avec chargement progressif) -->
     <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11] transition-opacity duration-300">
