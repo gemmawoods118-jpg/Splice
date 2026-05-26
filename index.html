@@ -25,16 +25,8 @@
     
     <style>
         html, body {
-            overscroll-behavior: none;  /* Prevent iOS rubber-band bounce at document level.
-                                           Without this, non-scrollable tab content (e.g. Inbox
-                                           with few items) lets the native bounce propagate to
-                                           the body, making the entire app shift down during a
-                                           pull gesture and the pull indicator appear above the
-                                           header. Our custom PTR uses JS touchmove so this is safe. */
+            overscroll-behavior: none;
             overflow: hidden;
-            position: fixed;  /* Belt-and-suspenders: position:fixed on body also prevents
-                                  Safari bounce on older iOS versions */
-            width: 100%;
         }
         body {
             -webkit-tap-highlight-color: transparent;
