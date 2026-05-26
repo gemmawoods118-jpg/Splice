@@ -1280,6 +1280,16 @@
                     </div>
                 </div>
 
+            <!-- Transaction Type -->
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Type</label>
+                    <div class="grid grid-cols-3 gap-1.5 bg-slate-950/40 p-1.5 rounded-xl border border-slate-800">
+                        <button type="button" id="modal-edit-type-depense" data-no-ripple onclick="selectModalEditType('depense')" class="py-2 text-[10px] font-bold rounded-lg transition-all">💸 Dépense</button>
+                        <button type="button" id="modal-edit-type-revenu" data-no-ripple onclick="selectModalEditType('revenu')" class="py-2 text-[10px] font-bold rounded-lg transition-all">💰 Revenu</button>
+                        <button type="button" id="modal-edit-type-transfert" data-no-ripple onclick="selectModalEditType('transfert')" class="py-2 text-[10px] font-bold rounded-lg transition-all">🔄 Transfert</button>
+                    </div>
+                </div>
+
                 <!-- Qui a payé (Names) -->
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5" id="modal-edit-payer-label">Qui a payé ?</label>
@@ -3225,6 +3235,9 @@
             document.getElementById('modal-edit-date').value = new Date(tx.created_at).toISOString().split('T')[0];
             document.getElementById('modal-edit-amount').value = tx.amount;
 
+            // Set transaction type buttons
+            selectModalEditType(tx.type || 'depense', false);
+
             const p1Btn = document.getElementById('modal-edit-payer-p1');
             const p2Btn = document.getElementById('modal-edit-payer-p2');
             p1Btn.innerText = state.config.p1Name;
@@ -3279,20 +3292,52 @@
             }, 300);
         }
 
+        function selectModalEditType(type, updateSplit = true) {
+            state.editingTransaction.type = type;
+            const act = "py-2 text-[10px] font-bold rounded-lg bg-indigo-600 text-white";
+            const inact = "py-2 text-[10px] font-bold rounded-lg text-slate-400 hover:text-white";
+            ['depense','revenu','transfert'].forEach(t => {
+                const btn = document.getElementById(`modal-edit-type-${t}`);
+                if (btn) btn.className = t === type ? act : inact;
+            });
+            const catSection = document.getElementById('modal-edit-cat-section');
+            const splitSection = document.getElementById('modal-edit-split-section');
+            const payerLabel = document.getElementById('modal-edit-payer-label');
+            if (type === 'transfert') {
+                catSection?.classList.add('hidden');
+                splitSection?.classList.add('hidden');
+                if (payerLabel) payerLabel.innerText = "Qui a envoyé l'argent ? (De)";
+                // Transfert: payer pays 100%, other receives 100%
+                if (updateSplit) {
+                    state.editingTransaction.p1SharePercent = state.editingTransaction.payer === 'p1' ? 0 : 100;
+                    state.editingTransaction.p2SharePercent = state.editingTransaction.payer === 'p2' ? 0 : 100;
+                }
+            } else {
+                catSection?.classList.remove('hidden');
+                splitSection?.classList.remove('hidden');
+                if (payerLabel) payerLabel.innerText = type === 'revenu' ? "Qui a reçu l'argent ?" : "Qui a payé ?";
+            }
+        }
+
         function selectModalEditPayer(payer) {
             state.editingTransaction.payer = payer;
             const btn1 = document.getElementById('modal-edit-payer-p1');
             const btn2 = document.getElementById('modal-edit-payer-p2');
-            
-            const act = "py-2.5 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
-            const inact = "py-2.5 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
-            
-            if (payer === 'p1') { btn1.className = act; btn2.className = inact; }
-            else { btn2.className = act; btn1.className = inact; }
-
+            const act = "py-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold text-xs shadow-sm";
+            const inact = "py-2 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-xs hover:text-white";
+            if (payer === 'p1') { if(btn1) btn1.className = act; if(btn2) btn2.className = inact; }
+            else { if(btn2) btn2.className = act; if(btn1) btn1.className = inact; }
             document.getElementById('modal-edit-name-p1').innerText = state.config.p1Name;
             document.getElementById('modal-edit-name-p2').innerText = state.config.p2Name;
-
+            // Recalculate split if using 100_other mode — the other person changes when payer changes
+            const splitType = state.editingTransaction.splitTypeLocal;
+            if (splitType === '100_other') {
+                state.editingTransaction.p1SharePercent = payer === 'p1' ? 0 : 100;
+                state.editingTransaction.p2SharePercent = payer === 'p2' ? 0 : 100;
+            } else if (state.editingTransaction.type === 'transfert') {
+                state.editingTransaction.p1SharePercent = payer === 'p1' ? 0 : 100;
+                state.editingTransaction.p2SharePercent = payer === 'p2' ? 0 : 100;
+            }
             updateModalEditSplitLabels();
         }
 
