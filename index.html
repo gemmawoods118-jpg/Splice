@@ -2188,17 +2188,19 @@
             try {
                 // redirect_uri is hardcoded in the edge function — just pass payer
                 console.log('[Powens] Calling powens-connect edge function for payer:', payer);
-                const result = await callEdgeFunction('powens-connect', { payer, redirectUri: window.location.origin + window.location.pathname });
+                const baseUri = window.location.origin + window.location.pathname;
+                const result = await callEdgeFunction('powens-connect', { payer, redirectUri: baseUri });
                 console.log('[Powens] Edge function result:', JSON.stringify(result));
                 if (!result.webviewUrl) throw new Error('No webviewUrl in response: ' + JSON.stringify(result));
-                localStorage.setItem(`powens_pending_${payer}`, JSON.stringify({
-                    payer,
-                    userToken: result.userToken,
-                    powensUserId: result.powensUserId
-                }));
-                console.log('[Powens] Opening webview:', result.webviewUrl);
-                // Use location.href instead of window.open — more reliable in iOS PWA
-                window.location.href = result.webviewUrl;
+                // Encode tokens into redirect_uri to survive iOS PWA <-> Safari storage isolation.
+                // When Powens redirects back, pt/pu params carry the session — no localStorage lookup needed.
+                const tokenizedRedirect = baseUri + '?pt=' + encodeURIComponent(result.userToken) + '&pu=' + encodeURIComponent(result.powensUserId) + '&pp=' + payer;
+                const patchedWebviewUrl = result.webviewUrl.replace(
+                    encodeURIComponent(baseUri),
+                    encodeURIComponent(tokenizedRedirect)
+                );
+                console.log('[Powens] Opening patched webview:', patchedWebviewUrl);
+                window.location.href = patchedWebviewUrl;
             } catch(e) {
                 console.error('[Powens] Connect error:', e);
                 showToast('Erreur: ' + (e.message || 'inconnue'));
@@ -2212,13 +2214,17 @@
             const error = params.get('error');
             const stateRaw = params.get('state');
             const legacyPayer = params.get('powens_callback');
+            // Tokens embedded in redirect_uri (survive iOS PWA/Safari storage isolation)
+            const ptParam = params.get('pt');   // userToken
+            const puParam = params.get('pu');   // powensUserId
+            const ppParam = params.get('pp');   // payer
 
             // Only act if this looks like a Powens redirect
-            if (!connectionId && !error && !stateRaw && !legacyPayer) return;
+            if (!connectionId && !error && !stateRaw && !legacyPayer && !ptParam) return;
 
-            // Decode payer: new flow uses state param, legacy used powens_callback
-            let payer = legacyPayer || 'p1';
-            if (stateRaw) {
+            // Decode payer — prefer pp (embedded), then state, then legacy param
+            let payer = ppParam || legacyPayer || 'p1';
+            if (!ppParam && stateRaw) {
                 try { payer = JSON.parse(decodeURIComponent(stateRaw)).payer || payer; } catch(e) {}
             }
 
@@ -2229,10 +2235,19 @@
                 showToast('Connexion bancaire annulée');
                 return;
             }
-            const pending = localStorage.getItem(`powens_pending_${payer}`);
-            if (!pending) { showToast('Session expirée — réessayez'); return; }
-            localStorage.removeItem(`powens_pending_${payer}`);
-            const { userToken, powensUserId } = JSON.parse(pending);
+
+            // Prefer URL-embedded tokens (iOS PWA safe), fall back to localStorage
+            let userToken, powensUserId;
+            if (ptParam && puParam) {
+                userToken = decodeURIComponent(ptParam);
+                powensUserId = decodeURIComponent(puParam);
+                localStorage.removeItem(`powens_pending_${payer}`); // clean up if set
+            } else {
+                const pending = localStorage.getItem(`powens_pending_${payer}`);
+                if (!pending) { showToast('Session expirée — réessayez'); return; }
+                localStorage.removeItem(`powens_pending_${payer}`);
+                ({ userToken, powensUserId } = JSON.parse(pending));
+            }
             // Save the connection — bank name will be fetched on first sync
             const connections = loadPowensConnections();
             const existing = connections.findIndex(c => c.payer === payer);
