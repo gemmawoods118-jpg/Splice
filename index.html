@@ -373,6 +373,55 @@
             justify-content: center;
             box-shadow: 0 2px 6px rgba(244, 63, 94, 0.45), 0 0 0 2px rgba(15, 23, 42, 0.85);
         }
+        /* Inbox multiselect: selected card ring */
+        .inbox-item-selected {
+            border-color: rgba(99, 102, 241, 0.6) !important;
+            background: rgba(99, 102, 241, 0.07) !important;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        .inbox-item-selected::after {
+            content: '✓';
+            position: absolute;
+            top: 10px; right: 10px;
+            width: 20px; height: 20px;
+            background: rgb(99,102,241);
+            color: white;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+        [id^="inbox-item-"] { position: relative; }
+
+        /* Multi-select: selected item ring */
+        .history-item-selected {
+            border-color: rgba(99, 102, 241, 0.7) !important;
+            background: rgba(99, 102, 241, 0.08) !important;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+        }
+        /* Checkbox appears on selected items */
+        .history-item-selected::before {
+            content: '✓';
+            position: absolute;
+            top: 8px; right: 8px;
+            width: 20px; height: 20px;
+            background: rgb(99,102,241);
+            color: white;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding-top: 1px;
+            z-index: 5;
+        }
+        [id^="history-item-"] { position: relative; }
+
         /* Push scrollable content above the floating nav */
         #main-scroll-area {
             padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
@@ -663,7 +712,7 @@
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
         
         <!-- Header & Projects -->
-        <header class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30" style="padding-top: max(1rem, env(safe-area-inset-top));">
+        <header onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 cursor-pointer active:opacity-80 transition-opacity" style="padding-top: max(1rem, env(safe-area-inset-top));">
             <!-- Logo Splittr (left) -->
             <div class="flex items-center gap-2 shrink-0">
                 <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
@@ -940,7 +989,31 @@
                     </div>
                 </section>
                 <section class="space-y-3">
-                    <div class="flex justify-between items-center"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4><span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span></div>
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4>
+                        <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
+                    </div>
+                    <!-- Inbox multiselect toolbar — shown when ≥1 item selected -->
+                    <div id="inbox-multiselect-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="bg-indigo-500 text-white text-xs font-black rounded-full min-w-[24px] h-6 inline-flex items-center justify-center px-1.5" id="inbox-ms-count">0</span>
+                            <span class="text-xs font-bold text-indigo-300">sélectionné(s)</span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="inboxBulkValidate()" class="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 w-9 h-9 rounded-lg border border-emerald-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Valider">
+                                <i class="fa-solid fa-check text-sm"></i>
+                            </button>
+                            <button onclick="inboxBulkIgnore()" class="bg-slate-700/50 hover:bg-slate-700 text-slate-400 w-9 h-9 rounded-lg border border-slate-600/40 transition-all active:scale-95 flex items-center justify-center" aria-label="Ignorer">
+                                <i class="fa-solid fa-ban text-sm"></i>
+                            </button>
+                            <button onclick="inboxBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 w-9 h-9 rounded-lg border border-amber-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Catégorie">
+                                <i class="fa-solid fa-tag text-sm"></i>
+                            </button>
+                            <button onclick="clearInboxMultiselect()" class="text-slate-500 hover:text-white w-9 h-9 flex items-center justify-center" aria-label="Annuler">
+                                <i class="fa-solid fa-xmark text-base"></i>
+                            </button>
+                        </div>
+                    </div>
                     <div id="inbox-list" class="pr-1"></div>
                 </section>
             </div>
@@ -1007,6 +1080,12 @@
                         <span class="text-sm font-bold text-indigo-300">Sélectionné(s)</span>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
+                        <button onclick="bulkValidateSelected()" class="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-emerald-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Valider">
+                            <i class="fa-solid fa-check text-base"></i>
+                        </button>
+                        <button onclick="bulkIgnoreSelected()" class="bg-slate-700/50 hover:bg-slate-700 text-slate-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-slate-600/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Ignorer">
+                            <i class="fa-solid fa-ban text-base"></i>
+                        </button>
                         <button onclick="openBulkCategoryPicker()" class="bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 font-black uppercase tracking-wider w-10 h-10 rounded-lg border border-amber-500/30 transition-all active:scale-95 flex items-center justify-center" aria-label="Changer la catégorie">
                             <i class="fa-solid fa-tag text-base"></i>
                         </button>
@@ -2193,6 +2272,32 @@
                 });
             }
         }
+        // One-time cleanup: remove the flood of unapproved Powens transactions older than today
+        // that were imported during the first 90-day sync. Runs once, flagged in localStorage.
+        function cleanupOldPowensInboxFlood() {
+            if (localStorage.getItem('us_powens_flood_cleaned')) return;
+            const today = new Date().toISOString().split('T')[0];
+            const before = state.expenses.length;
+            const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+            state.expenses = state.expenses.filter(exp => {
+                // Keep: approved, non-powens, or transactions within last 7 days
+                if (exp.approved !== false) return true;
+                if (!exp.powens_id) return true;
+                const expDate = (exp.created_at || '').split('T')[0];
+                return expDate >= sevenDaysAgo;
+            });
+            const removed = before - state.expenses.length;
+            if (removed > 0) {
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                console.log('[Splittr] Cleaned up', removed, 'old Powens inbox items');
+            }
+            // Reset lastSync so next sync fetches from today
+            const conns = loadPowensConnections();
+            conns.forEach(c => { c.lastSync = null; });
+            savePowensConnections(conns);
+            localStorage.setItem('us_powens_flood_cleaned', '1');
+        }
+
         // Edge function helper — calls a Supabase Edge Function by name
 
         
@@ -2410,7 +2515,7 @@
                     // Only fetch transactions since last sync (or last 90 days on first sync)
                     const sinceDate = conn.lastSync
                         ? conn.lastSync.split('T')[0]
-                        : new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+                        : new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]; // 7 days on first sync
                     const result = await callEdgeFunction('powens-sync', {
                         userToken: conn.userToken,
                         since_date: sinceDate
@@ -2427,11 +2532,14 @@
                     conn.expired = false;
                     conn.lastSync = new Date().toISOString();
                     // Build a Set of already-known powens_ids for O(1) dedup lookup
-                    const knownPowensIds = new Set(
-                        state.expenses.filter(e => e.powens_id != null).map(e => String(e.powens_id))
-                    );
+                    const knownPowensIds = new Set([
+                        ...state.expenses.filter(e => e.powens_id != null).map(e => String(e.powens_id)),
+                        ...loadDismissedPowensIds()
+                    ]);
                     const newExpenses = [];
                     for (const tx of (transactions || [])) {
+                        // ── Layer 0: auto-ignore Revolut Revpoints / Spare Change ──
+                        if (/revpoint|spare.?change|round.?up|cashback reward/i.test(tx.description || '')) continue;
                         // ── Layer 1: exact powens_id dedup ──
                         if (knownPowensIds.has(String(tx.powens_id))) continue;
                         // ── Layer 2: fuzzy dedup — same amount & date within 1 day ──
@@ -2523,6 +2631,7 @@
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
+            try { cleanupOldPowensInboxFlood(); } catch(e) {} // remove flood of 90-day old inbox items
             try { initializeSupabase(); } catch(e) {}
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
@@ -4365,10 +4474,24 @@
             const arr = [...ids].slice(-500);
             localStorage.setItem('us_deleted_ids', JSON.stringify(arr));
         }
+        function loadDismissedPowensIds() {
+            try { return new Set(JSON.parse(localStorage.getItem('us_dismissed_powens_ids') || '[]')); }
+            catch(e) { return new Set(); }
+        }
+        function trackDismissedPowensId(powensId) {
+            if (!powensId) return;
+            const ids = loadDismissedPowensIds();
+            ids.add(String(powensId));
+            const arr = [...ids].slice(-2000);
+            localStorage.setItem('us_dismissed_powens_ids', JSON.stringify(arr));
+        }
+
 
         async function rejectTransaction(id) {
             await smoothDismiss(`inbox-item-${id}`, -100);
             trackDeletedId(id);
+            const dismissed = state.expenses.find(t => t.id === id);
+            if (dismissed && dismissed.powens_id) trackDismissedPowensId(dismissed.powens_id);
             state.expenses = state.expenses.filter(t => t.id !== id);
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
@@ -4680,7 +4803,7 @@
                     if (inBadge) { inBadge.classList.remove('hidden'); inBadge.innerText = unapprovedExpenses.length; }
                     if (inCount) { inCount.innerText = `${unapprovedExpenses.length} à valider`; inCount.className = "text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2.5 py-0.5 rounded-full"; }
                     if (inList) {
-                        inList.innerHTML = '';
+                        clearInboxMultiselect(); inList.innerHTML = '';
                         // Sort newest first, then group by date label (same labels as history: Aujourd'hui, Hier, Cette semaine, etc.)
                         const sorted = [...unapprovedExpenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                         let currentGroup = null;
@@ -4705,12 +4828,40 @@
                             const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                             const payerColor = exp.payer === 'p1' ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/25' : 'text-violet-300 bg-violet-500/10 border-violet-500/25';
                             const exactDate = isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">Payé par <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600">·</span><span class="text-slate-400 font-semibold">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black text-indigo-400 shrink-0">${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            const isRevenu = exp.type === 'revenu';
+                            const amountColor = isRevenu ? 'text-emerald-400' : 'text-indigo-400';
+                            const actionLabel = isRevenu ? 'Reçu par' : 'Payé par';
+                            const typeBadge = isRevenu
+                                ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-bold">💰 Revenu</span>`
+                                : `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[9px] font-bold">💸 Dépense</span>`;
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} ${actionLabel} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600">·</span><span class="text-slate-400 font-semibold">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
                                 <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
                             </div>`;
+                            // Long-press → enter multiselect; tap when in multiselect → toggle
+                            let _lpTimer = null;
+                            const _startMs = (e) => {
+                                if (state.inboxSelectedIds.size > 0) return; // already in multiselect, handled by tap
+                                _lpTimer = setTimeout(() => {
+                                    haptic('medium');
+                                    toggleInboxSelect(exp.id);
+                                }, 500);
+                            };
+                            const _cancelLp = () => { if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; } };
+                            c.addEventListener('touchstart', _startMs, { passive: true });
+                            c.addEventListener('touchend', _cancelLp);
+                            c.addEventListener('touchcancel', _cancelLp);
+                            c.addEventListener('touchmove', _cancelLp, { passive: true });
+                            // Tap while in multiselect mode → toggle selection
+                            c.addEventListener('click', (e) => {
+                                if (state.inboxSelectedIds.size === 0) return; // normal mode, let buttons handle it
+                                // Don't toggle if user tapped one of the action buttons
+                                if (e.target.closest('button')) return;
+                                e.stopPropagation();
+                                toggleInboxSelect(exp.id);
+                            });
                             groupContainer.appendChild(c);
                         });
                     }
@@ -5096,6 +5247,7 @@
 
         // ---------- 8. MULTI-SELECT ----------
         state.selectedIds = new Set();
+        state.inboxSelectedIds = new Set();
         const TAP_TOLERANCE = 12;       // total movement that still counts as a tap
         const SWIPE_AXIS_LOCK = 8;      // movement before deciding swipe vs scroll
         const SWIPE_MAX = -120;
@@ -5351,6 +5503,126 @@
         function clearMultiSelect() {
             state.selectedIds.clear();
             updateMultiSelectUI();
+        }
+
+        async function bulkValidateSelected() {
+            if (state.selectedIds.size === 0) return;
+            const ids = Array.from(state.selectedIds);
+            let count = 0;
+            ids.forEach(id => {
+                const idx = state.expenses.findIndex(e => e.id === id);
+                if (idx !== -1 && state.expenses[idx].approved === false) {
+                    state.expenses[idx].approved = true;
+                    state.expenses[idx].isEditing = false;
+                    count++;
+                }
+            });
+            if (count > 0) {
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                haptic('success');
+                showToast(`✓ ${count} transaction${count > 1 ? 's' : ''} validée${count > 1 ? 's' : ''}`);
+            }
+            clearMultiSelect();
+            updateUI();
+        }
+
+        // ── INBOX MULTISELECT ──────────────────────────────────────────
+        function updateInboxMultiselectUI() {
+            const toolbar = document.getElementById('inbox-multiselect-toolbar');
+            const countEl = document.getElementById('inbox-ms-count');
+            const n = state.inboxSelectedIds.size;
+            if (n > 0) {
+                toolbar.classList.remove('hidden');
+                countEl.innerText = n;
+            } else {
+                toolbar.classList.add('hidden');
+            }
+            // Update visual ring on inbox cards
+            document.querySelectorAll('[id^="inbox-item-"]').forEach(el => {
+                const id = el.id.replace('inbox-item-', '');
+                if (state.inboxSelectedIds.has(id)) {
+                    el.classList.add('inbox-item-selected');
+                } else {
+                    el.classList.remove('inbox-item-selected');
+                }
+            });
+        }
+
+        function toggleInboxSelect(id) {
+            if (state.inboxSelectedIds.has(id)) state.inboxSelectedIds.delete(id);
+            else state.inboxSelectedIds.add(id);
+            updateInboxMultiselectUI();
+        }
+
+        function clearInboxMultiselect() {
+            state.inboxSelectedIds.clear();
+            updateInboxMultiselectUI();
+        }
+
+        async function inboxBulkValidate() {
+            if (state.inboxSelectedIds.size === 0) return;
+            const ids = Array.from(state.inboxSelectedIds);
+            let count = 0;
+            ids.forEach(id => {
+                const idx = state.expenses.findIndex(e => e.id === id);
+                if (idx !== -1) { state.expenses[idx].approved = true; state.expenses[idx].isEditing = false; count++; }
+            });
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            haptic('success');
+            showToast(`✓ ${count} transaction${count > 1 ? 's' : ''} validée${count > 1 ? 's' : ''}`);
+            clearInboxMultiselect();
+            updateUI();
+        }
+
+        async function inboxBulkIgnore() {
+            if (state.inboxSelectedIds.size === 0) return;
+            const ids = Array.from(state.inboxSelectedIds);
+            haptic('warn');
+            ids.forEach(id => {
+                const exp = state.expenses.find(e => e.id === id);
+                if (exp && exp.powens_id) trackDismissedPowensId(exp.powens_id);
+                trackDeletedId(id);
+            });
+            const count = ids.length;
+            state.expenses = state.expenses.filter(e => !state.inboxSelectedIds.has(e.id));
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            clearInboxMultiselect();
+            updateUI();
+            showToast(`${count} transaction${count > 1 ? 's' : ''} ignorée${count > 1 ? 's' : ''}`);
+        }
+
+        function inboxBulkCategoryPicker() {
+            if (state.inboxSelectedIds.size === 0) return;
+            // Reuse bulk category modal — swap selectedIds temporarily
+            const prev = state.selectedIds;
+            state.selectedIds = state.inboxSelectedIds;
+            openBulkCategoryPicker();
+            // After applying, restore and clear inbox selection
+            const origApply = window._bulkCatApplyCallback;
+            window._bulkCatApplyCallback = (cat, icon) => {
+                if (origApply) origApply(cat, icon);
+                state.selectedIds = prev;
+                clearInboxMultiselect();
+                updateUI();
+            };
+        }
+
+        async function bulkIgnoreSelected() {
+            if (state.selectedIds.size === 0) return;
+            const ids = Array.from(state.selectedIds);
+            haptic('warn');
+            // Track dismissed powens_ids before removing
+            ids.forEach(id => {
+                const exp = state.expenses.find(e => e.id === id);
+                if (exp && exp.powens_id) trackDismissedPowensId(exp.powens_id);
+                trackDeletedId(id);
+            });
+            const count = ids.length;
+            state.expenses = state.expenses.filter(e => !state.selectedIds.has(e.id));
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            clearMultiSelect();
+            updateUI();
+            showToast(`${count} transaction${count > 1 ? 's' : ''} ignorée${count > 1 ? 's' : ''}`);
         }
 
         async function bulkDeleteSelected() {
