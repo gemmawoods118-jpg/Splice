@@ -1930,7 +1930,13 @@
                     // that hasn't synced yet (offline insert, transient error, queued retry). We must
                     // keep those rows or they would silently vanish on reload.
                     const supabaseIds = new Set(data.map(r => r.id));
-                    const localOnly = (state.expenses || []).filter(e => !supabaseIds.has(e.id));
+                    const deletedIds = loadDeletedIds();
+                    // Keep local-only rows that haven't synced yet — but NOT rows that were
+                    // intentionally deleted (on either device). Deleted rows are absent from
+                    // Supabase AND in our deletedIds set; we drop them on next refresh.
+                    const localOnly = (state.expenses || []).filter(e =>
+                        !supabaseIds.has(e.id) && !deletedIds.has(e.id)
+                    );
                     // Preserve any local-only "_animateIn" / "receiptItems" metadata on rows that
                     // ARE in Supabase by overlaying server values onto the local copy.
                     const localById = new Map((state.expenses || []).map(e => [e.id, e]));
@@ -4036,9 +4042,28 @@
             } else { queueSync(state.expenses[idx]); }
         }
 
+        // Small set of IDs that have been intentionally deleted on this device.
+        // The merge in fetchSupabaseExpenses checks this so that rows deleted on the OTHER
+        // device (and therefore absent from Supabase) are not mistakenly re-preserved as
+        // "local-only pending" rows.
+        function loadDeletedIds() {
+            try { return new Set(JSON.parse(localStorage.getItem('us_deleted_ids') || '[]')); }
+            catch(e) { return new Set(); }
+        }
+        function trackDeletedId(id) {
+            const ids = loadDeletedIds();
+            ids.add(id);
+            // Cap at 500 entries so this never grows unbounded
+            const arr = [...ids].slice(-500);
+            localStorage.setItem('us_deleted_ids', JSON.stringify(arr));
+        }
+
         async function rejectTransaction(id) {
             await smoothDismiss(`inbox-item-${id}`, -100);
-            state.expenses = state.expenses.filter(t => t.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
+            trackDeletedId(id);
+            state.expenses = state.expenses.filter(t => t.id !== id);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
             if (state.supabaseClient && navigator.onLine) {
                 try {
                     const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
@@ -4049,7 +4074,10 @@
 
         async function deleteExpense(id) {
             await smoothDismiss(`history-item-${id}`, -100);
-            state.expenses = state.expenses.filter(exp => exp.id !== id); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI();
+            trackDeletedId(id);
+            state.expenses = state.expenses.filter(exp => exp.id !== id);
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
             if (state.supabaseClient && navigator.onLine) {
                 try {
                     const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
