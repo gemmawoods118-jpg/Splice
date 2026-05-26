@@ -700,13 +700,6 @@
             <span id="toast-message" class="overflow-hidden text-ellipsis">Notification</span>
         </div>
 
-        <!-- Pull to refresh indicator -->
-        <div id="ptr-indicator" class="w-full flex justify-center items-center h-0 overflow-hidden transition-all duration-200 opacity-0 bg-transparent shrink-0">
-            <div class="bg-slate-800 p-2 rounded-full shadow-lg border border-slate-700">
-                <i class="fa-solid fa-rotate-right text-indigo-400 animate-spin"></i>
-            </div>
-        </div>
-
         <div id="main-scroll-area" class="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-28" style="overscroll-behavior-y: contain;">
 
             <!-- TRICOUNT STYLE BALANCE DASHBOARD -->
@@ -1291,8 +1284,8 @@
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5" id="modal-edit-payer-label">Qui a payé ?</label>
                     <div class="grid grid-cols-2 gap-2.5">
-                        <button type="button" id="modal-edit-payer-p1" onclick="selectModalEditPayer('p1')" class="py-2 rounded-xl border text-xs font-bold transition-all"></button>
-                        <button type="button" id="modal-edit-payer-p2" onclick="selectModalEditPayer('p2')" class="py-2 rounded-xl border text-xs font-bold transition-all"></button>
+                        <button type="button" id="modal-edit-payer-p1" data-no-ripple onclick="selectModalEditPayer('p1')" class="py-2 rounded-xl border text-xs font-bold transition-all"></button>
+                        <button type="button" id="modal-edit-payer-p2" data-no-ripple onclick="selectModalEditPayer('p2')" class="py-2 rounded-xl border text-xs font-bold transition-all"></button>
                     </div>
                 </div>
 
@@ -1319,9 +1312,9 @@
                     </div>
                     
                     <div class="grid grid-cols-3 gap-1.5">
-                        <button type="button" id="modal-edit-split-50" onclick="selectModalEditSplitType('50_50')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">50 / 50</button>
-                        <button type="button" id="modal-edit-split-100" onclick="selectModalEditSplitType('100_other')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">L'autre</button>
-                        <button type="button" id="modal-edit-split-custom" onclick="selectModalEditSplitType('custom')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">Précis</button>
+                        <button type="button" id="modal-edit-split-50" data-no-ripple onclick="selectModalEditSplitType('50_50')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">50 / 50</button>
+                        <button type="button" id="modal-edit-split-100" data-no-ripple onclick="selectModalEditSplitType('100_other')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">L'autre</button>
+                        <button type="button" id="modal-edit-split-custom" data-no-ripple onclick="selectModalEditSplitType('custom')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">Précis</button>
                     </div>
 
                     <div id="modal-edit-custom-panel" class="hidden space-y-3 pt-1">
@@ -1520,19 +1513,21 @@
             };
         }
 
+        let _toastTimer = null;
         function showToast(message) {
             const toast = document.getElementById('toast-banner');
             const toastMsg = document.getElementById('toast-message');
+            if (!toast) return;
             if (toastMsg) toastMsg.innerText = message;
-            if (toast) { 
-                toast.classList.remove('hidden', 'toast-exit');
-                toast.classList.add('toast-enter');
-                setTimeout(() => {
-                    toast.classList.remove('toast-enter');
-                    toast.classList.add('toast-exit');
-                    setTimeout(() => toast.classList.add('hidden'), 300);
-                }, 2500); 
-            }
+            // Clear any in-progress hide timer before showing the new toast
+            if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+            toast.classList.remove('hidden', 'toast-exit');
+            toast.classList.add('toast-enter');
+            _toastTimer = setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => { toast.classList.add('hidden'); _toastTimer = null; }, 300);
+            }, 2500);
         }
 
         // ---------- DEVICE-LEVEL PAYER PREFERENCE ----------
@@ -1631,42 +1626,6 @@
         }
 
         // Pull-to-refresh logic
-        function initPullToRefresh() {
-            let touchstartY = 0;
-            let ptry = 0;
-            const scrollArea = document.getElementById('main-scroll-area');
-            const ptrIndicator = document.getElementById('ptr-indicator');
-
-            if (!scrollArea || !ptrIndicator) return;
-
-            scrollArea.addEventListener('touchstart', e => {
-                if (scrollArea.scrollTop === 0) touchstartY = e.touches[0].clientY;
-            }, {passive: true});
-
-            scrollArea.addEventListener('touchmove', e => {
-                if (scrollArea.scrollTop === 0 && touchstartY > 0) {
-                    ptry = e.touches[0].clientY - touchstartY;
-                    if (ptry > 0 && ptry < 140) {
-                        ptrIndicator.style.height = (ptry / 2) + 'px'; 
-                        ptrIndicator.style.opacity = Math.min(ptry / 80, 1).toString();
-                    }
-                }
-            }, {passive: true});
-
-            scrollArea.addEventListener('touchend', e => {
-                if (ptry > 80) {
-                    ptrIndicator.style.height = '60px';
-                    ptrIndicator.style.opacity = '1';
-                    setTimeout(() => window.location.reload(), 300);
-                } else {
-                    ptrIndicator.style.height = '0px';
-                    ptrIndicator.style.opacity = '0';
-                }
-                touchstartY = 0;
-                ptry = 0;
-            });
-        }
-
         function saveConfiguration() {
             haptic('success');
             state.config.p1Name = document.getElementById('config-p1').value.trim() || 'Alex';
@@ -2014,10 +1973,20 @@
         }
 
         function loadLocalExpenses() {
-            const saved = localStorage.getItem('us_expenses'); 
-            if (saved) state.expenses = JSON.parse(saved);
-            const queue = localStorage.getItem('us_sync_queue'); 
-            if (queue) state.syncQueue = JSON.parse(queue);
+            try {
+                const saved = localStorage.getItem('us_expenses');
+                if (saved) state.expenses = JSON.parse(saved);
+            } catch(e) {
+                console.error('[Init] Could not parse us_expenses, resetting:', e);
+                state.expenses = [];
+            }
+            try {
+                const queue = localStorage.getItem('us_sync_queue');
+                if (queue) state.syncQueue = JSON.parse(queue);
+            } catch(e) {
+                console.error('[Init] Could not parse us_sync_queue, resetting:', e);
+                state.syncQueue = [];
+            }
         }
 
         // ============================================================
@@ -4684,6 +4653,15 @@
             if (changed) {
                 saveRecurringTemplates(templates);
                 localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                // Sync any newly-generated recurring expenses to Supabase so the partner sees them
+                if (state.supabaseClient && navigator.onLine) {
+                    const newRecurring = state.expenses.filter(e => e.id && e.id.startsWith('auto_rec_'));
+                    newRecurring.forEach(exp => {
+                        state.supabaseClient.from('expenses')
+                            .upsert([stripTransientFields(exp)], { onConflict: 'id', ignoreDuplicates: true })
+                            .then(({ error }) => { if (error) queueSync(exp); });
+                    });
+                }
             }
         }
 
