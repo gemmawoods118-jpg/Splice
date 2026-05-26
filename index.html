@@ -632,6 +632,22 @@
         <p class="text-white font-black text-lg tracking-wide opacity-0 translate-y-4 transition-all duration-300" id="success-text">Enregistré !</p>
     </div>
 
+    <!-- Pull-to-refresh indicator — direct child of <body>, NOT inside the app container.
+         The app container has overflow:hidden which makes iOS treat it as the containing
+         block for position:fixed children. During a touch gesture iOS applies rubber-band
+         physics to that container, dragging the indicator upward above the header. As a
+         direct body child, position:fixed is truly viewport-anchored and stays put. -->
+    <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-[35] flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 80px);">
+        <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
+            <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
+                <path d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
+                <path id="pull-refresh-arc-left" d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-dasharray="82" stroke-dashoffset="82"/>
+                <path id="pull-refresh-arc-right" d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-dasharray="82" stroke-dashoffset="82" opacity="0.85"/>
+            </svg>
+        </div>
+    </div>
+
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
         
         <!-- Header & Projects -->
@@ -684,25 +700,6 @@
         <div id="ptr-indicator" class="w-full flex justify-center items-center h-0 overflow-hidden transition-all duration-200 opacity-0 bg-transparent shrink-0">
             <div class="bg-slate-800 p-2 rounded-full shadow-lg border border-slate-700">
                 <i class="fa-solid fa-rotate-right text-indigo-400 animate-spin"></i>
-            </div>
-        </div>
-
-        <!-- Pull-to-refresh indicator (visible during pull gesture) -->
-        <!-- Uses position: fixed so it's locked to the viewport and never moves with content/scroll.
-             Positioned just below the header in the breathing room above the first content card.
-             During refresh, the scroll area gets extra top padding (via .refreshing class) so the
-             cards push down out of the way and the indicator sits in clean empty space. -->
-        <div id="pull-refresh-indicator" class="fixed left-1/2 -translate-x-1/2 z-[35] flex items-center justify-center pointer-events-none opacity-0 transition-opacity" style="top: calc(max(env(safe-area-inset-top, 47px), 47px) + 80px);">
-            <div id="pull-refresh-pill" class="bg-gradient-to-tr from-indigo-600/90 to-violet-500/90 backdrop-blur-md border border-indigo-400/30 rounded-2xl w-12 h-12 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
-                <svg id="pull-refresh-logo" viewBox="0 0 64 64" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Faded full circle for context -->
-                    <path d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
-                    <path d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.25"/>
-                    <!-- Left arc fills as user pulls (stroke-dashoffset animates) -->
-                    <path id="pull-refresh-arc-left" d="M 32 6 A 26 26 0 0 0 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-dasharray="82" stroke-dashoffset="82"/>
-                    <!-- Right arc fills after left (when threshold crossed) -->
-                    <path id="pull-refresh-arc-right" d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-dasharray="82" stroke-dashoffset="82" opacity="0.85"/>
-                </svg>
             </div>
         </div>
 
