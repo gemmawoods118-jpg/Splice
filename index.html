@@ -973,6 +973,11 @@
                                         <input type="range" id="split-range" min="0" max="100" value="50" oninput="onSplitSliderInput(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
                                         <div class="flex justify-between text-[10px] font-bold text-slate-500 px-1"><span>Ratio :</span><span id="split-range-summary">50% / 50%</span></div>
                                     </div>
+                                    <!-- Overrun warning — shown when a typed amount exceeds the total -->
+                                    <div id="custom-split-overrun" class="hidden flex items-center gap-1.5 text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-3 py-2 rounded-lg">
+                                        <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                                        <span id="custom-split-overrun-msg">Le montant dépasse le total</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1061,7 +1066,7 @@
             </div>
 
             <!-- VIEW 3: ANALYSE -->
-            <div id="view-analyse" class="tab-view hidden space-y-5">
+            <div id="view-analyse" class="tab-view hidden space-y-6">
                 <!-- Empty state — shown when no expenses exist for the selected period -->
                 <div id="analyse-empty-state" class="hidden flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
                     <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-2">
@@ -1083,29 +1088,32 @@
                         <select id="filter-year" onchange="onAnalyseFilterChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-200"><option value="all">Toutes les années</option></select>
                     </div>
                 </section>
-                <section class="bg-gradient-to-r from-violet-950/20 to-indigo-950/20 border border-indigo-500/20 rounded-2xl p-5 space-y-4">
-                    <div class="text-center space-y-1"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dépenses totales de la période</span><div class="text-3xl font-black text-white" id="analyse-period-total">0.00 <span class="currency-display">€</span></div><p id="analyse-period-title" class="text-xs text-indigo-300 font-semibold">-</p></div>
-                    <div class="grid grid-cols-2 gap-4 pt-3 border-t border-indigo-500/10 text-center">
-                        <div class="space-y-0.5"><span id="analyse-label-p1" class="text-[10px] text-slate-400 block font-bold">Toi a payé</span><span id="analyse-val-p1" class="text-sm font-extrabold text-slate-100">0.00 <span class="currency-display">€</span></span></div>
-                        <div class="space-y-0.5"><span id="analyse-label-p2" class="text-[10px] text-slate-400 block font-bold">Partenaire a payé</span><span id="analyse-val-p2" class="text-sm font-extrabold text-slate-100">0.00 <span class="currency-display">€</span></span></div>
+                <section class="bg-gradient-to-r from-violet-950/20 to-indigo-950/20 border border-indigo-500/20 rounded-2xl p-6 space-y-5">
+                    <div class="text-center space-y-1.5"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dépenses totales de la période</span><div class="text-4xl font-black text-white mt-1" id="analyse-period-total">0,00 <span class="currency-display">€</span></div><p id="analyse-period-title" class="text-xs text-indigo-300 font-semibold mt-1">-</p></div>
+                    <div class="grid grid-cols-2 gap-4 pt-4 border-t border-indigo-500/10 text-center">
+                        <div class="space-y-1"><span id="analyse-label-p1" class="text-[10px] text-slate-400 block font-bold">Toi a payé</span><span id="analyse-val-p1" class="text-base font-extrabold text-slate-100 block">0,00 <span class="currency-display">€</span></span></div>
+                        <div class="space-y-1"><span id="analyse-label-p2" class="text-[10px] text-slate-400 block font-bold">Partenaire a payé</span><span id="analyse-val-p2" class="text-base font-extrabold text-slate-100 block">0,00 <span class="currency-display">€</span></span></div>
                     </div>
-                    <div class="text-center pt-2"><span id="analyse-period-debt" class="text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-500/10 block">Tout est équilibré</span></div>
+                    <div class="text-center pt-1"><span id="analyse-period-debt" class="text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-2 rounded-full border border-indigo-500/10 block">Tout est équilibré</span></div>
                 </section>
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner flex flex-col items-center">
                     <div class="w-full max-w-[240px] h-[240px] relative"><canvas id="analyse-chart"></canvas><div id="no-chart-data-message" class="hidden absolute inset-0 bg-slate-900/85 backdrop-blur-sm flex items-center justify-center text-center text-xs text-slate-500 rounded-xl">Aucune donnée disponible.</div></div>
                 </section>
-                <section class="space-y-3"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Détails par catégorie</h3><div id="analyse-categories-list" class="space-y-2"></div></section>
+                <section class="space-y-3">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Détails par catégorie</h3>
+                    <div id="analyse-categories-list" class="space-y-2.5"></div>
+                </section>
 
                 <!-- Statistics extras -->
                 <section class="space-y-3">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest"><i class="fa-solid fa-chart-line mr-1 text-indigo-400"></i>Statistiques</h3>
-                    <div id="analyse-stats-grid" class="grid grid-cols-2 gap-2.5"></div>
+                    <div id="analyse-stats-grid" class="grid grid-cols-2 gap-3"></div>
                 </section>
 
                 <!-- Settle-up history (only shown if there are settlements) -->
                 <section id="analyse-settlements-section" class="space-y-3 hidden">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest"><i class="fa-solid fa-handshake mr-1 text-emerald-400"></i>Historique des remboursements</h3>
-                    <div id="analyse-settlements-list" class="space-y-2"></div>
+                    <div id="analyse-settlements-list" class="space-y-2.5"></div>
                 </section>
                 </div><!-- end analyse-content -->
             </div>
@@ -3700,6 +3708,10 @@
                 p2In.value = v.toFixed(2);
                 p1In.value = (totalVal - v).toFixed(2);
             }
+            // Clear overrun state — value is now clamped and valid
+            const overrunEl = document.getElementById('custom-split-overrun');
+            if (overrunEl) overrunEl.classList.add('hidden');
+            [p1In, p2In].forEach(el => { if (el) { el.classList.remove('border-rose-500'); el.classList.add('border-slate-800'); } });
             onCustomAmountInput(target);
         }
 
@@ -3716,13 +3728,17 @@
 
         function recalcAmountsFromPct(totalVal) {
             const p1Val = parseFloat((totalVal * (state.p1SplitPercent / 100)).toFixed(2));
-            const p2Val = parseFloat((totalVal - p1Val).toFixed(2)); 
-            const c1 = document.getElementById('custom-amount-p1'); if (c1) c1.value = p1Val;
-            const c2 = document.getElementById('custom-amount-p2'); if (c2) c2.value = p2Val;
+            const p2Val = parseFloat((totalVal - p1Val).toFixed(2));
+            const c1 = document.getElementById('custom-amount-p1'); if (c1) c1.value = p1Val.toFixed(2);
+            const c2 = document.getElementById('custom-amount-p2'); if (c2) c2.value = p2Val.toFixed(2);
             safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`);
             safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
             safeSetInnerText('split-range-summary', `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`);
             const slider = document.getElementById('split-range'); if (slider) slider.value = state.p1SplitPercent;
+            // Clear any overrun warnings since we just set valid values
+            [c1, c2].forEach(el => { if (el) { el.classList.remove('border-rose-500'); el.classList.add('border-slate-800'); } });
+            const warn = document.getElementById('custom-split-overrun'); if (warn) warn.classList.add('hidden');
+            updateSplitSummaryRows();
         }
 
         function onCustomAmountInput(target) {
@@ -3731,21 +3747,44 @@
             if (isNaN(totalVal) || totalVal <= 0) return;
             const p1In = document.getElementById('custom-amount-p1');
             const p2In = document.getElementById('custom-amount-p2');
-            // Parse typed value — never reformat the active input mid-typing
-            let p1Val = parseFloat(p1In.value.replace(/,/g, '.')) || 0;
-            let p2Val = parseFloat(p2In.value.replace(/,/g, '.')) || 0;
-            if (target === 'p1') {
-                p1Val = Math.min(Math.max(p1Val, 0), totalVal);
-                p2Val = parseFloat((totalVal - p1Val).toFixed(2));
-                p2In.value = p2Val.toFixed(2); // only update the OTHER field
-            } else {
-                p2Val = Math.min(Math.max(p2Val, 0), totalVal);
-                p1Val = parseFloat((totalVal - p2Val).toFixed(2));
-                p1In.value = p1Val.toFixed(2); // only update the OTHER field
+            const overrunEl = document.getElementById('custom-split-overrun');
+            const overrunMsg = document.getElementById('custom-split-overrun-msg');
+            const activeIn = target === 'p1' ? p1In : p2In;
+            const otherIn  = target === 'p1' ? p2In : p1In;
+            const typedVal = parseFloat(activeIn.value.replace(/,/g, '.')) || 0;
+
+            // Show overrun warning if the typed value exceeds the total — but don't clamp yet
+            // (clamping happens on blur in finalizeCustomAmount)
+            const isOverrun = typedVal > totalVal;
+            if (overrunEl) overrunEl.classList.toggle('hidden', !isOverrun);
+            if (activeIn) {
+                activeIn.classList.toggle('border-rose-500', isOverrun);
+                activeIn.classList.toggle('focus:border-rose-500', isOverrun);
+                activeIn.classList.toggle('border-slate-800', !isOverrun);
             }
-            state.p1SplitPercent = Math.round((p1Val / totalVal) * 100);
+            if (isOverrun) {
+                const excess = (typedVal - totalVal).toFixed(2);
+                if (overrunMsg) overrunMsg.textContent = `Dépasse le total de ${excess} ${state.config.currency}`;
+                // Still update the other field to 0 to show state
+                otherIn.value = '0.00';
+                state.p1SplitPercent = target === 'p1' ? 100 : 0;
+            } else {
+                let p1Val = parseFloat(p1In.value.replace(/,/g, '.')) || 0;
+                let p2Val = parseFloat(p2In.value.replace(/,/g, '.')) || 0;
+                if (target === 'p1') {
+                    p1Val = Math.min(Math.max(p1Val, 0), totalVal);
+                    p2Val = parseFloat((totalVal - p1Val).toFixed(2));
+                    p2In.value = p2Val.toFixed(2);
+                } else {
+                    p2Val = Math.min(Math.max(p2Val, 0), totalVal);
+                    p1Val = parseFloat((totalVal - p2Val).toFixed(2));
+                    p1In.value = p1Val.toFixed(2);
+                }
+                state.p1SplitPercent = Math.round((p1Val / totalVal) * 100);
+            }
             const rng = document.getElementById('split-range'); if(rng) rng.value = state.p1SplitPercent;
-            safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`); safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
+            safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`);
+            safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
             safeSetInnerText('split-range-summary', `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`);
             updateSplitBadgeText();
             updateSplitSummaryRows();
