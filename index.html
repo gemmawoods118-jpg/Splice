@@ -3632,6 +3632,15 @@
                 if (type === '50_50') state.p1SplitPercent = 50;
             }
 
+            // Pour l'autre: untick the payer, tick the other person
+            if (type === '100_other') {
+                const payer = state.currentPayer;
+                state.splitParticipants = {
+                    p1: payer !== 'p1',
+                    p2: payer !== 'p2'
+                };
+            }
+
             if (type === 'custom') {
                 if (customBlock) customBlock.classList.remove('hidden');
                 syncCustomSplitUI();
@@ -3734,6 +3743,9 @@
             const controlsEl = document.getElementById('custom-split-controls');
             if (isNaN(totalVal) || totalVal <= 0) { warningEl.classList.remove('hidden'); controlsEl.classList.add('hidden'); return; }
             warningEl.classList.add('hidden'); controlsEl.classList.remove('hidden');
+            // Sync slider position to current state.p1SplitPercent before recalculating
+            const rng = document.getElementById('split-range');
+            if (rng) rng.value = state.p1SplitPercent;
             recalcAmountsFromPct(totalVal);
         }
 
