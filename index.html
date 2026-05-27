@@ -2753,9 +2753,10 @@
                                 .from('expenses')
                                 .upsert(toInsert, { onConflict: 'powens_id', ignoreDuplicates: true });
                             if (error) {
-    console.error('[Powens] Supabase upsert error — queuing for retry:', error);
-    newExpenses.forEach(e => queueSync(e));
-}
+                                console.error('[Powens] Supabase upsert error — queuing for retry:', error);
+                                newExpenses.forEach(e => queueSync(e));
+                            }
+                        }
                     }
                 } catch(e) {
                     console.error('[Powens] Sync error for payer', conn.payer, e);
