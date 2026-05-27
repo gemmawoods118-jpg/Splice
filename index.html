@@ -1450,6 +1450,28 @@
                         <button type="button" id="modal-edit-split-custom" data-no-ripple onclick="selectModalEditSplitType('custom')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">Précis</button>
                     </div>
 
+                    <!-- Per-person participant rows -->
+                    <div class="space-y-1 pt-1" id="modal-edit-participant-rows">
+                        <div class="flex items-center justify-between py-1">
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="modal-edit-check-p1" data-no-ripple onclick="toggleModalEditParticipant('p1')" class="w-5 h-5 rounded-full border-2 border-indigo-500 bg-indigo-500 flex items-center justify-center flex-shrink-0 transition-all active:scale-90"><i class="fa-solid fa-check text-white text-[8px]"></i></button>
+                                <span class="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[9px] font-black text-indigo-400" id="modal-edit-av-p1"></span>
+                                <span class="text-xs font-bold text-slate-300" id="modal-edit-row-name-p1"></span>
+                                <span id="modal-edit-payer-badge-p1" class="hidden text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">payé</span>
+                            </div>
+                            <span class="text-xs font-black text-slate-200" id="modal-edit-row-amt-p1"></span>
+                        </div>
+                        <div class="flex items-center justify-between py-1">
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="modal-edit-check-p2" data-no-ripple onclick="toggleModalEditParticipant('p2')" class="w-5 h-5 rounded-full border-2 border-violet-500 bg-violet-500 flex items-center justify-center flex-shrink-0 transition-all active:scale-90"><i class="fa-solid fa-check text-white text-[8px]"></i></button>
+                                <span class="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center text-[9px] font-black text-violet-400" id="modal-edit-av-p2"></span>
+                                <span class="text-xs font-bold text-slate-300" id="modal-edit-row-name-p2"></span>
+                                <span id="modal-edit-payer-badge-p2" class="hidden text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">payé</span>
+                            </div>
+                            <span class="text-xs font-black text-slate-200" id="modal-edit-row-amt-p2"></span>
+                        </div>
+                    </div>
+
                     <div id="modal-edit-custom-panel" class="hidden space-y-3 pt-1">
                         <div class="grid grid-cols-2 gap-2.5">
                             <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
@@ -3344,12 +3366,16 @@
                 // - Payer is still selected (other was deselected) → Précis (personal)
                 // - Payer was deselected (other remains) → Pour l'autre
                 if (person === state.currentPayer) {
-                    // Payer deselected themselves → other person bears 100%
+                    // Payer deselected → other bears 100% (Pour l'autre)
+                    // Reset participants first so badge reads correctly, visual untick
+                    // is handled by updateSplitSummaryRows via state.splitParticipants
+                    state.splitParticipants = { p1: true, p2: true };
                     selectSplit('100_other');
+                    // Re-mark payer as visually unticked for the circle row only
+                    state.splitParticipants[person] = false;
                 } else {
-                    // Non-payer (e.g. Cé) deselected → payer paid for themselves only
-                    // Set percent silently — no Précis panel, no slider shown
-                    state.splitType = '50_50';
+                    // Non-payer deselected → payer paid solo
+                    state.splitType = 'solo';
                     state.p1SplitPercent = state.currentPayer === 'p1' ? 100 : 0;
                     // Dim all split buttons (none active in this solo state)
                     ['split-btn-50', 'split-btn-100', 'split-btn-custom'].forEach(id => {
@@ -3362,6 +3388,7 @@
             } else {
                 // Re-selecting — restore both and revert to 50/50
                 state.splitParticipants = { p1: true, p2: true };
+                state.p1SplitPercent = 50;
                 selectSplit('50_50');
             }
             haptic('light');
@@ -3626,19 +3653,12 @@
             const activeBtn = document.getElementById(type === '50_50' ? 'split-btn-50' : type === '100_other' ? 'split-btn-100' : 'split-btn-custom');
             if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all";
 
-            // Switching away from 100_other or to custom/50_50 — restore both participants
-            if (type === '50_50' || type === 'custom') {
+            // Switching to 50_50, custom, or 100_other — restore both participants
+            if (type === '50_50' || type === 'custom' || type === '100_other') {
                 state.splitParticipants = { p1: true, p2: true };
                 if (type === '50_50') state.p1SplitPercent = 50;
-            }
-
-            // Pour l'autre: untick the payer, tick the other person
-            if (type === '100_other') {
-                const payer = state.currentPayer;
-                state.splitParticipants = {
-                    p1: payer !== 'p1',
-                    p2: payer !== 'p2'
-                };
+                // If coming from solo state, reset to 50/50 before showing custom panel
+                if (type === 'custom' && state.splitType === 'solo') state.p1SplitPercent = 50;
             }
 
             if (type === 'custom') {
@@ -3686,6 +3706,7 @@
             safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`);
             safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
             safeSetInnerText('split-range-summary', `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`);
+            const slider = document.getElementById('split-range'); if (slider) slider.value = state.p1SplitPercent;
         }
 
         function onCustomAmountInput(target) {
@@ -3721,14 +3742,13 @@
 
         function updateSplitBadgeText() {
             let txt = "Égal (50/50)";
-            const p1Active = state.splitParticipants?.p1 !== false;
-            const p2Active = state.splitParticipants?.p2 !== false;
-            if (!p1Active || !p2Active) {
-                // One person deselected — payer paid solo
+            if (state.splitType === '100_other') {
+                // Payer deselected themselves → Pour l'autre
+                txt = `100% pour ${state.currentPayer === 'p1' ? state.config.p2Name : state.config.p1Name}`;
+            } else if (state.splitType === 'solo') {
+                // Non-payer deselected → payer paid for themselves
                 const payerName = state.currentPayer === 'p1' ? state.config.p1Name : state.config.p2Name;
                 txt = `100% ${payerName} (solo)`;
-            } else if (state.splitType === '100_other') {
-                txt = `100% pour ${state.currentPayer === 'p1' ? state.config.p2Name : state.config.p1Name}`;
             } else if (state.splitType === 'custom') {
                 txt = `Partage (${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%)`;
             }
@@ -3743,9 +3763,6 @@
             const controlsEl = document.getElementById('custom-split-controls');
             if (isNaN(totalVal) || totalVal <= 0) { warningEl.classList.remove('hidden'); controlsEl.classList.add('hidden'); return; }
             warningEl.classList.add('hidden'); controlsEl.classList.remove('hidden');
-            // Sync slider position to current state.p1SplitPercent before recalculating
-            const rng = document.getElementById('split-range');
-            if (rng) rng.value = state.p1SplitPercent;
             recalcAmountsFromPct(totalVal);
         }
 
@@ -3872,7 +3889,23 @@
                 defaultSplitType = '100_other';
             }
             
+            // Init splitParticipants from stored data or infer from percents
+            if (!tx.splitParticipants) {
+                const p1 = tx.p1SharePercent ?? 50;
+                const p2 = tx.p2SharePercent ?? 50;
+                const payerSolo = (tx.payer === 'p1' && p1 === 100 && p2 === 0) ||
+                                  (tx.payer === 'p2' && p1 === 0 && p2 === 100);
+                if (payerSolo) {
+                    tx.splitParticipants = { p1: true, p2: true };
+                    const other = tx.payer === 'p1' ? 'p2' : 'p1';
+                    tx.splitParticipants[other] = false;
+                    tx.splitTypeLocal = 'solo';
+                } else {
+                    tx.splitParticipants = { p1: true, p2: true };
+                }
+            }
             selectModalEditSplitType(tx.splitTypeLocal || defaultSplitType);
+            updateModalEditParticipantRows();
 
             modal.classList.remove('hidden');
             setTimeout(() => {
@@ -3944,7 +3977,9 @@
         }
 
         function selectModalEditSplitType(type) {
-            state.editingTransaction.splitTypeLocal = type;
+            const tx = state.editingTransaction;
+            const prevType = tx.splitTypeLocal;
+            tx.splitTypeLocal = type;
             const b50 = document.getElementById('modal-edit-split-50');
             const b100 = document.getElementById('modal-edit-split-100');
             const bCust = document.getElementById('modal-edit-split-custom');
@@ -3957,21 +3992,101 @@
             b100.className = type === '100_other' ? act : inact;
             bCust.className = type === 'custom' ? act : inact;
 
+            // Restore both participants when switching to any standard type
+            if (type === '50_50' || type === '100_other' || type === 'custom') {
+                tx.splitParticipants = { p1: true, p2: true };
+            }
+
             if (type === 'custom') {
+                // If coming from solo, reset to 50/50 first
+                if (prevType === 'solo') { tx.p1SharePercent = 50; tx.p2SharePercent = 50; }
                 panel.classList.remove('hidden');
                 syncModalEditCustomSplitNumbers();
             } else {
                 panel.classList.add('hidden');
                 if (type === '50_50') {
-                    state.editingTransaction.p1SharePercent = 50;
-                    state.editingTransaction.p2SharePercent = 50;
+                    tx.p1SharePercent = 50;
+                    tx.p2SharePercent = 50;
                 } else if (type === '100_other') {
-                    state.editingTransaction.p1SharePercent = state.editingTransaction.payer === 'p1' ? 0 : 100;
-                    state.editingTransaction.p2SharePercent = state.editingTransaction.payer === 'p2' ? 0 : 100;
+                    tx.p1SharePercent = tx.payer === 'p1' ? 0 : 100;
+                    tx.p2SharePercent = tx.payer === 'p2' ? 0 : 100;
                 }
             }
 
             updateModalEditSplitLabels();
+            updateModalEditParticipantRows();
+        }
+
+        function toggleModalEditParticipant(person) {
+            const tx = state.editingTransaction;
+            if (!tx.splitParticipants) tx.splitParticipants = { p1: true, p2: true };
+            const currentlyActive = tx.splitParticipants[person] !== false;
+            if (currentlyActive) {
+                const other = person === 'p1' ? 'p2' : 'p1';
+                if (tx.splitParticipants[other] === false) {
+                    showToast('Au moins une personne doit participer');
+                    haptic('warn');
+                    return;
+                }
+                if (person === tx.payer) {
+                    // Payer deselects → Pour l'autre
+                    tx.splitParticipants = { p1: true, p2: true };
+                    selectModalEditSplitType('100_other');
+                    tx.splitParticipants[person] = false; // visual only
+                } else {
+                    // Non-payer deselects → payer solo
+                    tx.splitParticipants[person] = false;
+                    tx.splitTypeLocal = 'solo';
+                    tx.p1SharePercent = tx.payer === 'p1' ? 100 : 0;
+                    tx.p2SharePercent = tx.payer === 'p2' ? 100 : 0;
+                    ['modal-edit-split-50','modal-edit-split-100','modal-edit-split-custom'].forEach(id => {
+                        const b = document.getElementById(id);
+                        if (b) b.className = 'py-2 text-[10px] font-bold rounded-lg border border-slate-800 text-slate-400 hover:text-white';
+                    });
+                    document.getElementById('modal-edit-custom-panel')?.classList.add('hidden');
+                    updateModalEditSplitLabels();
+                }
+            } else {
+                // Re-select → restore both, back to 50/50
+                tx.splitParticipants = { p1: true, p2: true };
+                tx.p1SharePercent = 50;
+                tx.p2SharePercent = 50;
+                selectModalEditSplitType('50_50');
+            }
+            haptic('light');
+            updateModalEditParticipantRows();
+        }
+
+        function updateModalEditParticipantRows() {
+            const tx = state.editingTransaction;
+            if (!tx) return;
+            const total = tx.amount || 0;
+            const p1Pct = tx.p1SharePercent ?? 50;
+            const p2Pct = tx.p2SharePercent ?? 50;
+            ['p1','p2'].forEach(p => {
+                const isActive = tx.splitParticipants?.[p] !== false;
+                const pct = p === 'p1' ? p1Pct : p2Pct;
+                const amt = (total * (pct / 100)).toFixed(2);
+                const check = document.getElementById(`modal-edit-check-${p}`);
+                const amtEl = document.getElementById(`modal-edit-row-amt-${p}`);
+                const payerBadge = document.getElementById(`modal-edit-payer-badge-${p}`);
+                const nameEl = document.getElementById(`modal-edit-row-name-${p}`);
+                const avEl = document.getElementById(`modal-edit-av-${p}`);
+                const name = p === 'p1' ? state.config.p1Name : state.config.p2Name;
+
+                if (nameEl) nameEl.textContent = name;
+                if (avEl) avEl.textContent = name.charAt(0).toUpperCase();
+                if (amtEl) amtEl.textContent = `${parseFloat(amt).toFixed(2)} €`;
+                if (payerBadge) payerBadge.classList.toggle('hidden', tx.payer !== p);
+                if (check) {
+                    const color = p === 'p1' ? 'indigo' : 'violet';
+                    check.className = isActive
+                        ? `w-5 h-5 rounded-full border-2 border-${color}-500 bg-${color}-500 flex items-center justify-center flex-shrink-0 transition-all active:scale-90`
+                        : 'w-5 h-5 rounded-full border-2 border-slate-600 bg-transparent flex items-center justify-center flex-shrink-0 transition-all active:scale-90';
+                }
+                const row = check?.closest('.flex.items-center.justify-between');
+                if (row) row.style.opacity = isActive ? '1' : '0.4';
+            });
         }
 
         function onModalEditAmountInput(val) {
@@ -3979,6 +4094,7 @@
             if (state.editingTransaction.splitTypeLocal === 'custom') {
                 syncModalEditCustomSplitNumbers();
             }
+            updateModalEditParticipantRows();
         }
 
         function onModalEditSliderInput(val) {
@@ -4054,10 +4170,14 @@
         function updateModalEditSplitLabels() {
             const tx = state.editingTransaction;
             const label = document.getElementById('modal-edit-split-title');
-            if (tx.splitTypeLocal === '50_50') label.innerText = "Égal (50/50)";
-            else if (tx.splitTypeLocal === '100_other') {
+            if (tx.splitTypeLocal === 'solo') {
+                const payerName = tx.payer === 'p1' ? state.config.p1Name : state.config.p2Name;
+                label.innerText = `100% ${payerName} (solo)`;
+            } else if (tx.splitTypeLocal === '100_other') {
                 const recipient = tx.payer === 'p1' ? state.config.p2Name : state.config.p1Name;
                 label.innerText = `100% pour ${recipient}`;
+            } else if (tx.splitTypeLocal === '50_50') {
+                label.innerText = "Égal (50/50)";
             } else {
                 label.innerText = `Précis (${tx.p1SharePercent}% / ${tx.p2SharePercent}%)`;
             }
