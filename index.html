@@ -831,7 +831,7 @@
                             <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block" id="step-amount-label">1. Saisir le montant <span class="text-[9px] font-normal lowercase">(calculatrice incluse)</span></span>
                             <div class="relative">
                                 <span class="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-bold text-slate-500 currency-display">€</span>
-                                <input type="text" id="amount" inputmode="decimal" placeholder="0.00" required onblur="evaluateMath(this)"
+                                <input type="text" id="amount" inputmode="decimal" placeholder="0.00" required onblur="evaluateMath(this)" oninput="updateSplitSummaryRows()"
                                     class="w-full bg-slate-950/60 border border-slate-800/80 focus:border-indigo-500 rounded-xl py-3.5 pl-14 pr-4 text-3xl font-black text-white text-center focus:outline-none transition-colors shadow-inner math-input">
                             </div>
                             <!-- Mini-Calculatrice Keyboard Row -->
@@ -899,37 +899,73 @@
                             </div>
                         </div>
 
-                        <div class="space-y-1">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block" id="payer-toggle-label">Qui a payé ?</span>
-                            <div class="grid grid-cols-2 gap-2.5">
-                                <button type="button" id="btn-p1" data-no-ripple onclick="selectPayer('p1')" class="py-3 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide shadow-sm"><i class="fa-solid fa-user-ninja mr-2 opacity-80 text-xs"></i><span id="label-btn-p1">Toi</span></button>
-                                <button type="button" id="btn-p2" data-no-ripple onclick="selectPayer('p2')" class="py-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide"><i class="fa-solid fa-user-astronaut mr-2 opacity-80 text-xs"></i><span id="label-btn-p2">Partenaire</span></button>
-                            </div>
-                        </div>
-
-                        <div id="split-selector-container" class="bg-slate-950/30 border border-slate-800/50 p-4 rounded-xl space-y-3">
-                            <div class="flex justify-between items-center" id="split-badge-container">
-                                <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Partage des frais ?</span>
-                                <span id="split-badge" class="text-xs font-bold text-indigo-400">Égal (50/50)</span>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2 border-b border-slate-800/50 pb-3">
-                                <button type="button" id="split-btn-50" onclick="selectSplit('50_50')" class="py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all">50 / 50</button>
-                                <button type="button" id="split-btn-100" onclick="selectSplit('100_other')" class="py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all">Pour l'autre</button>
-                                <button type="button" id="split-btn-custom" onclick="selectSplit('custom')" class="py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all">Précis</button>
+                        <!-- Unified Payer + Split Card -->
+                        <div id="split-selector-container" class="bg-slate-950/30 border border-slate-800/50 rounded-xl overflow-hidden">
+                            <!-- Payer row (moved inside split card) -->
+                            <div class="px-3 pt-3 pb-2">
+                                <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-2" id="payer-toggle-label">Qui a payé ?</span>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button type="button" id="btn-p1" data-no-ripple onclick="selectPayer('p1')" class="py-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-indigo-200 font-bold text-sm tracking-wide shadow-sm"><i class="fa-solid fa-user-ninja mr-2 opacity-80 text-xs"></i><span id="label-btn-p1">Toi</span></button>
+                                    <button type="button" id="btn-p2" data-no-ripple onclick="selectPayer('p2')" class="py-2 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-400 font-bold text-sm tracking-wide"><i class="fa-solid fa-user-astronaut mr-2 opacity-80 text-xs"></i><span id="label-btn-p2">Partenaire</span></button>
+                                </div>
                             </div>
 
-                            <div id="custom-split-block" class="hidden space-y-3 pt-1 transition-all">
-                                <div id="custom-split-warning" class="text-center py-2 text-[11px] text-slate-500 bg-slate-950/20 border border-slate-800 rounded-lg">⚠️ Saisissez d'abord un montant en haut.</div>
-                                <div id="custom-split-controls" class="space-y-3 hidden">
+                            <!-- Divider -->
+                            <div class="border-t border-slate-800/60 mx-3"></div>
+
+                            <!-- Split type buttons -->
+                            <div class="px-3 pt-2 pb-2">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Partage</span>
+                                    <span id="split-badge" class="text-xs font-bold text-indigo-400">Égal (50/50)</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" id="split-btn-50" data-no-ripple onclick="selectSplit('50_50')" class="py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all">50 / 50</button>
+                                    <button type="button" id="split-btn-100" data-no-ripple onclick="selectSplit('100_other')" class="py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all">Pour l'autre</button>
+                                    <button type="button" id="split-btn-custom" data-no-ripple onclick="selectSplit('custom')" class="py-2 text-[11px] font-bold rounded-lg border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white transition-all">Précis</button>
+                                </div>
+                            </div>
+
+                            <!-- Tricount-style per-person amount rows — always visible -->
+                            <div class="border-t border-slate-800/60 mx-3"></div>
+                            <div class="px-3 py-2 space-y-1" id="split-summary-rows">
+                                <div class="flex items-center justify-between py-1">
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" id="split-check-p1" data-no-ripple onclick="toggleSplitParticipant('p1')" class="w-5 h-5 rounded-full border-2 border-indigo-500 bg-indigo-500 flex items-center justify-center flex-shrink-0 transition-all active:scale-90">
+                                            <i class="fa-solid fa-check text-white text-[8px]"></i>
+                                        </button>
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[9px] font-black text-indigo-400" id="split-av-p1">P</span>
+                                        <span id="split-row-name-p1" class="text-xs font-bold text-slate-300">—</span>
+                                        <span id="split-row-payer-badge-p1" class="hidden text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">payé</span>
+                                    </div>
+                                    <span id="split-row-amount-p1" class="text-xs font-black text-slate-200">—</span>
+                                </div>
+                                <div class="flex items-center justify-between py-1">
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" id="split-check-p2" data-no-ripple onclick="toggleSplitParticipant('p2')" class="w-5 h-5 rounded-full border-2 border-violet-500 bg-violet-500 flex items-center justify-center flex-shrink-0 transition-all active:scale-90">
+                                            <i class="fa-solid fa-check text-white text-[8px]"></i>
+                                        </button>
+                                        <span class="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center text-[9px] font-black text-violet-400" id="split-av-p2">P</span>
+                                        <span id="split-row-name-p2" class="text-xs font-bold text-slate-300">—</span>
+                                        <span id="split-row-payer-badge-p2" class="hidden text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">payé</span>
+                                    </div>
+                                    <span id="split-row-amount-p2" class="text-xs font-black text-slate-200">—</span>
+                                </div>
+                            </div>
+
+                            <!-- Précis custom block -->
+                            <div id="custom-split-block" class="hidden border-t border-slate-800/60 mx-3">
+                                <div id="custom-split-warning" class="text-center py-2 text-[11px] text-slate-500 mx-0 mt-2">⚠️ Saisissez d'abord un montant en haut.</div>
+                                <div id="custom-split-controls" class="space-y-2 hidden px-0 py-2">
                                     <div class="grid grid-cols-2 gap-2">
                                         <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
                                             <label id="split-input-label-p1" class="text-[10px] text-slate-400 font-bold block mb-1">Toi</label>
-                                            <div class="relative"><input type="number" id="custom-amount-p1" step="0.01" min="0" oninput="onCustomAmountInput('p1')" class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded py-1 pl-2 pr-6 text-base text-slate-200"><span class="absolute right-2 top-1.5 text-slate-500 text-xs currency-display">€</span></div>
+                                            <div class="relative"><input type="text" inputmode="decimal" id="custom-amount-p1" placeholder="0.00" oninput="onCustomAmountInput('p1')" class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded py-1 pl-2 pr-6 text-base text-slate-200 focus:outline-none"><span class="absolute right-2 top-1.5 text-slate-500 text-xs currency-display">€</span></div>
                                             <span id="custom-pct-label-p1" class="text-[10px] text-slate-500 font-bold block mt-1 text-right">50%</span>
                                         </div>
                                         <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
                                             <label id="split-input-label-p2" class="text-[10px] text-slate-400 font-bold block mb-1">Partenaire</label>
-                                            <div class="relative"><input type="number" id="custom-amount-p2" step="0.01" min="0" oninput="onCustomAmountInput('p2')" class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded py-1 pl-2 pr-6 text-base text-slate-200"><span class="absolute right-2 top-1.5 text-slate-500 text-xs currency-display">€</span></div>
+                                            <div class="relative"><input type="text" inputmode="decimal" id="custom-amount-p2" placeholder="0.00" oninput="onCustomAmountInput('p2')" class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded py-1 pl-2 pr-6 text-base text-slate-200 focus:outline-none"><span class="absolute right-2 top-1.5 text-slate-500 text-xs currency-display">€</span></div>
                                             <span id="custom-pct-label-p2" class="text-[10px] text-slate-500 font-bold block mt-1 text-right">50%</span>
                                         </div>
                                     </div>
@@ -992,6 +1028,12 @@
                             <span id="last-sync-label" class="text-[10px] text-slate-600 font-medium hidden"></span>
                             <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
                         </div>
+                    </div>
+                    <!-- Payer filter pills -->
+                    <div class="flex gap-1.5" id="inbox-payer-filters">
+                        <button type="button" data-no-ripple data-filter="all" onclick="setInboxPayerFilter('all')" class="inbox-filter-pill active text-[10px] font-bold px-3 py-1 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 transition-all active:scale-95">Tous</button>
+                        <button type="button" data-no-ripple data-filter="p1" onclick="setInboxPayerFilter('p1')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p1">—</button>
+                        <button type="button" data-no-ripple data-filter="p2" onclick="setInboxPayerFilter('p2')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p2">—</button>
                     </div>
                     <!-- Inbox multiselect toolbar — shown when ≥1 item selected -->
                     <div id="inbox-multiselect-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
@@ -1498,6 +1540,8 @@
             txType: 'depense',
             historySearchQuery: '',
             selectedHistoryCategory: 'all',
+            inboxPayerFilter: 'all',
+            splitParticipants: { p1: true, p2: true }, // per-device participant inclusion
             editingTransaction: null 
         };
 
@@ -1627,8 +1671,27 @@
         function getDevicePayer() {
             return localStorage.getItem('us_device_payer') || 'p1';
         }
+        function setInboxPayerFilter(filter) {
+            state.inboxPayerFilter = filter;
+            document.querySelectorAll('.inbox-filter-pill').forEach(btn => {
+                const isActive = btn.dataset.filter === filter;
+                btn.classList.toggle('border-indigo-500/40', isActive);
+                btn.classList.toggle('bg-indigo-500/15', isActive);
+                btn.classList.toggle('text-indigo-300', isActive);
+                btn.classList.toggle('border-slate-700', !isActive);
+                btn.classList.toggle('bg-slate-800/40', !isActive);
+                btn.classList.toggle('text-slate-400', !isActive);
+            });
+            updateUI();
+        }
+        // Updates filter pill labels with real names (called after config loads)
+        function updateInboxFilterLabels() {
+            const p1Btn = document.getElementById('inbox-filter-p1');
+            const p2Btn = document.getElementById('inbox-filter-p2');
+            if (p1Btn) p1Btn.textContent = state.config.p1Name || 'P1';
+            if (p2Btn) p2Btn.textContent = state.config.p2Name || 'P2';
+        }
         function setDevicePayer(payer) {
-            localStorage.setItem('us_device_payer', payer);
             renderDevicePayerPref();
             selectPayer(payer); // immediately update the form too
             haptic('light');
@@ -1750,6 +1813,8 @@
             // Re-apply device payer selection so the button highlights the correct person
             // after names may have changed
             selectPayer(getDevicePayer());
+            try { updateInboxFilterLabels(); } catch(e) {}
+            try { updateSplitSummaryRows(); } catch(e) {}
             
             updateSplitSliderLabels();
             updateCurrencyUI();
@@ -3178,6 +3243,8 @@
             safeSetInnerText('split-input-label-p2', `Part de ${state.config.p2Name}`);
             // Apply device-level payer preference so the correct button is highlighted on load
             try { selectPayer(getDevicePayer()); } catch(e) {}
+            try { updateInboxFilterLabels(); } catch(e) {}
+            try { updateSplitSummaryRows(); } catch(e) {}
             
             updateSplitSliderLabels();
             populateProjectSelector();
@@ -3262,6 +3329,111 @@
             updateUI();
         }
 
+        function toggleSplitParticipant(person) {
+            const currentlyActive = state.splitParticipants[person] !== false;
+            if (currentlyActive) {
+                // Guard: can't deselect if the other person is also already deselected
+                const other = person === 'p1' ? 'p2' : 'p1';
+                if (state.splitParticipants[other] === false) {
+                    showToast('Au moins une personne doit participer');
+                    haptic('warn');
+                    return;
+                }
+                state.splitParticipants[person] = false;
+                // Determine split mode based on who remains selected:
+                // - Payer is still selected (other was deselected) → Précis (personal)
+                // - Payer was deselected (other remains) → Pour l'autre
+                if (person === state.currentPayer) {
+                    selectSplit('100_other'); // only non-payer selected → payer paid for them
+                } else {
+                    selectSplit('custom');    // only payer selected → personal expense (Précis)
+                    // Seed Précis at 100% payer
+                    state.p1SplitPercent = state.currentPayer === 'p1' ? 100 : 0;
+                    syncCustomSplitUI();
+                }
+            } else {
+                // Re-selecting — restore both and revert to 50/50
+                state.splitParticipants = { p1: true, p2: true };
+                selectSplit('50_50');
+            }
+            haptic('light');
+            updateSplitSummaryRows();
+            updateSplitBadgeText();
+        }
+
+        // Updates the Tricount-style per-person amount rows in the unified split card.
+        function updateSplitSummaryRows() {
+            const amountEl = document.getElementById('amount');
+            const totalVal = amountEl ? parseFloat(amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')) : 0;
+            const cur = state.config.currency || '€';
+            const p1Name = state.config.p1Name || 'P1';
+            const p2Name = state.config.p2Name || 'P2';
+            const payer = state.currentPayer;
+            const splitType = state.splitType;
+
+            let p1Pct = 50, p2Pct = 50;
+            if (splitType === '100_other') {
+                p1Pct = payer === 'p1' ? 0 : 100;
+                p2Pct = payer === 'p2' ? 0 : 100;
+            } else if (splitType === 'custom') {
+                p1Pct = state.p1SplitPercent || 50;
+                p2Pct = 100 - p1Pct;
+            }
+
+            const hasAmount = !isNaN(totalVal) && totalVal > 0;
+
+            const p1Active = state.splitParticipants?.p1 !== false;
+            const p2Active = state.splitParticipants?.p2 !== false;
+
+            // If one person is deselected, the other gets 100%
+            let effectiveP1Pct = p1Pct, effectiveP2Pct = p2Pct;
+            if (!p1Active) { effectiveP1Pct = 0; effectiveP2Pct = 100; }
+            else if (!p2Active) { effectiveP1Pct = 100; effectiveP2Pct = 0; }
+
+            const p1AmountVal = hasAmount ? (totalVal * effectiveP1Pct / 100) : null;
+            const p2AmountVal = hasAmount ? (totalVal - (p1AmountVal || 0)) : null;
+            const p1Amount = p1AmountVal !== null ? p1AmountVal.toFixed(2) : '—';
+            const p2Amount = p2AmountVal !== null ? p2AmountVal.toFixed(2) : '—';
+            const fmt = (v) => v === '—' ? '—' : `${v} ${cur}`;
+
+            safeSetInnerText('split-row-name-p1', p1Name);
+            safeSetInnerText('split-row-name-p2', p2Name);
+            safeSetInnerText('split-row-amount-p1', fmt(p1Amount));
+            safeSetInnerText('split-row-amount-p2', fmt(p2Amount));
+
+            // "payé" badge on the payer row
+            const b1 = document.getElementById('split-row-payer-badge-p1');
+            const b2 = document.getElementById('split-row-payer-badge-p2');
+            if (b1) b1.classList.toggle('hidden', payer !== 'p1');
+            if (b2) b2.classList.toggle('hidden', payer !== 'p2');
+
+            // Checkbox visual state
+            const ck1 = document.getElementById('split-check-p1');
+            const ck2 = document.getElementById('split-check-p2');
+            if (ck1) {
+                ck1.className = `w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${p1Active ? 'border-indigo-500 bg-indigo-500' : 'border-slate-600 bg-transparent'}`;
+                const icon = ck1.querySelector('i');
+                if (icon) icon.className = `fa-solid fa-check text-white text-[8px] ${p1Active ? '' : 'hidden'}`;
+            }
+            if (ck2) {
+                ck2.className = `w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${p2Active ? 'border-violet-500 bg-violet-500' : 'border-slate-600 bg-transparent'}`;
+                const icon = ck2.querySelector('i');
+                if (icon) icon.className = `fa-solid fa-check text-white text-[8px] ${p2Active ? '' : 'hidden'}`;
+            }
+
+            // Avatar initials
+            const av1 = document.getElementById('split-av-p1');
+            const av2 = document.getElementById('split-av-p2');
+            if (av1) av1.innerText = (p1Name[0] || 'P').toUpperCase();
+            if (av2) av2.innerText = (p2Name[0] || 'P').toUpperCase();
+
+            // Dim deselected row
+            const row1 = ck1?.closest('.flex.items-center.justify-between');
+            const row2 = ck2?.closest('.flex.items-center.justify-between');
+            if (row1) row1.style.opacity = p1Active ? '1' : '0.4';
+            if (row2) row2.style.opacity = p2Active ? '1' : '0.4';
+        }
+
         function selectPayer(payer) {
             state.currentPayer = payer;
             const btn1 = document.getElementById('btn-p1');
@@ -3279,6 +3451,7 @@
                 btn1?.classList.add('border-slate-800', 'bg-slate-950/40', 'text-slate-400');
             }
             if (state.splitType === '100_other') updateSplitBadgeText();
+            updateSplitSummaryRows();
         }
 
         function handleDescriptionTyping(text) {
@@ -3444,12 +3617,19 @@
 
             const activeBtn = document.getElementById(type === '50_50' ? 'split-btn-50' : type === '100_other' ? 'split-btn-100' : 'split-btn-custom');
             if (activeBtn) activeBtn.className = "py-2 text-[11px] font-bold rounded-lg border border-indigo-500/30 bg-indigo-600/10 text-indigo-300 transition-all";
-            
+
+            // Switching away from 100_other or to custom/50_50 — restore both participants
+            if (type === '50_50' || type === 'custom') {
+                state.splitParticipants = { p1: true, p2: true };
+                if (type === '50_50') state.p1SplitPercent = 50;
+            }
+
             if (type === 'custom') {
                 if (customBlock) customBlock.classList.remove('hidden');
                 syncCustomSplitUI();
             }
             updateSplitBadgeText();
+            updateSplitSummaryRows();
         }
 
         function onSplitSliderInput(val) {
@@ -3487,6 +3667,7 @@
             safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`); safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
             safeSetInnerText('split-range-summary', `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`);
             updateSplitBadgeText();
+            updateSplitSummaryRows();
         }
 
         function updateSplitSliderLabels() {
@@ -3496,9 +3677,10 @@
 
         function updateSplitBadgeText() {
             let txt = "Égal (50/50)";
-            if (state.splitType === '100_other') txt = `100% par ${state.currentPayer === 'p1' ? state.config.p2Name : state.config.p1Name}`;
+            if (state.splitType === '100_other') txt = `100% pour ${state.currentPayer === 'p1' ? state.config.p2Name : state.config.p1Name}`;
             else if (state.splitType === 'custom') txt = `Partage (${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%)`;
             safeSetInnerText('split-badge', txt);
+            updateSplitSummaryRows();
         }
 
         function syncCustomSplitUI() {
@@ -3555,7 +3737,7 @@
             try { flyTransactionToHistory(); } catch (e) { console.error('Fly animation failed:', e); }
 
             amtIn.value = ''; if (descIn) descIn.value = '';
-            selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); selectPayer(getDevicePayer()); amtIn.blur();
+            selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); selectPayer(getDevicePayer()); state.splitParticipants = { p1: true, p2: true }; amtIn.blur();
 
             // Build a stripped-down version for Supabase that only contains schema columns.
             // The local copy keeps extra metadata (receipt items, animation flags, etc).
@@ -4897,13 +5079,21 @@
                 }
 
                 const inBadge = document.getElementById('nav-inbox-badge'); const inCount = document.getElementById('inbox-badge-count'); const inList = document.getElementById('inbox-list');
+                // Apply payer filter
+                const payerFilter = state.inboxPayerFilter || 'all';
+                const filteredExpenses = payerFilter === 'all'
+                    ? unapprovedExpenses
+                    : unapprovedExpenses.filter(e => e.payer === payerFilter);
                 if (unapprovedExpenses.length > 0) {
                     if (inBadge) { inBadge.classList.remove('hidden'); inBadge.innerText = unapprovedExpenses.length; }
                     if (inCount) { inCount.innerText = `${unapprovedExpenses.length} à valider`; inCount.className = "text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2.5 py-0.5 rounded-full"; }
                     if (inList) {
                         clearInboxMultiselect(); inList.innerHTML = ''; try { updateLastSyncLabel(); } catch(e) {}
+                        if (filteredExpenses.length === 0) {
+                            inList.innerHTML = `<p class="text-center text-xs text-slate-600 py-4">Aucune transaction pour ce filtre</p>`;
+                        } else {
                         // Sort newest first, then group by date label (same labels as history: Aujourd'hui, Hier, Cette semaine, etc.)
-                        const sorted = [...unapprovedExpenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                        const sorted = [...filteredExpenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                         let currentGroup = null;
                         let groupContainer = null;
                         sorted.forEach(exp => {
@@ -4962,6 +5152,7 @@
                             });
                             groupContainer.appendChild(c);
                         });
+                        } // end filteredExpenses.length > 0
                     }
                 } else {
                     if (inBadge) inBadge.classList.add('hidden');
