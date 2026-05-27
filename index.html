@@ -1029,16 +1029,16 @@
                 <section class="space-y-3">
                     <div class="flex justify-between items-center">
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4>
-                        <div class="flex items-center gap-2">
-                            <span id="last-sync-label" class="text-[10px] text-slate-600 font-medium hidden"></span>
-                            <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
-                        </div>
+                        <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
                     </div>
-                    <!-- Payer filter pills -->
-                    <div class="flex gap-1.5" id="inbox-payer-filters">
-                        <button type="button" data-no-ripple data-filter="all" onclick="setInboxPayerFilter('all')" class="inbox-filter-pill active text-[10px] font-bold px-3 py-1 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 transition-all active:scale-95">Tous</button>
-                        <button type="button" data-no-ripple data-filter="p1" onclick="setInboxPayerFilter('p1')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p1">—</button>
-                        <button type="button" data-no-ripple data-filter="p2" onclick="setInboxPayerFilter('p2')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p2">—</button>
+                    <!-- Payer filter pills + last sync label on same row -->
+                    <div class="flex items-center justify-between gap-2" id="inbox-payer-filters">
+                        <div class="flex gap-1.5">
+                            <button type="button" data-no-ripple data-filter="all" onclick="setInboxPayerFilter('all')" class="inbox-filter-pill active text-[10px] font-bold px-3 py-1 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 transition-all active:scale-95">Tous</button>
+                            <button type="button" data-no-ripple data-filter="p1" onclick="setInboxPayerFilter('p1')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p1">—</button>
+                            <button type="button" data-no-ripple data-filter="p2" onclick="setInboxPayerFilter('p2')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p2">—</button>
+                        </div>
+                        <span id="last-sync-label" class="hidden text-[10px] text-slate-600 font-medium flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[9px]"></i><span id="last-sync-label-text"></span></span>
                     </div>
                     <!-- Inbox multiselect toolbar — shown when ≥1 item selected -->
                     <div id="inbox-multiselect-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
@@ -1066,7 +1066,7 @@
             </div>
 
             <!-- VIEW 3: ANALYSE -->
-            <div id="view-analyse" class="tab-view hidden space-y-6">
+            <div id="view-analyse" class="tab-view hidden">
                 <!-- Empty state — shown when no expenses exist for the selected period -->
                 <div id="analyse-empty-state" class="hidden flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
                     <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-2">
@@ -1080,7 +1080,7 @@
                         <i class="fa-solid fa-plus mr-1.5"></i>Ajouter une dépense
                     </button>
                 </div>
-                <div id="analyse-content">
+                <div id="analyse-content" class="space-y-6">
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 shadow-inner space-y-3">
                     <div class="flex justify-between items-center"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold"><i class="fa-solid fa-filter mr-1 text-indigo-400"></i>Filtres Temporels</span><button onclick="resetAnalyseFilters()" class="text-[10px] text-indigo-400 hover:underline font-bold">Ce mois-ci</button></div>
                     <div class="grid grid-cols-2 gap-2">
@@ -4047,9 +4047,13 @@
             b100.className = type === '100_other' ? act : inact;
             bCust.className = type === 'custom' ? act : inact;
 
-            // Restore both participants when switching to any standard type
-            if (type === '50_50' || type === '100_other' || type === 'custom') {
+            // Restore both participants when switching to any standard type,
+            // EXCEPT 100_other which means payer is excluded from the split
+            if (type === '50_50' || type === 'custom') {
                 tx.splitParticipants = { p1: true, p2: true };
+            } else if (type === '100_other') {
+                // Payer paid for the other person — payer is not in the split
+                tx.splitParticipants = { p1: tx.payer !== 'p1', p2: tx.payer !== 'p2' };
             }
 
             if (type === 'custom') {
@@ -6277,8 +6281,8 @@
 
         function updateLastSyncLabel() {
             const el = document.getElementById('last-sync-label');
+            const textEl = document.getElementById('last-sync-label-text');
             if (!el) return;
-            // Prefer last Powens sync, fall back to last general Supabase fetch
             const conns = loadPowensConnections().filter(c => c.lastSync);
             const latest = conns.length > 0
                 ? conns.reduce((max, c) => c.lastSync > max ? c.lastSync : max, '')
@@ -6287,13 +6291,13 @@
             const d = new Date(latest);
             const diffMin = Math.round((Date.now() - d) / 60000);
             let label;
-            if (diffMin < 1) label = "Mis à jour à l'instant";
-            else if (diffMin < 60) label = `Mis à jour il y a ${diffMin} min`;
+            if (diffMin < 1) label = "à l'instant";
+            else if (diffMin < 60) label = `il y a ${diffMin} min`;
             else {
                 const h = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-                label = diffMin < 1440 ? `Mis à jour à ${h}` : `Mis à jour le ${d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
+                label = diffMin < 1440 ? `à ${h}` : `le ${d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
             }
-            el.textContent = label;
+            if (textEl) textEl.textContent = label;
             el.classList.remove('hidden');
         }
 
