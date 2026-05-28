@@ -2234,12 +2234,21 @@
                         }
                         const local = localById.get(serverRow.id);
                         if (!local) return serverRow;
-                        const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn } = local;
+                        const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, _localEditedAt } = local;
+                        // If local has a _localEditedAt timestamp newer than the server's updated_at,
+                        // the server hasn't caught up yet — keep local description/category/icon/approved.
+                        const localIsNewer = _localEditedAt && (
+                            !serverRow.updated_at || _localEditedAt > serverRow.updated_at
+                        );
                         return Object.assign({}, serverRow, {
                             ...(receiptItems !== undefined && { receiptItems }),
                             ...(receiptAllItems !== undefined && { receiptAllItems }),
                             ...(receiptDetectedTotal !== undefined && { receiptDetectedTotal }),
-                            ...(_animateIn !== undefined && { _animateIn })
+                            ...(_animateIn !== undefined && { _animateIn }),
+                            ...(localIsNewer && local.description !== undefined && { description: local.description }),
+                            ...(localIsNewer && local.category !== undefined && { category: local.category }),
+                            ...(localIsNewer && local.icon !== undefined && { icon: local.icon }),
+                            ...(localIsNewer && local.approved !== undefined && { approved: local.approved }),
                         });
                     });
                     // Strip dismissed powens IDs that server may still hold
@@ -2371,7 +2380,26 @@
                 for (const sc of serverConns) {
                     const li = local.findIndex(c => c.payer === sc.payer);
                     if (li < 0) { local.push(sc); changed = true; }
-                    else if (!local[li].userToken && sc.userToken) { local[li] = sc; changed = true; }
+                    else if (!local[li].userToken && sc.userToken) {
+                        // Preserve local lastSync if it's newer than server's
+                        const preservedLastSync = local[li].lastSync;
+                        local[li] = sc;
+                        if (preservedLastSync && (!sc.lastSync || preservedLastSync > sc.lastSync)) {
+                            local[li].lastSync = preservedLastSync;
+                        }
+                        changed = true;
+                    } else {
+                        // Always preserve local lastSync if it's newer (server may be stale)
+                        if (local[li].lastSync && sc.lastSync && local[li].lastSync > sc.lastSync) {
+                            // local is newer — keep local lastSync, update other fields if needed
+                        } else if (!local[li].lastSync && sc.lastSync) {
+                            local[li].lastSync = sc.lastSync;
+                            changed = true;
+                        }
+                        // Update userToken/bankName from server if local doesn't have them
+                        if (!local[li].userToken && sc.userToken) { local[li].userToken = sc.userToken; changed = true; }
+                        if (!local[li].bankName && sc.bankName) { local[li].bankName = sc.bankName; changed = true; }
+                    }
                 }
                 if (changed) {
                     localStorage.setItem('us_powens', JSON.stringify(local));
@@ -4337,6 +4365,11 @@
             showToast("Modifié avec succès !");
 
             if (state.supabaseClient && navigator.onLine) {
+                // Stamp the local edit time so fetchSupabaseExpenses can detect
+                // if the server hasn't caught up yet and keep local values.
+                tx._localEditedAt = new Date().toISOString();
+                state.expenses[state.expenses.findIndex(e => e.id === tx.id)] = tx;
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
                 // Register this edit as pending BEFORE the upsert fires.
                 // If a refresh happens during the network round-trip, the merge
                 // will use this local version instead of the stale server data.
@@ -4348,13 +4381,16 @@
                         queueSync(tx);
                     }
                     // Whether it succeeded or failed+queued, the edit is now safely persisted
-                    // (either on server or in queue). Remove from pending so future refreshes
-                    // use the authoritative server data.
-                    _pendingEdits.delete(tx.id);
+                    // (either on server or in queue). Keep in pendingEdits for 5s to guard
+                    // against a fetchSupabaseExpenses firing before the DB propagates the write.
+                    const _txId = tx.id;
+                    setTimeout(() => { _pendingEdits.delete(_txId); }, 5000);
                 } catch(e) {
                     console.error('Edit upsert threw:', e);
                     queueSync(tx);
-                    _pendingEdits.delete(tx.id);
+                    // On error: keep protecting for 5s then remove (queueSync will retry)
+                    const _txId = tx.id;
+                    setTimeout(() => { _pendingEdits.delete(_txId); }, 5000);
                 }
             } else {
                 queueSync(tx);
@@ -4950,7 +4986,7 @@
             updateUI(); 
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])]);
+                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])], { onConflict: 'id' });
                     if (error) { console.error('Approve upsert error:', error); queueSync(state.expenses[idx]); }
                 } catch (e) { console.error('Approve upsert threw:', e); queueSync(state.expenses[idx]); }
             } else { queueSync(state.expenses[idx]); }
@@ -5072,7 +5108,7 @@
         // Always call this before any insert/upsert/queue to prevent silent schema rejections.
         function stripTransientFields(exp) {
             if (!exp) return exp;
-            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, _previousCurrency, splitTypeLocal, _fuzzyDupe, _syncAttempts, ...rest } = exp;
+            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, _previousCurrency, splitTypeLocal, _fuzzyDupe, _syncAttempts, _localEditedAt, ...rest } = exp;
             return rest;
         }
         function queueSync(expense) { state.syncQueue.push(stripTransientFields(expense)); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
