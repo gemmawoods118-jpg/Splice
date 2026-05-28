@@ -654,7 +654,12 @@
             backdrop-filter: blur(8px);
             background: rgba(15, 23, 42, 0.85);
         }
-    </style>
+    
+        /* Hide scrollbars inside modals while keeping scroll functionality */
+        #edit-tx-modal-content ::-webkit-scrollbar,
+        #settings-modal ::-webkit-scrollbar { display: none; }
+        #edit-tx-modal-content, #settings-modal { -ms-overflow-style: none; }
+</style>
 </head>
 <body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]" style="overscroll-behavior: none; overflow: hidden;">
 
@@ -706,7 +711,7 @@
     <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
         
         <!-- Header & Projects -->
-        <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30" style="padding-top: max(1rem, env(safe-area-inset-top));">
+        <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 cursor-pointer active:opacity-70 transition-opacity" style="padding-top: max(1rem, env(safe-area-inset-top));" onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})">
             <!-- Logo Splittr (left) — tap to scroll to top -->
             <div class="flex items-center gap-2 shrink-0 cursor-pointer active:opacity-70 transition-opacity" onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})">
                 <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
@@ -1400,7 +1405,7 @@
             </div>
             
             <!-- Fields -->
-            <div class="space-y-3 overflow-y-auto flex-1 pr-1 py-1">
+            <div class="space-y-3 overflow-y-auto flex-1 pr-1 py-1 scrollbar-none" style="-webkit-overflow-scrolling:touch;scrollbar-width:none;">
                 <!-- Description -->
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
@@ -6829,6 +6834,75 @@
         document.querySelectorAll('#settle-btn, [onclick*="approveTransaction"], [onclick*="rejectTransaction"]').forEach(b => {
             b.addEventListener('click', () => haptic('light'));
         });
+    
+        // ── Swipe-down to dismiss modals + tap backdrop to close ─────────────────
+        (function() {
+            // Edit transaction modal — swipe down + tap backdrop
+            const editModal = document.getElementById('edit-tx-modal');
+            const editContent = document.getElementById('edit-tx-modal-content');
+
+            // Tap backdrop to close
+            editModal.addEventListener('click', function(e) {
+                if (e.target === editModal) closeEditTxModal();
+            });
+
+            // Swipe-down gesture
+            let _touchStartY = 0, _touchStarted = false;
+            editContent.addEventListener('touchstart', function(e) {
+                _touchStartY = e.touches[0].clientY;
+                _touchStarted = true;
+            }, { passive: true });
+            editContent.addEventListener('touchmove', function(e) {
+                if (!_touchStarted) return;
+                const dy = e.touches[0].clientY - _touchStartY;
+                if (dy > 0) {
+                    editContent.style.transform = `translateY(${dy}px)`;
+                    editContent.style.transition = 'none';
+                }
+            }, { passive: true });
+            editContent.addEventListener('touchend', function(e) {
+                if (!_touchStarted) return;
+                _touchStarted = false;
+                const dy = e.changedTouches[0].clientY - _touchStartY;
+                editContent.style.transition = '';
+                editContent.style.transform = '';
+                if (dy > 80) closeEditTxModal();
+            }, { passive: true });
+
+            // Settings modal — tap backdrop + swipe down
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsContent = settingsModal ? settingsModal.querySelector('div') : null;
+
+            if (settingsModal) {
+                settingsModal.addEventListener('click', function(e) {
+                    if (e.target === settingsModal) toggleSettingsModal(false);
+                });
+            }
+
+            let _sTouchStartY = 0, _sTouchStarted = false;
+            if (settingsContent) {
+                settingsContent.addEventListener('touchstart', function(e) {
+                    _sTouchStartY = e.touches[0].clientY;
+                    _sTouchStarted = true;
+                }, { passive: true });
+                settingsContent.addEventListener('touchmove', function(e) {
+                    if (!_sTouchStarted) return;
+                    const dy = e.touches[0].clientY - _sTouchStartY;
+                    if (dy > 0) {
+                        settingsContent.style.transform = `translateY(${dy}px)`;
+                        settingsContent.style.transition = 'none';
+                    }
+                }, { passive: true });
+                settingsContent.addEventListener('touchend', function(e) {
+                    if (!_sTouchStarted) return;
+                    _sTouchStarted = false;
+                    const dy = e.changedTouches[0].clientY - _sTouchStartY;
+                    settingsContent.style.transition = '';
+                    settingsContent.style.transform = '';
+                    if (dy > 80) toggleSettingsModal(false);
+                }, { passive: true });
+            }
+        })();
     </script>
 </body>
 </html>
