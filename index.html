@@ -2676,12 +2676,17 @@
             for (const conn of connections) {
                 try {
                     // Only fetch transactions since last sync (or last 90 days on first sync)
-                    const sinceDate = conn.lastSync
-                        ? new Date(new Date(conn.lastSync) - 2 * 86400000).toISOString().split('T')[0]
-: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]; // 30 days on reconnect
+                    const _syncFrom = conn.lastSync
+                        ? new Date(new Date(conn.lastSync) - 2 * 86400000)
+                        : new Date(Date.now() - 7 * 86400000); // 7 days on first sync
+                    // Cap lookback at 30 days — safety ceiling if app wasn't opened for weeks
+                    const _maxLookback = new Date(Date.now() - 30 * 86400000);
+                    const sinceDate = ((_syncFrom < _maxLookback) ? _maxLookback : _syncFrom)
+                        .toISOString().split('T')[0];
                     const result = await callEdgeFunction('powens-sync', {
                         userToken: conn.userToken,
-                        since_date: sinceDate
+                        since_date: sinceDate,
+                        connection_id: conn.connectionId || conn.connection_id || null
                     });
                     if (result.expired) {
                         // Powens returned 401 — token is expired, flag the connection
@@ -2709,7 +2714,7 @@
                         const txDate = new Date(tx.date);
                         const _txWords = (tx.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
                         const isFuzzyDupe = state.expenses.some(e => {
-                            if (!e.approved) return false; // skip pending inbox items
+                            // Check ALL expenses (including other inbox items) for fuzzy dupes
                             if (Math.abs(e.amount - tx.amount) > 0.01) return false;
                             const d = Math.abs(new Date(e.created_at) - txDate);
                             if (d >= 86400000 * 1.5) return false; // within 1.5 days
@@ -2733,6 +2738,8 @@
                             type: tx.type || 'depense',
                             project: state.config.activeProject,
                             created_at: tx.date + 'T12:00:00.000Z',
+                            // Track when this item ARRIVED in the inbox (not the bank date)
+                            powens_synced_at: new Date().toISOString(),
                             // Flag fuzzy dupes — shown as a warning in the Inbox row
                             _fuzzyDupe: isFuzzyDupe
                         };
@@ -6317,16 +6324,18 @@
         }
 
         async function autoExpireInboxItems() {
-            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-            const toExpire = state.expenses.filter(exp =>
-                exp.approved === false && exp.powens_id &&
-                (exp.created_at || '').split('T')[0] < cutoff
-            );
+            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
+            const toExpire = state.expenses.filter(exp => {
+                if (exp.approved !== false || !exp.powens_id) return false;
+                const arrivalDate = exp.powens_synced_at || exp.created_at || '';
+                return arrivalDate < cutoff;
+            });
             if (toExpire.length === 0) return;
             toExpire.forEach(exp => { trackDismissedPowensId(exp.powens_id); trackDeletedId(exp.id); });
             state.expenses = state.expenses.filter(exp => {
                 if (exp.approved !== false || !exp.powens_id) return true;
-                return (exp.created_at || '').split('T')[0] >= cutoff;
+                const arrivalDate = exp.powens_synced_at || exp.created_at || '';
+                return arrivalDate >= cutoff;
             });
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             console.log('[Splittr] Auto-expired', toExpire.length, 'inbox items');
