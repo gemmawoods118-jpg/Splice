@@ -4938,8 +4938,9 @@
 
         async function simulateIncomingWebhook() {
             await requestBadgePermission();
-            const mock = { id: 'auto_' + Date.now(), amount: 32.50, payer: 'p1', description: 'Uber Eats', category: 'Resto & Café', icon: 'fa-utensils', p1SharePercent: 50, p2SharePercent: 50, approved: false, isEditing: false, type: 'depense', project: state.config.activeProject, created_at: new Date().toISOString() };
-            state.expenses.unshift(mock); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); switchView('inbox');
+            // simulateIncomingWebhook disabled — was creating test Uber Eats €32.50 entries
+            console.log('[simulate] disabled');
+            return;
             const persistable = stripTransientFields(mock);
             if (state.supabaseClient && navigator.onLine) {
                 try {
@@ -5354,7 +5355,8 @@
                         totalGroup += exp.amount; s1 += o1; s2 += o2;
                         if(exp.payer === 'p1') { t1 += exp.amount; d2 += o2; } else { t2 += exp.amount; d1 += o1; }
                     } else if (exp.type === 'revenu') {
-                        if(exp.payer === 'p1') { d1 += o2; } else { d2 += o1; }
+                        // Revenue: payer received money — reduce their "payé" total and adjust balance
+                        if(exp.payer === 'p1') { t1 -= exp.amount; d1 += o2; } else { t2 -= exp.amount; d2 += o1; }
                     } else if (exp.type === 'transfert') {
                         if(exp.payer === 'p1') { d2 += exp.amount; } else { d1 += exp.amount; }
                     }
