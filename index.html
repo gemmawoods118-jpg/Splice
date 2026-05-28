@@ -2743,6 +2743,9 @@
                         if (/revpoint|spare.?change|round.?up|cashback reward/i.test(tx.description || '')) continue;
                         // ── Layer 1: exact powens_id dedup ──
                         if (knownPowensIds.has(String(tx.powens_id))) continue;
+                        // ── Layer 1.5: fingerprint dedup — catches ID-reassigned duplicates ──
+                        const _txFp = _makePowensFingerprint(tx.amount, tx.date, tx.description);
+                        if (loadDismissedFingerprints().has(_txFp)) continue;
                         // ── Layer 2: fuzzy dedup — same amount & date within 1 day ──
                         const txDate = new Date(tx.date);
                         const _txWords = (tx.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
@@ -5022,6 +5025,22 @@
             try { return new Set(JSON.parse(localStorage.getItem('us_dismissed_powens_ids') || '[]')); }
             catch(e) { return new Set(); }
         }
+        // Fingerprint dedup: catches same transaction with a new powens_id (Revolut ID reassignment)
+        function _makePowensFingerprint(amount, date, desc) {
+            const d = (date || '').slice(0, 10);
+            const slug = (desc || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+            return `${parseFloat(amount).toFixed(2)}|${d}|${slug}`;
+        }
+        function loadDismissedFingerprints() {
+            try { return new Set(JSON.parse(localStorage.getItem('us_dismissed_fp') || '[]')); }
+            catch(e) { return new Set(); }
+        }
+        function addDismissedFingerprint(amount, date, desc) {
+            const fp = _makePowensFingerprint(amount, date, desc);
+            const fps = loadDismissedFingerprints();
+            fps.add(fp);
+            localStorage.setItem('us_dismissed_fp', JSON.stringify([...fps].slice(-500)));
+        }
         function trackDismissedPowensId(powensId) {
             if (!powensId) return;
             const pid = String(powensId);
@@ -5064,7 +5083,10 @@
             await smoothDismiss(`inbox-item-${id}`, -100);
             trackDeletedId(id);
             const dismissed = state.expenses.find(t => t.id === id);
-            if (dismissed && dismissed.powens_id) trackDismissedPowensId(dismissed.powens_id);
+            if (dismissed && dismissed.powens_id) {
+                trackDismissedPowensId(dismissed.powens_id);
+                addDismissedFingerprint(dismissed.amount, (dismissed.created_at || '').slice(0, 10), dismissed.description);
+            }
             state.expenses = state.expenses.filter(t => t.id !== id);
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
