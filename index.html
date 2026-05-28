@@ -1326,7 +1326,7 @@
     <!-- Settings Modal -->
     <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150"><div id="settings-modal-handle" class="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-600/90 sm:hidden"></div>
-            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+            <div id="settings-modal-drag" class="flex justify-between items-center pb-2 border-b border-slate-800">
                 <div class="flex items-center gap-2">
                     <img id="settings-logo-preview" class="w-6 h-6 rounded-md shadow-sm bg-indigo-500/20" alt="Logo">
                     <h3 class="text-sm font-bold text-white">Configuration</h3>
@@ -1397,7 +1397,7 @@
     <div id="edit-tx-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-sm transition-opacity duration-300 opacity-0">
         <div id="edit-tx-modal-content" class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92vh] sm:max-h-[85vh] p-4 space-y-3 shadow-2xl flex flex-col justify-between overflow-hidden transition-transform duration-300 translate-y-full">
             <!-- Header -->
-            <div class="flex justify-between items-center pb-2 border-b border-slate-800 shrink-0">
+            <div id="edit-modal-handle" class="flex justify-between items-center pb-2 border-b border-slate-800 shrink-0">
                 <h3 class="text-sm font-black text-white uppercase tracking-wider"><i class="fa-solid fa-pen-to-square mr-2 text-indigo-400"></i>Modifier la transaction</h3>
                 <button onclick="closeEditTxModal()" class="text-slate-400 hover:text-white transition-colors p-1">
                     <i class="fa-solid fa-xmark text-lg"></i>
@@ -6837,48 +6837,46 @@
     
         
         
+        
         // ── Swipe-down to dismiss modals + tap backdrop to close ─────────────────
         (function() {
             const editModal = document.getElementById('edit-tx-modal');
             const editContent = document.getElementById('edit-tx-modal-content');
+            // Swipe zone = full header row (title + close btn) — top of the sheet, easy to reach
             const editHandle = document.getElementById('edit-modal-handle');
-            // The scrollable fields area inside the modal
-            const editScrollArea = editContent ? editContent.querySelector('.overflow-y-auto') : null;
 
             editModal.addEventListener('click', function(e) {
                 if (e.target === editModal) closeEditTxModal();
             });
 
-            let _touchStartY = 0, _touchStartX = 0, _touchStarted = false;
+            let _tY = 0, _tX = 0, _tActive = false;
             editHandle?.addEventListener('touchstart', function(e) {
-                _touchStartY = e.touches[0].clientY;
-                _touchStartX = e.touches[0].clientX;
-                _touchStarted = true;
+                _tY = e.touches[0].clientY;
+                _tX = e.touches[0].clientX;
+                _tActive = true;
             }, { passive: true });
             editHandle?.addEventListener('touchmove', function(e) {
-                if (!_touchStarted) return;
-                const dy = e.touches[0].clientY - _touchStartY;
-                const dx = Math.abs(e.touches[0].clientX - _touchStartX);
-                // Only drag if clearly vertical (not diagonal) and downward
-                if (dy > 10 && dx < dy * 0.5) {
-                    editContent.style.transform = `translateY(${dy}px)`;
+                if (!_tActive) return;
+                const dy = e.touches[0].clientY - _tY;
+                const dx = Math.abs(e.touches[0].clientX - _tX);
+                if (dy > 8 && dx < dy) {
+                    editContent.style.transform = `translateY(${Math.max(0,dy)}px)`;
                     editContent.style.transition = 'none';
                 }
             }, { passive: true });
             editHandle?.addEventListener('touchend', function(e) {
-                if (!_touchStarted) return;
-                _touchStarted = false;
-                const dy = e.changedTouches[0].clientY - _touchStartY;
-                const dx = Math.abs(e.changedTouches[0].clientX - _touchStartX);
+                if (!_tActive) return;
+                _tActive = false;
+                const dy = e.changedTouches[0].clientY - _tY;
+                const dx = Math.abs(e.changedTouches[0].clientX - _tX);
                 editContent.style.transition = '';
                 editContent.style.transform = '';
-                // Require clear downward swipe > 120px, more vertical than horizontal
-                if (dy > 120 && dx < dy * 0.5) closeEditTxModal();
+                if (dy > 100 && dx < dy) closeEditTxModal();
             }, { passive: true });
 
             const settingsModal = document.getElementById('settings-modal');
-            const settingsContent = settingsModal ? settingsModal.querySelector('div') : null;
-            const settingsHandle = document.getElementById('settings-modal-handle');
+            const settingsContent = settingsModal ? settingsModal.querySelector('.bg-slate-900') : null;
+            const settingsHandle = document.getElementById('settings-modal-drag');
 
             if (settingsModal) {
                 settingsModal.addEventListener('click', function(e) {
@@ -6886,33 +6884,34 @@
                 });
             }
 
-            let _sTouchStartY = 0, _sTouchStartX = 0, _sTouchStarted = false;
+            let _sY = 0, _sX = 0, _sActive = false;
             settingsHandle?.addEventListener('touchstart', function(e) {
-                _sTouchStartY = e.touches[0].clientY;
-                _sTouchStartX = e.touches[0].clientX;
-                _sTouchStarted = true;
+                _sY = e.touches[0].clientY;
+                _sX = e.touches[0].clientX;
+                _sActive = true;
             }, { passive: true });
             settingsHandle?.addEventListener('touchmove', function(e) {
-                if (!_sTouchStarted) return;
-                const dy = e.touches[0].clientY - _sTouchStartY;
-                const dx = Math.abs(e.touches[0].clientX - _sTouchStartX);
-                if (dy > 10 && dx < dy * 0.5 && settingsContent) {
-                    settingsContent.style.transform = `translateY(${dy}px)`;
+                if (!_sActive) return;
+                const dy = e.touches[0].clientY - _sY;
+                const dx = Math.abs(e.touches[0].clientX - _sX);
+                if (dy > 8 && dx < dy && settingsContent) {
+                    settingsContent.style.transform = `translateY(${Math.max(0,dy)}px)`;
                     settingsContent.style.transition = 'none';
                 }
             }, { passive: true });
             settingsHandle?.addEventListener('touchend', function(e) {
-                if (!_sTouchStarted) return;
-                _sTouchStarted = false;
-                const dy = e.changedTouches[0].clientY - _sTouchStartY;
-                const dx = Math.abs(e.changedTouches[0].clientX - _sTouchStartX);
+                if (!_sActive) return;
+                _sActive = false;
+                const dy = e.changedTouches[0].clientY - _sY;
+                const dx = Math.abs(e.changedTouches[0].clientX - _sX);
                 if (settingsContent) {
                     settingsContent.style.transition = '';
                     settingsContent.style.transform = '';
                 }
-                if (dy > 120 && dx < dy * 0.5) toggleSettingsModal(false);
+                if (dy > 100 && dx < dy) toggleSettingsModal(false);
             }, { passive: true });
         })();
+
 
 
     </script>
