@@ -6836,25 +6836,31 @@
         });
     
         
+        
         // ── Swipe-down to dismiss modals + tap backdrop to close ─────────────────
         (function() {
             const editModal = document.getElementById('edit-tx-modal');
             const editContent = document.getElementById('edit-tx-modal-content');
             const editHandle = document.getElementById('edit-modal-handle');
+            // The scrollable fields area inside the modal
+            const editScrollArea = editContent ? editContent.querySelector('.overflow-y-auto') : null;
 
             editModal.addEventListener('click', function(e) {
                 if (e.target === editModal) closeEditTxModal();
             });
 
-            let _touchStartY = 0, _touchStarted = false;
+            let _touchStartY = 0, _touchStartX = 0, _touchStarted = false;
             editHandle?.addEventListener('touchstart', function(e) {
                 _touchStartY = e.touches[0].clientY;
+                _touchStartX = e.touches[0].clientX;
                 _touchStarted = true;
             }, { passive: true });
             editHandle?.addEventListener('touchmove', function(e) {
                 if (!_touchStarted) return;
                 const dy = e.touches[0].clientY - _touchStartY;
-                if (dy > 0) {
+                const dx = Math.abs(e.touches[0].clientX - _touchStartX);
+                // Only drag if clearly vertical (not diagonal) and downward
+                if (dy > 10 && dx < dy * 0.5) {
                     editContent.style.transform = `translateY(${dy}px)`;
                     editContent.style.transition = 'none';
                 }
@@ -6863,9 +6869,11 @@
                 if (!_touchStarted) return;
                 _touchStarted = false;
                 const dy = e.changedTouches[0].clientY - _touchStartY;
+                const dx = Math.abs(e.changedTouches[0].clientX - _touchStartX);
                 editContent.style.transition = '';
                 editContent.style.transform = '';
-                if (dy > 80) closeEditTxModal();
+                // Require clear downward swipe > 120px, more vertical than horizontal
+                if (dy > 120 && dx < dy * 0.5) closeEditTxModal();
             }, { passive: true });
 
             const settingsModal = document.getElementById('settings-modal');
@@ -6878,15 +6886,17 @@
                 });
             }
 
-            let _sTouchStartY = 0, _sTouchStarted = false;
+            let _sTouchStartY = 0, _sTouchStartX = 0, _sTouchStarted = false;
             settingsHandle?.addEventListener('touchstart', function(e) {
                 _sTouchStartY = e.touches[0].clientY;
+                _sTouchStartX = e.touches[0].clientX;
                 _sTouchStarted = true;
             }, { passive: true });
             settingsHandle?.addEventListener('touchmove', function(e) {
                 if (!_sTouchStarted) return;
                 const dy = e.touches[0].clientY - _sTouchStartY;
-                if (dy > 0 && settingsContent) {
+                const dx = Math.abs(e.touches[0].clientX - _sTouchStartX);
+                if (dy > 10 && dx < dy * 0.5 && settingsContent) {
                     settingsContent.style.transform = `translateY(${dy}px)`;
                     settingsContent.style.transition = 'none';
                 }
@@ -6895,13 +6905,15 @@
                 if (!_sTouchStarted) return;
                 _sTouchStarted = false;
                 const dy = e.changedTouches[0].clientY - _sTouchStartY;
+                const dx = Math.abs(e.changedTouches[0].clientX - _sTouchStartX);
                 if (settingsContent) {
                     settingsContent.style.transition = '';
                     settingsContent.style.transform = '';
                 }
-                if (dy > 80) toggleSettingsModal(false);
+                if (dy > 120 && dx < dy * 0.5) toggleSettingsModal(false);
             }, { passive: true });
         })();
+
 
     </script>
 </body>
