@@ -5114,7 +5114,7 @@
         // Always call this before any insert/upsert/queue to prevent silent schema rejections.
         function stripTransientFields(exp) {
             if (!exp) return exp;
-            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, _previousCurrency, splitTypeLocal, _fuzzyDupe, _syncAttempts, _localEditedAt, ...rest } = exp;
+            const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn, _previousCurrency, splitTypeLocal, splitParticipants, _fuzzyDupe, _syncAttempts, _localEditedAt, ...rest } = exp;
             return rest;
         }
         function queueSync(expense) { state.syncQueue.push(stripTransientFields(expense)); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
