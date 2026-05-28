@@ -2410,7 +2410,7 @@
                     localStorage.setItem('us_powens', JSON.stringify(local));
                     renderPowensSettings();
                     showToast('✓ Compte bancaire restauré');
-                    setTimeout(() => syncAllPowensAccounts(), 1000);
+                    setTimeout(() => syncAllPowensAccounts(), 4000);
                 }
             } catch(e) {}
         }
