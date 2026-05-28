@@ -4985,10 +4985,16 @@
             
             updateUI(); 
             if (state.supabaseClient && navigator.onLine) {
+                // Stamp edit time and protect from fetch overwrite during network round-trip
+                state.expenses[idx]._localEditedAt = new Date().toISOString();
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                const _approveId = id;
+                _pendingEdits.set(_approveId, JSON.parse(JSON.stringify(state.expenses[idx])));
                 try {
                     const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])], { onConflict: 'id' });
                     if (error) { console.error('Approve upsert error:', error); queueSync(state.expenses[idx]); }
                 } catch (e) { console.error('Approve upsert threw:', e); queueSync(state.expenses[idx]); }
+                setTimeout(() => { _pendingEdits.delete(_approveId); }, 5000);
             } else { queueSync(state.expenses[idx]); }
         }
 
@@ -5117,7 +5123,7 @@
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
             const row = state.syncQueue[0];
             try {
-                const { error } = await state.supabaseClient.from('expenses').insert([row]);
+                const { error } = await state.supabaseClient.from('expenses').upsert([row], { onConflict: 'id' });
                 if (!error) {
                     // Success — pop the row and recurse for the next one
                     state.syncQueue.shift();
