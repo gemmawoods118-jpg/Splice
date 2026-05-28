@@ -2235,13 +2235,11 @@
                         const local = localById.get(serverRow.id);
                         if (!local) return serverRow;
                         const { receiptItems, receiptAllItems, receiptDetectedTotal, _animateIn } = local;
-                        const localApproved = local.approved;
                         return Object.assign({}, serverRow, {
                             ...(receiptItems !== undefined && { receiptItems }),
                             ...(receiptAllItems !== undefined && { receiptAllItems }),
                             ...(receiptDetectedTotal !== undefined && { receiptDetectedTotal }),
-                            ...(_animateIn !== undefined && { _animateIn }),
-                            ...(localApproved === true && { approved: true })
+                            ...(_animateIn !== undefined && { _animateIn })
                         });
                     });
                     // Strip dismissed powens IDs that server may still hold
@@ -2678,9 +2676,13 @@
             for (const conn of connections) {
                 try {
                     // Only fetch transactions since last sync (or last 90 days on first sync)
-                    const sinceDate = conn.lastSync
-                        ? new Date(new Date(conn.lastSync) - 2 * 86400000).toISOString().split('T')[0]
-: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]; // 30 days on reconnect
+                    const _syncFrom = conn.lastSync
+                        ? new Date(new Date(conn.lastSync) - 2 * 86400000)
+                        : new Date(Date.now() - 7 * 86400000); // 7 days on first sync
+                    // Cap lookback at 30 days — safety ceiling if app wasn't opened for weeks
+                    const _maxLookback = new Date(Date.now() - 30 * 86400000);
+                    const sinceDate = ((_syncFrom < _maxLookback) ? _maxLookback : _syncFrom)
+                        .toISOString().split('T')[0];
                     const result = await callEdgeFunction('powens-sync', {
                         userToken: conn.userToken,
                         since_date: sinceDate
@@ -2711,7 +2713,7 @@
                         const txDate = new Date(tx.date);
                         const _txWords = (tx.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
                         const isFuzzyDupe = state.expenses.some(e => {
-                            if (!e.approved) return false; // skip pending inbox items
+                            // Check ALL expenses (including other inbox items) for fuzzy dupes
                             if (Math.abs(e.amount - tx.amount) > 0.01) return false;
                             const d = Math.abs(new Date(e.created_at) - txDate);
                             if (d >= 86400000 * 1.5) return false; // within 1.5 days
@@ -2735,6 +2737,9 @@
                             type: tx.type || 'depense',
                             project: state.config.activeProject,
                             created_at: tx.date + 'T12:00:00.000Z',
+                            // Track when this item ARRIVED in the inbox (not the bank date)
+                            // Used by autoExpireInboxItems to enforce the 7-day action window.
+                            powens_synced_at: new Date().toISOString(),
                             // Flag fuzzy dupes — shown as a warning in the Inbox row
                             _fuzzyDupe: isFuzzyDupe
                         };
@@ -4945,7 +4950,7 @@
             updateUI(); 
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])], { onConflict: 'id' });
+                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])]);
                     if (error) { console.error('Approve upsert error:', error); queueSync(state.expenses[idx]); }
                 } catch (e) { console.error('Approve upsert threw:', e); queueSync(state.expenses[idx]); }
             } else { queueSync(state.expenses[idx]); }
@@ -6319,16 +6324,20 @@
         }
 
         async function autoExpireInboxItems() {
-            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-            const toExpire = state.expenses.filter(exp =>
-                exp.approved === false && exp.powens_id &&
-                (exp.created_at || '').split('T')[0] < cutoff
-            );
+            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
+            const toExpire = state.expenses.filter(exp => {
+                if (exp.approved !== false || !exp.powens_id) return false;
+                // Use powens_synced_at (inbox arrival time) if available,
+                // otherwise fall back to created_at (bank transaction date).
+                const arrivalDate = exp.powens_synced_at || exp.created_at || '';
+                return arrivalDate < cutoff;
+            });
             if (toExpire.length === 0) return;
             toExpire.forEach(exp => { trackDismissedPowensId(exp.powens_id); trackDeletedId(exp.id); });
             state.expenses = state.expenses.filter(exp => {
                 if (exp.approved !== false || !exp.powens_id) return true;
-                return (exp.created_at || '').split('T')[0] >= cutoff;
+                const arrivalDate = exp.powens_synced_at || exp.created_at || '';
+                return arrivalDate >= cutoff;
             });
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             console.log('[Splittr] Auto-expired', toExpire.length, 'inbox items');
@@ -6370,7 +6379,7 @@
             if (state.supabaseClient && navigator.onLine) {
                 ids.forEach(id => {
                     const exp = state.expenses.find(e => e.id === id);
-                    if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)], { onConflict: 'id' }).then(({ error }) => {
+                    if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)]).then(({ error }) => {
                         if (error) { console.error('Bulk-cat upsert error:', error); queueSync(exp); }
                     });
                 });
@@ -6390,7 +6399,7 @@
                 if (state.supabaseClient && navigator.onLine) {
                     data.snapshots.forEach(s => {
                         const exp = state.expenses.find(e => e.id === s.id);
-                        if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)], { onConflict: 'id' }).then(({ error }) => {
+                        if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)]).then(({ error }) => {
                             if (error) { console.error('Undo-cat upsert error:', error); queueSync(exp); }
                         });
                     });
