@@ -6,7 +6,6 @@
     
     <!-- Meta tags iOS PWA (Progressive Web App) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <style>body{background:#080b11;}</style>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Splittr">
     
@@ -650,17 +649,21 @@
         /* Date group header */
         .date-group-header {
             position: sticky;
-            top: 0;
+            top: -16px;  /* cancels the py-4 (16px) padding of main-scroll-area so header sticks flush under the app header */
             z-index: 5;
             backdrop-filter: blur(8px);
             background: rgba(15, 23, 42, 0.85);
         }
+        /* Prevent FOUC: the app shell is invisible until the splash screen is guaranteed visible.
+           The inline script immediately after the app-shell div removes this class so there's
+           zero delay — the shell becomes visible on the same frame the splash paints. */
+        #app-shell { visibility: hidden; }
     </style>
 </head>
 <body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]" style="overscroll-behavior: none; overflow: hidden;">
 
     <!-- Splash Screen (Animation de bienvenue avec chargement progressif) -->
-    <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11] transition-opacity duration-300" style="opacity:1;">
+    <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11] transition-opacity duration-300">
         <div class="text-center">
             <div class="w-20 h-20 mx-auto bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.4)] mb-4 splash-logo-pulse">
                 <svg viewBox="0 0 64 64" class="w-12 h-12" xmlns="http://www.w3.org/2000/svg">
@@ -704,7 +707,9 @@
         </div>
     </div>
 
-    <div class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
+    <div id="app-shell" class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
+    <!-- Reveal the shell immediately — splash is already painted above, so this frame is safe -->
+    <script>document.getElementById('app-shell').style.visibility='visible';</script>
         
         <!-- Header & Projects -->
         <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30" style="padding-top: max(1rem, env(safe-area-inset-top));">
@@ -975,11 +980,6 @@
                                         <input type="range" id="split-range" min="0" max="100" value="50" oninput="onSplitSliderInput(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
                                         <div class="flex justify-between text-[10px] font-bold text-slate-500 px-1"><span>Ratio :</span><span id="split-range-summary">50% / 50%</span></div>
                                     </div>
-                                    <!-- Overrun warning — shown when a typed amount exceeds the total -->
-                                    <div id="custom-split-overrun" class="hidden flex items-center gap-1.5 text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-3 py-2 rounded-lg">
-                                        <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
-                                        <span id="custom-split-overrun-msg">Le montant dépasse le total</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1031,11 +1031,10 @@
                 <section class="space-y-3">
                     <div class="flex justify-between items-center">
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4>
-                        <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
-                    </div>
-                    <!-- Last sync label -->
-                    <div class="flex items-center justify-end gap-2">
-                        <span id="last-sync-label" class="hidden text-[10px] text-slate-600 font-medium flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[9px]"></i><span id="last-sync-label-text"></span></span>
+                        <div class="flex items-center gap-2">
+                            <span id="last-sync-label" class="hidden text-[10px] text-slate-600 font-medium flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[9px]"></i><span id="last-sync-label-text"></span></span>
+                            <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
+                        </div>
                     </div>
                     <!-- Inbox multiselect toolbar — shown when ≥1 item selected -->
                     <div id="inbox-multiselect-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
@@ -1063,21 +1062,7 @@
             </div>
 
             <!-- VIEW 3: ANALYSE -->
-            <div id="view-analyse" class="tab-view hidden">
-                <!-- Empty state — shown when no expenses exist for the selected period -->
-                <div id="analyse-empty-state" class="hidden flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
-                    <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-2">
-                        <i class="fa-solid fa-chart-pie text-2xl text-indigo-400/60"></i>
-                    </div>
-                    <div class="space-y-1.5">
-                        <p class="text-sm font-bold text-slate-300">Pas encore de données</p>
-                        <p class="text-xs text-slate-500 leading-relaxed">Ajoutez vos premières dépenses pour voir vos analyses et statistiques ici.</p>
-                    </div>
-                    <button onclick="switchView('saisie')" class="mt-2 text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 rounded-xl active:scale-95 transition-all">
-                        <i class="fa-solid fa-plus mr-1.5"></i>Ajouter une dépense
-                    </button>
-                </div>
-                <div id="analyse-content" class="space-y-6">
+            <div id="view-analyse" class="tab-view hidden space-y-5">
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 shadow-inner space-y-3">
                     <div class="flex justify-between items-center"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold"><i class="fa-solid fa-filter mr-1 text-indigo-400"></i>Filtres Temporels</span><button onclick="resetAnalyseFilters()" class="text-[10px] text-indigo-400 hover:underline font-bold">Ce mois-ci</button></div>
                     <div class="grid grid-cols-2 gap-2">
@@ -1085,34 +1070,30 @@
                         <select id="filter-year" onchange="onAnalyseFilterChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-200"><option value="all">Toutes les années</option></select>
                     </div>
                 </section>
-                <section class="bg-gradient-to-r from-violet-950/20 to-indigo-950/20 border border-indigo-500/20 rounded-2xl p-6 space-y-5">
-                    <div class="text-center space-y-1.5"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dépenses totales de la période</span><div class="text-4xl font-black text-white mt-1" id="analyse-period-total">0,00 <span class="currency-display">€</span></div><p id="analyse-period-title" class="text-xs text-indigo-300 font-semibold mt-1">-</p></div>
-                    <div class="grid grid-cols-2 gap-4 pt-4 border-t border-indigo-500/10 text-center">
-                        <div class="space-y-1"><span id="analyse-label-p1" class="text-[10px] text-slate-400 block font-bold">Toi a payé</span><span id="analyse-val-p1" class="text-base font-extrabold text-slate-100 block">0,00 <span class="currency-display">€</span></span></div>
-                        <div class="space-y-1"><span id="analyse-label-p2" class="text-[10px] text-slate-400 block font-bold">Partenaire a payé</span><span id="analyse-val-p2" class="text-base font-extrabold text-slate-100 block">0,00 <span class="currency-display">€</span></span></div>
+                <section class="bg-gradient-to-r from-violet-950/20 to-indigo-950/20 border border-indigo-500/20 rounded-2xl p-5 space-y-4">
+                    <div class="text-center space-y-1"><span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dépenses totales de la période</span><div class="text-3xl font-black text-white" id="analyse-period-total">0.00 <span class="currency-display">€</span></div><p id="analyse-period-title" class="text-xs text-indigo-300 font-semibold">-</p></div>
+                    <div class="grid grid-cols-2 gap-4 pt-3 border-t border-indigo-500/10 text-center">
+                        <div class="space-y-0.5"><span id="analyse-label-p1" class="text-[10px] text-slate-400 block font-bold">Toi a payé</span><span id="analyse-val-p1" class="text-sm font-extrabold text-slate-100">0.00 <span class="currency-display">€</span></span></div>
+                        <div class="space-y-0.5"><span id="analyse-label-p2" class="text-[10px] text-slate-400 block font-bold">Partenaire a payé</span><span id="analyse-val-p2" class="text-sm font-extrabold text-slate-100">0.00 <span class="currency-display">€</span></span></div>
                     </div>
-                    <div class="text-center pt-1"><span id="analyse-period-debt" class="text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-2 rounded-full border border-indigo-500/10 block">Tout est équilibré</span></div>
+                    <div class="text-center pt-2"><span id="analyse-period-debt" class="text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-500/10 block">Tout est équilibré</span></div>
                 </section>
                 <section class="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 shadow-inner flex flex-col items-center">
                     <div class="w-full max-w-[240px] h-[240px] relative"><canvas id="analyse-chart"></canvas><div id="no-chart-data-message" class="hidden absolute inset-0 bg-slate-900/85 backdrop-blur-sm flex items-center justify-center text-center text-xs text-slate-500 rounded-xl">Aucune donnée disponible.</div></div>
                 </section>
-                <section class="space-y-3">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Détails par catégorie</h3>
-                    <div id="analyse-categories-list" class="space-y-2.5"></div>
-                </section>
+                <section class="space-y-3"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Détails par catégorie</h3><div id="analyse-categories-list" class="space-y-2"></div></section>
 
                 <!-- Statistics extras -->
                 <section class="space-y-3">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest"><i class="fa-solid fa-chart-line mr-1 text-indigo-400"></i>Statistiques</h3>
-                    <div id="analyse-stats-grid" class="grid grid-cols-2 gap-3"></div>
+                    <div id="analyse-stats-grid" class="grid grid-cols-2 gap-2.5"></div>
                 </section>
 
                 <!-- Settle-up history (only shown if there are settlements) -->
                 <section id="analyse-settlements-section" class="space-y-3 hidden">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest"><i class="fa-solid fa-handshake mr-1 text-emerald-400"></i>Historique des remboursements</h3>
-                    <div id="analyse-settlements-list" class="space-y-2.5"></div>
+                    <div id="analyse-settlements-list" class="space-y-2"></div>
                 </section>
-                </div><!-- end analyse-content -->
             </div>
 
             <!-- VIEW 4: HISTORIQUE VIEW -->
@@ -1467,7 +1448,7 @@
                     <div class="grid grid-cols-3 gap-1.5">
                         <button type="button" id="modal-edit-split-50" data-no-ripple onclick="selectModalEditSplitType('50_50')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">50 / 50</button>
                         <button type="button" id="modal-edit-split-100" data-no-ripple onclick="selectModalEditSplitType('100_other')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">L'autre</button>
-                        <button type="button" id="modal-edit-split-custom" data-no-ripple onclick="selectModalEditSplitType('custom'); setTimeout(()=>{const b=document.getElementById('modal-edit-custom-panel');if(b){b.scrollIntoView({behavior:'smooth',block:'center'});const inp=b.querySelector('input');if(inp)inp.focus();}},120);" class="py-2 text-[10px] font-bold rounded-lg border transition-all">Précis</button>
+                        <button type="button" id="modal-edit-split-custom" data-no-ripple onclick="selectModalEditSplitType('custom')" class="py-2 text-[10px] font-bold rounded-lg border transition-all">Précis</button>
                     </div>
 
                     <!-- Per-person participant rows -->
@@ -1497,7 +1478,7 @@
                             <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
                                 <span class="text-[9px] text-slate-500 block mb-1 font-bold" id="modal-edit-name-p1">Alex</span>
                                 <div class="relative font-bold text-slate-100">
-                                    <input type="text" inputmode="decimal" id="modal-edit-custom-amt-p1" placeholder="0.00" oninput="onModalEditCustomAmtInput('p1')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
+                                    <input type="number" id="modal-edit-custom-amt-p1" step="0.01" oninput="onModalEditCustomAmtInput('p1')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
                                     <span class="absolute right-0 top-0 text-slate-500 text-xs currency-display">€</span>
                                 </div>
                                 <span id="modal-edit-custom-pct-p1" class="text-[9px] text-slate-500 font-bold block text-right mt-1">50%</span>
@@ -1505,7 +1486,7 @@
                             <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
                                 <span class="text-[9px] text-slate-500 block mb-1 font-bold" id="modal-edit-name-p2">Sam</span>
                                 <div class="relative font-bold text-slate-100">
-                                    <input type="text" inputmode="decimal" id="modal-edit-custom-amt-p2" placeholder="0.00" oninput="onModalEditCustomAmtInput('p2')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
+                                    <input type="number" id="modal-edit-custom-amt-p2" step="0.01" oninput="onModalEditCustomAmtInput('p2')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
                                     <span class="absolute right-0 top-0 text-slate-500 text-xs currency-display">€</span>
                                 </div>
                                 <span id="modal-edit-custom-pct-p2" class="text-[9px] text-slate-500 font-bold block text-right mt-1">50%</span>
@@ -1715,23 +1696,11 @@
         }
         function setInboxPayerFilter(filter) {
             state.inboxPayerFilter = filter;
-            document.querySelectorAll('.inbox-filter-pill').forEach(btn => {
-                const isActive = btn.dataset.filter === filter;
-                btn.classList.toggle('border-indigo-500/40', isActive);
-                btn.classList.toggle('bg-indigo-500/15', isActive);
-                btn.classList.toggle('text-indigo-300', isActive);
-                btn.classList.toggle('border-slate-700', !isActive);
-                btn.classList.toggle('bg-slate-800/40', !isActive);
-                btn.classList.toggle('text-slate-400', !isActive);
-            });
             updateUI();
         }
         // Updates filter pill labels with real names (called after config loads)
         function updateInboxFilterLabels() {
-            const p1Btn = document.getElementById('inbox-filter-p1');
-            const p2Btn = document.getElementById('inbox-filter-p2');
-            if (p1Btn) p1Btn.textContent = state.config.p1Name || 'P1';
-            if (p2Btn) p2Btn.textContent = state.config.p2Name || 'P2';
+            // Pills removed — no-op kept for call-site compatibility
         }
         function setDevicePayer(payer) {
             renderDevicePayerPref();
@@ -2201,8 +2170,8 @@
             try {
                 const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
                 if (!error && data) {
-                    // Pull latest dismissed powens ids BEFORE filtering (must be awaited)
-                    try { await fetchDismissedPowensIds(); } catch(e) {}
+                    // Also pull latest dismissed powens ids
+                    try { fetchDismissedPowensIds(); } catch(e) {}
                     const supabaseIds = new Set(data.map(r => r.id));
 
                     // ── MULTI-DEVICE DELETE FIX ──────────────────────────────────────────────
@@ -2246,8 +2215,9 @@
                     state.expenses = [...localOnly, ...merged].filter(exp => {
                         if (_REVPOINTS_RE.test(exp.description || '')) return false;
                         if (exp.powens_id && _dismissedIds.has(String(exp.powens_id))) return false;
-                        // Privacy: hide pending Powens/Apple Pay transactions belonging to the other person
-                        if (exp.approved === false && exp.powens_id && exp.payer && exp.payer !== _myPayer) return false;
+                        // Privacy: hide ALL pending inbox transactions (Powens bank OR Apple Pay shortcut)
+                        // that belong to the other person — only show your own pending items
+                        if (exp.approved === false && exp.payer && exp.payer !== _myPayer) return false;
                         return true;
                     });
 
@@ -2283,7 +2253,6 @@
                         const { _animateIn, ...rest } = e;
                         return rest;
                     })));
-                    state._lastGeneralSync = new Date().toISOString();
 
                     // localOnly rows are already in the sync queue by definition (that's how we
                     // identified them). No need to re-queue — processOfflineQueue handles them.
@@ -2678,17 +2647,12 @@
             for (const conn of connections) {
                 try {
                     // Only fetch transactions since last sync (or last 90 days on first sync)
-                    const _syncFrom = conn.lastSync
-                        ? new Date(new Date(conn.lastSync) - 2 * 86400000)
-                        : new Date(Date.now() - 7 * 86400000); // 7 days on first sync
-                    // Cap lookback at 30 days — safety ceiling if app wasn't opened for weeks
-                    const _maxLookback = new Date(Date.now() - 30 * 86400000);
-                    const sinceDate = ((_syncFrom < _maxLookback) ? _maxLookback : _syncFrom)
-                        .toISOString().split('T')[0];
+                    const sinceDate = conn.lastSync
+                        ? conn.lastSync.split('T')[0]
+                        : new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]; // 7 days on first sync
                     const result = await callEdgeFunction('powens-sync', {
                         userToken: conn.userToken,
-                        since_date: sinceDate,
-                        connection_id: conn.connectionId || conn.connection_id || null
+                        since_date: sinceDate
                     });
                     if (result.expired) {
                         // Powens returned 401 — token is expired, flag the connection
@@ -2716,7 +2680,7 @@
                         const txDate = new Date(tx.date);
                         const _txWords = (tx.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
                         const isFuzzyDupe = state.expenses.some(e => {
-                            // Check ALL expenses (including other inbox items) for fuzzy dupes
+                            if (!e.approved) return false; // skip pending inbox items
                             if (Math.abs(e.amount - tx.amount) > 0.01) return false;
                             const d = Math.abs(new Date(e.created_at) - txDate);
                             if (d >= 86400000 * 1.5) return false; // within 1.5 days
@@ -2740,8 +2704,6 @@
                             type: tx.type || 'depense',
                             project: state.config.activeProject,
                             created_at: tx.date + 'T12:00:00.000Z',
-                            // Track when this item ARRIVED in the inbox (not the bank date)
-                            powens_synced_at: new Date().toISOString(),
                             // Flag fuzzy dupes — shown as a warning in the Inbox row
                             _fuzzyDupe: isFuzzyDupe
                         };
@@ -2761,10 +2723,7 @@
                             const { error } = await state.supabaseClient
                                 .from('expenses')
                                 .upsert(toInsert, { onConflict: 'powens_id', ignoreDuplicates: true });
-                            if (error) {
-                                console.error('[Powens] Supabase upsert error — queuing for retry:', error);
-                                newExpenses.forEach(e => queueSync(e));
-                            }
+                            if (error) console.error('[Powens] Supabase upsert error:', error);
                         }
                     }
                 } catch(e) {
@@ -2921,7 +2880,7 @@
                     let result = new Function('return ' + val)();
                     if(!isNaN(result) && result > 0) {
                         el.value = parseFloat(result).toFixed(2);
-                        if (el.id === 'amount') { syncCustomSplitUI(); updateSplitSummaryRows(); }
+                        if (el.id === 'amount') syncCustomSplitUI();
                         if (el.id === 'modal-edit-amount') onModalEditAmountInput(el.value);
                     }
                 }
@@ -3463,9 +3422,9 @@
 
             const p1AmountVal = hasAmount ? (totalVal * effectiveP1Pct / 100) : null;
             const p2AmountVal = hasAmount ? (totalVal - (p1AmountVal || 0)) : null;
-            const p1Amount = p1AmountVal !== null ? fmtNum(p1AmountVal) : '—';
-            const p2Amount = p2AmountVal !== null ? fmtNum(p2AmountVal) : '—';
-            const fmt = (v) => v === '—' ? '—' : `${v} ${cur}`;  // v is already fmtNum output
+            const p1Amount = p1AmountVal !== null ? p1AmountVal.toFixed(2) : '—';
+            const p2Amount = p2AmountVal !== null ? p2AmountVal.toFixed(2) : '—';
+            const fmt = (v) => v === '—' ? '—' : `${v} ${cur}`;
 
             safeSetInnerText('split-row-name-p1', p1Name);
             safeSetInnerText('split-row-name-p2', p2Name);
@@ -3700,6 +3659,8 @@
             if (type === 'custom') {
                 if (customBlock) customBlock.classList.remove('hidden');
                 syncCustomSplitUI();
+                // Just focus — iOS natively scrolls the focused input into view as the keyboard opens
+                setTimeout(() => document.getElementById('custom-amount-p1')?.focus(), 100);
             }
             updateSplitBadgeText();
             updateSplitSummaryRows();
@@ -3720,10 +3681,6 @@
                 p2In.value = v.toFixed(2);
                 p1In.value = (totalVal - v).toFixed(2);
             }
-            // Clear overrun state — value is now clamped and valid
-            const overrunEl = document.getElementById('custom-split-overrun');
-            if (overrunEl) overrunEl.classList.add('hidden');
-            [p1In, p2In].forEach(el => { if (el) { el.classList.remove('border-rose-500'); el.classList.add('border-slate-800'); } });
             onCustomAmountInput(target);
         }
 
@@ -3740,17 +3697,13 @@
 
         function recalcAmountsFromPct(totalVal) {
             const p1Val = parseFloat((totalVal * (state.p1SplitPercent / 100)).toFixed(2));
-            const p2Val = parseFloat((totalVal - p1Val).toFixed(2));
-            const c1 = document.getElementById('custom-amount-p1'); if (c1) c1.value = p1Val.toFixed(2);
-            const c2 = document.getElementById('custom-amount-p2'); if (c2) c2.value = p2Val.toFixed(2);
+            const p2Val = parseFloat((totalVal - p1Val).toFixed(2)); 
+            const c1 = document.getElementById('custom-amount-p1'); if (c1) c1.value = p1Val;
+            const c2 = document.getElementById('custom-amount-p2'); if (c2) c2.value = p2Val;
             safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`);
             safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
             safeSetInnerText('split-range-summary', `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`);
             const slider = document.getElementById('split-range'); if (slider) slider.value = state.p1SplitPercent;
-            // Clear any overrun warnings since we just set valid values
-            [c1, c2].forEach(el => { if (el) { el.classList.remove('border-rose-500'); el.classList.add('border-slate-800'); } });
-            const warn = document.getElementById('custom-split-overrun'); if (warn) warn.classList.add('hidden');
-            updateSplitSummaryRows();
         }
 
         function onCustomAmountInput(target) {
@@ -3759,44 +3712,21 @@
             if (isNaN(totalVal) || totalVal <= 0) return;
             const p1In = document.getElementById('custom-amount-p1');
             const p2In = document.getElementById('custom-amount-p2');
-            const overrunEl = document.getElementById('custom-split-overrun');
-            const overrunMsg = document.getElementById('custom-split-overrun-msg');
-            const activeIn = target === 'p1' ? p1In : p2In;
-            const otherIn  = target === 'p1' ? p2In : p1In;
-            const typedVal = parseFloat(activeIn.value.replace(/,/g, '.')) || 0;
-
-            // Show overrun warning if the typed value exceeds the total — but don't clamp yet
-            // (clamping happens on blur in finalizeCustomAmount)
-            const isOverrun = typedVal > totalVal;
-            if (overrunEl) overrunEl.classList.toggle('hidden', !isOverrun);
-            if (activeIn) {
-                activeIn.classList.toggle('border-rose-500', isOverrun);
-                activeIn.classList.toggle('focus:border-rose-500', isOverrun);
-                activeIn.classList.toggle('border-slate-800', !isOverrun);
-            }
-            if (isOverrun) {
-                const excess = (typedVal - totalVal).toFixed(2);
-                if (overrunMsg) overrunMsg.textContent = `Dépasse le total de ${excess} ${state.config.currency}`;
-                // Still update the other field to 0 to show state
-                otherIn.value = '0.00';
-                state.p1SplitPercent = target === 'p1' ? 100 : 0;
+            // Parse typed value — never reformat the active input mid-typing
+            let p1Val = parseFloat(p1In.value.replace(/,/g, '.')) || 0;
+            let p2Val = parseFloat(p2In.value.replace(/,/g, '.')) || 0;
+            if (target === 'p1') {
+                p1Val = Math.min(Math.max(p1Val, 0), totalVal);
+                p2Val = parseFloat((totalVal - p1Val).toFixed(2));
+                p2In.value = p2Val.toFixed(2); // only update the OTHER field
             } else {
-                let p1Val = parseFloat(p1In.value.replace(/,/g, '.')) || 0;
-                let p2Val = parseFloat(p2In.value.replace(/,/g, '.')) || 0;
-                if (target === 'p1') {
-                    p1Val = Math.min(Math.max(p1Val, 0), totalVal);
-                    p2Val = parseFloat((totalVal - p1Val).toFixed(2));
-                    p2In.value = p2Val.toFixed(2);
-                } else {
-                    p2Val = Math.min(Math.max(p2Val, 0), totalVal);
-                    p1Val = parseFloat((totalVal - p2Val).toFixed(2));
-                    p1In.value = p1Val.toFixed(2);
-                }
-                state.p1SplitPercent = Math.round((p1Val / totalVal) * 100);
+                p2Val = Math.min(Math.max(p2Val, 0), totalVal);
+                p1Val = parseFloat((totalVal - p2Val).toFixed(2));
+                p1In.value = p1Val.toFixed(2); // only update the OTHER field
             }
+            state.p1SplitPercent = Math.round((p1Val / totalVal) * 100);
             const rng = document.getElementById('split-range'); if(rng) rng.value = state.p1SplitPercent;
-            safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`);
-            safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
+            safeSetInnerText('custom-pct-label-p1', `${state.p1SplitPercent}%`); safeSetInnerText('custom-pct-label-p2', `${100 - state.p1SplitPercent}%`);
             safeSetInnerText('split-range-summary', `${state.p1SplitPercent}% / ${100 - state.p1SplitPercent}%`);
             updateSplitBadgeText();
             updateSplitSummaryRows();
@@ -3840,15 +3770,7 @@
             
             evaluateMath(amtIn);
             const rawAmount = parseFloat(amtIn.value);
-            if (!rawAmount || isNaN(rawAmount)) {
-                amtIn.classList.add('border-rose-500', 'ring-1', 'ring-rose-500/50');
-                amtIn.placeholder = 'Montant requis !';
-                amtIn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                amtIn.focus();
-                setTimeout(() => { amtIn.classList.remove('border-rose-500', 'ring-1', 'ring-rose-500/50'); amtIn.placeholder = '0,00'; }, 2500);
-                showToast('⚠️ Saisissez un montant');
-                return;
-            }
+            if (!rawAmount || isNaN(rawAmount)) { showToast("Montant invalide."); return; }
 
             let categoryDesc = (descIn && descIn.value.trim()) || state.selectedCategory;
             let activeCategory = state.selectedCategory; let activeIcon = state.selectedIcon;
@@ -4067,13 +3989,9 @@
             b100.className = type === '100_other' ? act : inact;
             bCust.className = type === 'custom' ? act : inact;
 
-            // Restore both participants when switching to any standard type,
-            // EXCEPT 100_other which means payer is excluded from the split
-            if (type === '50_50' || type === 'custom') {
+            // Restore both participants when switching to any standard type
+            if (type === '50_50' || type === '100_other' || type === 'custom') {
                 tx.splitParticipants = { p1: true, p2: true };
-            } else if (type === '100_other') {
-                // Payer paid for the other person — payer is not in the split
-                tx.splitParticipants = { p1: tx.payer !== 'p1', p2: tx.payer !== 'p2' };
             }
 
             if (type === 'custom') {
@@ -4081,6 +3999,8 @@
                 if (prevType === 'solo') { tx.p1SharePercent = 50; tx.p2SharePercent = 50; }
                 panel.classList.remove('hidden');
                 syncModalEditCustomSplitNumbers();
+                // Just focus — iOS natively scrolls the focused input into view
+                setTimeout(() => document.getElementById('modal-edit-custom-amt-p1')?.focus(), 100);
             } else {
                 panel.classList.add('hidden');
                 if (type === '50_50') {
@@ -4992,7 +4912,7 @@
             ids.add(pid);
             const arr = [...ids].slice(-2000);
             localStorage.setItem('us_dismissed_powens_ids', JSON.stringify(arr));
-            // Sync to Supabase so partner's phone also ignores this transaction (per-payer)
+            // Sync to Supabase so partner's phone also ignores this transaction
             if (state.supabaseClient && navigator.onLine) {
                 const devicePayer = getDevicePayer();
                 state.supabaseClient.from('dismissed_powens')
@@ -5166,14 +5086,6 @@
                 return (sM === 'all' || d.getMonth().toString() === sM) && (sY === 'all' || d.getFullYear().toString() === sY);
             });
 
-            // Empty state
-            const emptyEl = document.getElementById('analyse-empty-state');
-            const contentEl = document.getElementById('analyse-content');
-            const hasData = filtered.some(e => e.type !== 'transfert');
-            if (emptyEl) emptyEl.classList.toggle('hidden', hasData);
-            if (contentEl) contentEl.classList.toggle('hidden', !hasData);
-            if (!hasData) return;
-
             let tS = 0; let d1 = 0; let d2 = 0; let paid1 = 0; let paid2 = 0; const cTot = {};
             filtered.forEach(exp => {
                 const sp1 = exp.p1SharePercent ?? 50; const sp2 = exp.p2SharePercent ?? 50;
@@ -5187,7 +5099,7 @@
                 }
             });
 
-            safeSetInnerText('analyse-period-total', fmtMoney(tS));
+            safeSetInnerText('analyse-period-total', `${tS.toFixed(2)} ${state.config.currency}`);
             // Actual paid amounts per person
             const valP1 = document.getElementById('analyse-val-p1');
             const valP2 = document.getElementById('analyse-val-p2');
@@ -5196,8 +5108,8 @@
             
             const diff = d2 - d1; const debtEl = document.getElementById('analyse-period-debt');
             if (Math.abs(diff) < 0.01) { debtEl.innerText = "Équilibré sur ce mois"; debtEl.className = "text-[11px] font-bold bg-indigo-500/10 text-indigo-300 px-3 py-1.5 rounded-full block"; }
-            else if (diff > 0) { debtEl.innerText = `${state.config.p2Name} doit fmtMoney(diff)}`; debtEl.className = "text-[11px] font-bold bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full block"; }
-            else { debtEl.innerText = `${state.config.p1Name} doit ${fmtMoney(Math.abs(diff))} à ${state.config.p2Name}`; debtEl.className = "text-[11px] font-bold bg-rose-500/10 text-rose-400 px-3 py-1.5 rounded-full block"; }
+            else if (diff > 0) { debtEl.innerText = `${state.config.p2Name} doit ${diff.toFixed(2)} ${state.config.currency}`; debtEl.className = "text-[11px] font-bold bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full block"; }
+            else { debtEl.innerText = `${state.config.p1Name} doit ${Math.abs(diff).toFixed(2)} ${state.config.currency} à ${state.config.p2Name}`; debtEl.className = "text-[11px] font-bold bg-rose-500/10 text-rose-400 px-3 py-1.5 rounded-full block"; }
 
             const listEl = document.getElementById('analyse-categories-list'); listEl.innerHTML = '';
             const msgEl = document.getElementById('no-chart-data-message');
@@ -5211,7 +5123,7 @@
                 const pct = (c.a / tS) * 100; const col = pal[c.n] || fCols[cIdx++%fCols.length];
                 lbls.push(c.n); dats.push(c.a); cols.push(col);
                 const el = document.createElement('div'); el.className = "bg-slate-950/20 border border-slate-800/60 p-3.5 rounded-xl flex justify-between items-center text-xs";
-                el.innerHTML = `<div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-800 bg-slate-900" style="color:${col}"><i class="fa-solid ${c.i}"></i></span><div><span class="font-bold text-slate-200 block">${c.n}</span><span class="text-[9px] text-slate-500 font-bold uppercase">${pct.toFixed(0)}%</span></div></div><div class="text-right"><span class="font-extrabold text-slate-100 text-sm">${fmtMoney(c.a)}</span></div>`;
+                el.innerHTML = `<div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-800 bg-slate-900" style="color:${col}"><i class="fa-solid ${c.i}"></i></span><div><span class="font-bold text-slate-200 block">${c.n}</span><span class="text-[9px] text-slate-500 font-bold uppercase">${pct.toFixed(0)}%</span></div></div><div class="text-right"><span class="font-extrabold text-slate-100 text-sm">${c.a.toFixed(2)} ${state.config.currency}</span></div>`;
                 listEl.appendChild(el);
             });
 
@@ -5219,7 +5131,7 @@
             if (canvas && typeof Chart !== 'undefined') {
                 if(state.chartInstance) state.chartInstance.destroy();
                 try { Chart.register(ChartDataLabels); } catch(e){}
-                state.chartInstance = new Chart(canvas.getContext('2d'), { type: 'pie', data: { labels: lbls, datasets: [{ data: dats, backgroundColor: cols, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (v,c) => { let s=c.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); let p=(v*100/s).toFixed(0); return p>4?`${p}%`:''}, color: '#fff', font: { weight: 'bold', size: 11 } }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${fmtMoney(c.parsed)}` } } } } });
+                state.chartInstance = new Chart(canvas.getContext('2d'), { type: 'pie', data: { labels: lbls, datasets: [{ data: dats, backgroundColor: cols, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (v,c) => { let s=c.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); let p=(v*100/s).toFixed(0); return p>4?`${p}%`:''}, color: '#fff', font: { weight: 'bold', size: 11 } }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${c.parsed.toFixed(2)} ${state.config.currency}` } } } } });
             }
         }
 
@@ -5272,7 +5184,12 @@
                 const actProj = state.config.activeProject;
                 const proExps = state.expenses.filter(exp => exp.project === actProj || (!exp.project && actProj === 'Principal'));
                 const approvedExpenses = proExps.filter(exp => exp.approved !== false);
-                const unapprovedExpenses = proExps.filter(exp => exp.approved === false);
+                // Only show pending items that belong to THIS device's payer
+                // (covers both Powens bank transactions AND Apple Pay/shortcut transactions)
+                const myPayer = getDevicePayer();
+                const unapprovedExpenses = proExps.filter(exp =>
+                    exp.approved === false && (!exp.payer || exp.payer === myPayer)
+                );
 
                 // Update Web App Badge (iOS 16.4+)
                 if ('setAppBadge' in navigator) {
@@ -5303,20 +5220,20 @@
                 });
 
                 const diff = d2 - d1;
-                const b1 = diff > 0 ? `+${fmtNum(diff)}` : diff < 0 ? `${fmtNum(diff)}` : `0,00`;
-                const b2 = diff < 0 ? `+${fmtNum(Math.abs(diff))}` : diff > 0 ? `-${fmtNum(diff)}` : `0,00`;
+                const b1 = diff > 0 ? `+${diff.toFixed(2)}` : diff < 0 ? `${diff.toFixed(2)}` : `0.00`;
+                const b2 = diff < 0 ? `+${Math.abs(diff).toFixed(2)}` : diff > 0 ? `-${diff.toFixed(2)}` : `0.00`;
 
-                safeSetInnerText('dashboard-total', fmtMoney(totalGroup));
+                safeSetInnerText('dashboard-total', `${totalGroup.toFixed(2)} ${state.config.currency}`);
                 safeSetInnerText('dash-name-p1', state.config.p1Name);
                 safeSetInnerText('dash-name-p2', state.config.p2Name);
                 
-                safeSetInnerText('dash-paid-p1', fmtMoney(t1));
-                safeSetInnerText('dash-share-p1', fmtMoney(s1));
+                safeSetInnerText('dash-paid-p1', `${t1.toFixed(2)} ${state.config.currency}`);
+                safeSetInnerText('dash-share-p1', `${s1.toFixed(2)} ${state.config.currency}`);
                 document.getElementById('dash-balance-p1').innerText = `Bilan : ${b1} ${state.config.currency}`;
                 document.getElementById('dash-balance-p1').className = diff > 0 ? "text-sm font-black text-emerald-400" : diff < 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-slate-400";
 
-                safeSetInnerText('dash-paid-p2', fmtMoney(t2));
-                safeSetInnerText('dash-share-p2', fmtMoney(s2));
+                safeSetInnerText('dash-paid-p2', `${t2.toFixed(2)} ${state.config.currency}`);
+                safeSetInnerText('dash-share-p2', `${s2.toFixed(2)} ${state.config.currency}`);
                 document.getElementById('dash-balance-p2').innerText = `Bilan : ${b2} ${state.config.currency}`;
                 document.getElementById('dash-balance-p2').className = diff < 0 ? "text-sm font-black text-emerald-400" : diff > 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-slate-400";
 
@@ -5330,7 +5247,7 @@
                 // diff = d2 - d1: positive means p1 is owed, negative means p2 is owed
                 const iOwe = devicePayer === 'p1' ? diff < 0 : diff > 0;
                 const theyOwe = devicePayer === 'p1' ? diff > 0 : diff < 0;
-                const owedAmount = fmtNum(Math.abs(diff));
+                const owedAmount = Math.abs(diff).toFixed(2);
                 if (Math.abs(diff) < 0.01) {
                     sDisp.innerText = "Tout est équilibré !"; sDisp.className = "text-xs font-bold text-indigo-300";
                     if(sBtn) sBtn.classList.add('hidden');
@@ -5349,13 +5266,8 @@
                     ? unapprovedExpenses
                     : unapprovedExpenses.filter(e => e.payer === payerFilter);
                 if (unapprovedExpenses.length > 0) {
-                    // Nav badge always shows total unread count
                     if (inBadge) { inBadge.classList.remove('hidden'); inBadge.innerText = unapprovedExpenses.length; }
-                    // Header count reflects active filter — shows filtered/total when filtered
-                    const countText = payerFilter === 'all'
-                        ? `${unapprovedExpenses.length} à valider`
-                        : `${filteredExpenses.length} / ${unapprovedExpenses.length} à valider`;
-                    if (inCount) { inCount.innerText = countText; inCount.className = "text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2.5 py-0.5 rounded-full"; }
+                    if (inCount) { inCount.innerText = `${unapprovedExpenses.length} à valider`; inCount.className = "text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2.5 py-0.5 rounded-full"; }
                     if (inList) {
                         clearInboxMultiselect(); inList.innerHTML = ''; try { updateLastSyncLabel(); } catch(e) {}
                         if (filteredExpenses.length === 0) {
@@ -5391,7 +5303,7 @@
                             const typeBadge = isRevenu
                                 ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-bold">💰 Revenu</span>`
                                 : `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[9px] font-bold">💸 Dépense</span>`;
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${fmtMoney(exp.amount)}</span></div>
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
@@ -5460,7 +5372,7 @@
                         item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                         const expDate = new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'});
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center ${exp.type==='revenu'?'text-emerald-400':exp.type==='transfert'?'text-sky-400':'text-indigo-400'} border border-slate-800 shrink-0"><i class="fa-solid ${exp.type==='revenu'?'fa-circle-dollar-sign':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${fmtMoney(exp.amount)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-coins':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
@@ -6302,23 +6214,26 @@
 
         function updateLastSyncLabel() {
             const el = document.getElementById('last-sync-label');
-            const textEl = document.getElementById('last-sync-label-text');
             if (!el) return;
             const conns = loadPowensConnections().filter(c => c.lastSync);
-            const latest = conns.length > 0
-                ? conns.reduce((max, c) => c.lastSync > max ? c.lastSync : max, '')
-                : (state._lastGeneralSync || null);
+            if (conns.length === 0) { el.classList.add('hidden'); return; }
+            // Use the most recent lastSync across all connections
+            const latest = conns.reduce((max, c) => c.lastSync > max ? c.lastSync : max, '');
             if (!latest) { el.classList.add('hidden'); return; }
             const d = new Date(latest);
-            const diffMin = Math.round((Date.now() - d) / 60000);
+            const now = new Date();
+            const diffMin = Math.round((now - d) / 60000);
             let label;
-            if (diffMin < 1) label = "à l'instant";
-            else if (diffMin < 60) label = `il y a ${diffMin} min`;
-            else {
+            if (diffMin < 1) label = "Sync à l'instant";
+            else if (diffMin < 60) label = `Sync il y a ${diffMin} min`;
+            else if (diffMin < 1440) {
                 const h = d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-                label = diffMin < 1440 ? `à ${h}` : `le ${d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
+                label = `Sync à ${h}`;
+            } else {
+                const dateStr = d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+                label = `Sync le ${dateStr}`;
             }
-            if (textEl) textEl.textContent = label;
+            el.textContent = label;
             el.classList.remove('hidden');
         }
 
@@ -6335,18 +6250,16 @@
         }
 
         async function autoExpireInboxItems() {
-            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
-            const toExpire = state.expenses.filter(exp => {
-                if (exp.approved !== false || !exp.powens_id) return false;
-                const arrivalDate = exp.powens_synced_at || exp.created_at || '';
-                return arrivalDate < cutoff;
-            });
+            const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+            const toExpire = state.expenses.filter(exp =>
+                exp.approved === false && exp.powens_id &&
+                (exp.created_at || '').split('T')[0] < cutoff
+            );
             if (toExpire.length === 0) return;
             toExpire.forEach(exp => { trackDismissedPowensId(exp.powens_id); trackDeletedId(exp.id); });
             state.expenses = state.expenses.filter(exp => {
                 if (exp.approved !== false || !exp.powens_id) return true;
-                const arrivalDate = exp.powens_synced_at || exp.created_at || '';
-                return arrivalDate >= cutoff;
+                return (exp.created_at || '').split('T')[0] >= cutoff;
             });
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             console.log('[Splittr] Auto-expired', toExpire.length, 'inbox items');
@@ -6479,13 +6392,16 @@
             list.innerHTML = '';
             groups.forEach(g => {
                 const header = document.createElement('div');
-                header.className = "date-group-header text-[10px] font-black uppercase tracking-widest text-slate-500 py-1 px-1 mt-2 first:mt-0";
+                header.className = "date-group-header text-[10px] font-black uppercase tracking-widest text-slate-500 py-2 px-1";
                 header.innerText = g.label;
                 list.appendChild(header);
 
                 g.items.forEach(exp => {
                     const lbl = exp.type === 'transfert' ? 'Transfert' : exp.type === 'revenu' ? 'Revenu' : 'Dépense';
-                    const color = categoryColor(exp.category || 'Autre');
+                    const isRevenuH = exp.type === 'revenu';
+                    const isTransfertH = exp.type === 'transfert';
+                    const iconColor = isRevenuH ? '#34d399' : isTransfertH ? '#38bdf8' : categoryColor(exp.category || 'Autre');
+                    const histIcon = isRevenuH ? 'fa-coins' : isTransfertH ? 'fa-right-left' : (exp.icon || 'fa-asterisk');
                     const wrapper = document.createElement('div');
                     wrapper.id = `history-item-${exp.id}`;
                     const animClass = exp._animateIn ? ' row-slide-in' : '';
@@ -6505,8 +6421,8 @@
                         </div>
                         <div class="swipe-content border border-slate-800/50 rounded-xl p-4 w-full flex justify-between items-center min-h-[64px]">
                             <div class="flex items-center gap-3.5 flex-1 min-w-0">
-                                <div class="w-11 h-11 rounded-xl flex items-center justify-center border shrink-0" style="background-color: ${color}1a; border-color: ${color}33; color: ${color};">
-                                    <i class="fa-solid ${exp.icon||'fa-asterisk'} text-base"></i>
+                                <div class="w-11 h-11 rounded-xl flex items-center justify-center border shrink-0" style="background-color: ${iconColor}1a; border-color: ${iconColor}33; color: ${iconColor};">
+                                    <i class="fa-solid ${histIcon} text-base"></i>
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p>
