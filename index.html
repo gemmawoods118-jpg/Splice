@@ -684,6 +684,9 @@
         </div>
     </div>
 
+    <!-- Resume cover — masks GPU-cached frame flash on iOS PWA resume -->
+    <div id="resume-cover" style="display:none;position:fixed;inset:0;z-index:99;background:#080b11;opacity:1;transition:opacity 0.15s ease;pointer-events:none;"></div>
+
     <!-- Success Overlay -->
     <div id="success-overlay" class="fixed inset-0 z-[90] hidden flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 opacity-0">
         <div class="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(16,185,129,0.5)] mb-4 scale-0" id="success-icon">
@@ -1732,16 +1735,16 @@
         function toggleSettingsModal(show) {
             const modal = document.getElementById('settings-modal');
             if (show) {
-                modal.classList.remove('hidden');
-                // Reset any leftover swipe-dismiss transform before animating in
                 const inner = modal.querySelector('div');
+                // Reset transform BEFORE unhiding so there's no flash of off-screen position
                 if (inner) {
                     inner.style.transition = 'none';
                     inner.style.transform  = 'translateY(0px)';
                 }
-                setTimeout(() => {
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => {
                     if (inner) attachSwipeToDismiss(inner, () => toggleSettingsModal(false));
-                }, 50);
+                });
                 // Always re-populate config fields — WebKit blanks password fields on resume
                 const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
                 setVal('config-p1', state.config.p1Name);
@@ -2793,7 +2796,16 @@
 
             // Re-sync when PWA regains focus after returning from Powens webview in Safari
             document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') autoSyncOnFocus();
+                if (document.visibilityState === 'visible') {
+                    autoSyncOnFocus();
+                    // Fade out the resume cover — masks GPU-cached frame flash
+                    const cover = document.getElementById('resume-cover');
+                    if (cover) {
+                        cover.style.transition = 'opacity 0.18s ease';
+                        cover.style.opacity = '0';
+                        setTimeout(() => { cover.style.display = 'none'; }, 200);
+                    }
+                }
             });
             window.addEventListener('pageshow', (e) => {
                 if (e.persisted) autoSyncOnFocus();
@@ -2853,6 +2865,13 @@
                     fetchSupabaseExpenses().then(() => updateUI()).catch(() => {});
                 }
             };
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    // App going to background: pre-show cover so it's ready
+                    const cover = document.getElementById('resume-cover');
+                    if (cover) { cover.style.opacity = '1'; cover.style.display = 'block'; cover.style.transition = 'none'; }
+                }
+            });
             document.addEventListener('visibilitychange', handleAppResume);
             window.addEventListener('pageshow', (e) => {
                 // pageshow with persisted=true means iOS restored from cache (bfcache)
