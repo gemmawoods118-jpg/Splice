@@ -3670,12 +3670,16 @@
             if (type === 'custom') {
                 if (customBlock) customBlock.classList.remove('hidden');
                 syncCustomSplitUI();
-                // Scroll to the Précis block and focus the first input
+                // Scroll the main scroll area to reveal the Précis block then focus
                 setTimeout(() => {
-                    customBlock?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    const firstInput = document.getElementById('custom-amount-p1');
-                    if (firstInput) firstInput.focus();
-                }, 120);
+                    const scrollArea = document.getElementById('main-scroll-area');
+                    if (scrollArea && customBlock) {
+                        const blockTop = customBlock.getBoundingClientRect().top;
+                        const areaTop = scrollArea.getBoundingClientRect().top;
+                        scrollArea.scrollBy({ top: blockTop - areaTop - 16, behavior: 'smooth' });
+                    }
+                    document.getElementById('custom-amount-p1')?.focus();
+                }, 80);
             }
             updateSplitBadgeText();
             updateSplitSummaryRows();
@@ -4014,12 +4018,14 @@
                 if (prevType === 'solo') { tx.p1SharePercent = 50; tx.p2SharePercent = 50; }
                 panel.classList.remove('hidden');
                 syncModalEditCustomSplitNumbers();
-                // Scroll to the Précis panel and focus first input
+                // Scroll the modal content to the panel, focus first input
                 setTimeout(() => {
-                    panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    const firstInput = document.getElementById('modal-edit-custom-amt-p1');
-                    if (firstInput) firstInput.focus();
-                }, 120);
+                    const modalContent = document.getElementById('edit-tx-modal-content');
+                    if (modalContent && panel) {
+                        modalContent.scrollTop = modalContent.scrollTop + panel.getBoundingClientRect().top - modalContent.getBoundingClientRect().top - 16;
+                    }
+                    document.getElementById('modal-edit-custom-amt-p1')?.focus();
+                }, 80);
             } else {
                 panel.classList.add('hidden');
                 if (type === '50_50') {
@@ -6411,7 +6417,10 @@
 
                 g.items.forEach(exp => {
                     const lbl = exp.type === 'transfert' ? 'Transfert' : exp.type === 'revenu' ? 'Revenu' : 'Dépense';
-                    const color = categoryColor(exp.category || 'Autre');
+                    const isRevenuH = exp.type === 'revenu';
+                    const isTransfertH = exp.type === 'transfert';
+                    const iconColor = isRevenuH ? '#34d399' : isTransfertH ? '#38bdf8' : categoryColor(exp.category || 'Autre');
+                    const histIcon = isRevenuH ? 'fa-circle-dollar-sign' : isTransfertH ? 'fa-right-left' : (exp.icon || 'fa-asterisk');
                     const wrapper = document.createElement('div');
                     wrapper.id = `history-item-${exp.id}`;
                     const animClass = exp._animateIn ? ' row-slide-in' : '';
@@ -6431,8 +6440,8 @@
                         </div>
                         <div class="swipe-content border border-slate-800/50 rounded-xl p-4 w-full flex justify-between items-center min-h-[64px]">
                             <div class="flex items-center gap-3.5 flex-1 min-w-0">
-                                <div class="w-11 h-11 rounded-xl flex items-center justify-center border shrink-0" style="background-color: ${color}1a; border-color: ${color}33; color: ${color};">
-                                    <i class="fa-solid ${exp.type === 'revenu' ? 'fa-circle-dollar-sign' : exp.type === 'transfert' ? 'fa-right-left' : (exp.icon||'fa-asterisk')} text-base"></i>
+                                <div class="w-11 h-11 rounded-xl flex items-center justify-center border shrink-0" style="background-color: ${iconColor}1a; border-color: ${iconColor}33; color: ${iconColor};">
+                                    <i class="fa-solid ${histIcon} text-base"></i>
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p>
