@@ -3670,13 +3670,14 @@
             if (type === 'custom') {
                 if (customBlock) customBlock.classList.remove('hidden');
                 syncCustomSplitUI();
-                // Scroll the main scroll area to reveal the Précis block then focus
+                // Scroll #main-scroll-area so the Précis block is visible, then focus
                 setTimeout(() => {
                     const scrollArea = document.getElementById('main-scroll-area');
                     if (scrollArea && customBlock) {
-                        const blockTop = customBlock.getBoundingClientRect().top;
-                        const areaTop = scrollArea.getBoundingClientRect().top;
-                        scrollArea.scrollBy({ top: blockTop - areaTop - 16, behavior: 'smooth' });
+                        // Walk up to find the offset relative to the scroll area
+                        let el = customBlock, top = 0;
+                        while (el && el !== scrollArea) { top += el.offsetTop; el = el.offsetParent; }
+                        scrollArea.scrollTo({ top: top - 12, behavior: 'smooth' });
                     }
                     document.getElementById('custom-amount-p1')?.focus();
                 }, 80);
@@ -4018,11 +4019,13 @@
                 if (prevType === 'solo') { tx.p1SharePercent = 50; tx.p2SharePercent = 50; }
                 panel.classList.remove('hidden');
                 syncModalEditCustomSplitNumbers();
-                // Scroll the modal content to the panel, focus first input
+                // Scroll the modal content to the panel using offsetTop (no BoundingClientRect fight)
                 setTimeout(() => {
                     const modalContent = document.getElementById('edit-tx-modal-content');
                     if (modalContent && panel) {
-                        modalContent.scrollTop = modalContent.scrollTop + panel.getBoundingClientRect().top - modalContent.getBoundingClientRect().top - 16;
+                        let el = panel, top = 0;
+                        while (el && el !== modalContent) { top += el.offsetTop; el = el.offsetParent; }
+                        modalContent.scrollTo({ top: top - 12, behavior: 'smooth' });
                     }
                     document.getElementById('modal-edit-custom-amt-p1')?.focus();
                 }, 80);
@@ -5391,7 +5394,7 @@
                         item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                         const expDate = new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'});
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center text-indigo-400 border border-slate-800 shrink-0"><i class="fa-solid ${exp.icon||'fa-asterisk'} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-circle-dollar-sign':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
