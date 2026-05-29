@@ -7,6 +7,7 @@
     <!-- Meta tags iOS PWA (Progressive Web App) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#080b11">
     <meta name="apple-mobile-web-app-title" content="Splittr">
     
     <title>Splittr - Comptes à Deux</title>
@@ -663,7 +664,7 @@
 <body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]" style="overscroll-behavior: none; overflow: hidden;">
 
     <!-- Splash Screen (Animation de bienvenue avec chargement progressif) -->
-    <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11] transition-opacity duration-300">
+    <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11]" style="opacity:1;transition:opacity 0.2s ease;">
         <div class="text-center">
             <div class="w-20 h-20 mx-auto bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.4)] mb-4 splash-logo-pulse">
                 <svg viewBox="0 0 64 64" class="w-12 h-12" xmlns="http://www.w3.org/2000/svg">
@@ -2767,6 +2768,7 @@
             if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
                 document.body.classList.add('is-pwa');
             }
+
             generateAndSetAppIcon();
             initPullToRefresh();
 
@@ -2774,7 +2776,7 @@
                 const splash = document.getElementById('splash-screen');
                 if(splash) {
                     splash.style.opacity = '0';
-                    setTimeout(() => splash.style.display = 'none', 400);
+                    setTimeout(() => splash.style.display = 'none', 220);
                 }
             }, 2100);
 
