@@ -1031,15 +1031,9 @@
                     <div class="flex justify-between items-center">
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Paiements en attente</h4>
                         <div class="flex items-center gap-2">
-                            <span id="last-sync-label" class="text-[10px] text-slate-600 font-medium hidden"></span>
+                            <span id="last-sync-label" class="hidden text-[10px] text-slate-600 font-medium flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[9px]"></i><span id="last-sync-label-text"></span></span>
                             <span id="inbox-badge-count" class="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-0.5 rounded-full">0 à valider</span>
                         </div>
-                    </div>
-                    <!-- Payer filter pills -->
-                    <div class="flex gap-1.5" id="inbox-payer-filters">
-                        <button type="button" data-no-ripple data-filter="all" onclick="setInboxPayerFilter('all')" class="inbox-filter-pill active text-[10px] font-bold px-3 py-1 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 transition-all active:scale-95">Tous</button>
-                        <button type="button" data-no-ripple data-filter="p1" onclick="setInboxPayerFilter('p1')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p1">—</button>
-                        <button type="button" data-no-ripple data-filter="p2" onclick="setInboxPayerFilter('p2')" class="inbox-filter-pill text-[10px] font-bold px-3 py-1 rounded-full border border-slate-700 bg-slate-800/40 text-slate-400 transition-all active:scale-95" id="inbox-filter-p2">—</button>
                     </div>
                     <!-- Inbox multiselect toolbar — shown when ≥1 item selected -->
                     <div id="inbox-multiselect-toolbar" class="hidden bg-indigo-600/15 border border-indigo-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
@@ -3670,17 +3664,8 @@
             if (type === 'custom') {
                 if (customBlock) customBlock.classList.remove('hidden');
                 syncCustomSplitUI();
-                // Scroll #main-scroll-area so the Précis block is visible, then focus
-                setTimeout(() => {
-                    const scrollArea = document.getElementById('main-scroll-area');
-                    if (scrollArea && customBlock) {
-                        // Walk up to find the offset relative to the scroll area
-                        let el = customBlock, top = 0;
-                        while (el && el !== scrollArea) { top += el.offsetTop; el = el.offsetParent; }
-                        scrollArea.scrollTo({ top: top - 12, behavior: 'smooth' });
-                    }
-                    document.getElementById('custom-amount-p1')?.focus();
-                }, 80);
+                // Just focus — iOS natively scrolls the focused input into view as the keyboard opens
+                setTimeout(() => document.getElementById('custom-amount-p1')?.focus(), 100);
             }
             updateSplitBadgeText();
             updateSplitSummaryRows();
@@ -4019,16 +4004,8 @@
                 if (prevType === 'solo') { tx.p1SharePercent = 50; tx.p2SharePercent = 50; }
                 panel.classList.remove('hidden');
                 syncModalEditCustomSplitNumbers();
-                // Scroll the modal content to the panel using offsetTop (no BoundingClientRect fight)
-                setTimeout(() => {
-                    const modalContent = document.getElementById('edit-tx-modal-content');
-                    if (modalContent && panel) {
-                        let el = panel, top = 0;
-                        while (el && el !== modalContent) { top += el.offsetTop; el = el.offsetParent; }
-                        modalContent.scrollTo({ top: top - 12, behavior: 'smooth' });
-                    }
-                    document.getElementById('modal-edit-custom-amt-p1')?.focus();
-                }, 80);
+                // Just focus — iOS natively scrolls the focused input into view
+                setTimeout(() => document.getElementById('modal-edit-custom-amt-p1')?.focus(), 100);
             } else {
                 panel.classList.add('hidden');
                 if (type === '50_50') {
@@ -5394,7 +5371,7 @@
                         item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                         const expDate = new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'});
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-circle-dollar-sign':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-coins':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
@@ -6423,7 +6400,7 @@
                     const isRevenuH = exp.type === 'revenu';
                     const isTransfertH = exp.type === 'transfert';
                     const iconColor = isRevenuH ? '#34d399' : isTransfertH ? '#38bdf8' : categoryColor(exp.category || 'Autre');
-                    const histIcon = isRevenuH ? 'fa-circle-dollar-sign' : isTransfertH ? 'fa-right-left' : (exp.icon || 'fa-asterisk');
+                    const histIcon = isRevenuH ? 'fa-coins' : isTransfertH ? 'fa-right-left' : (exp.icon || 'fa-asterisk');
                     const wrapper = document.createElement('div');
                     wrapper.id = `history-item-${exp.id}`;
                     const animClass = exp._animateIn ? ' row-slide-in' : '';
