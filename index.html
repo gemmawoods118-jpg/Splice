@@ -1732,8 +1732,13 @@
             const modal = document.getElementById('settings-modal');
             if (show) {
                 modal.classList.remove('hidden');
+                // Reset any leftover swipe-dismiss transform before animating in
+                const inner = modal.querySelector('div');
+                if (inner) {
+                    inner.style.transition = 'none';
+                    inner.style.transform  = 'translateY(0px)';
+                }
                 setTimeout(() => {
-                    const inner = modal.querySelector('div');
                     if (inner) attachSwipeToDismiss(inner, () => toggleSettingsModal(false));
                 }, 50);
                 // Always re-populate config fields — WebKit blanks password fields on resume
