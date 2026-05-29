@@ -5258,7 +5258,7 @@
         }
 
         function switchView(viewName) {
-            if (viewName === 'inbox') requestBadgePermission();
+            if (viewName === 'inbox') { requestBadgePermission(); setTimeout(() => { try { maybeShowPushBanner(); } catch(e) {} }, 500); }
             // Clear multi-select when leaving history view
             if (viewName !== 'history' && typeof clearMultiSelect === 'function') clearMultiSelect();
 
@@ -6907,12 +6907,17 @@
             );
         }
 
-        function maybeShowPushBanner() {
+        async function maybeShowPushBanner() {
             if (localStorage.getItem('us_push_registered')) return;
-            if (localStorage.getItem('us_push_declined')) return;
             if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
             if (Notification.permission === 'denied') return;
-            // Small delay so it doesn't flash instantly on load
+            if (Notification.permission === 'granted') {
+                // Permission already granted (e.g. from badge prompt) — register silently, no banner needed
+                await registerPushSubscription();
+                return;
+            }
+            // Permission not yet asked — show banner so user tap triggers the prompt
+            if (localStorage.getItem('us_push_declined')) return;
             setTimeout(() => {
                 const banner = document.getElementById('push-permission-banner');
                 if (banner) banner.style.display = 'block';
