@@ -6322,7 +6322,8 @@
                 const dateStr = d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
                 label = `Sync le ${dateStr}`;
             }
-            el.textContent = label;
+            const txt = document.getElementById('last-sync-label-text');
+            if (txt) txt.textContent = label;
             el.classList.remove('hidden');
         }
 
