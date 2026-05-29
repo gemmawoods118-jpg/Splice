@@ -684,6 +684,23 @@
             <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-2 splash-tagline">Comptes à deux</p>
         </div>
     </div>
+    <!-- Push notification permission banner (shown once, dismissed after tap) -->
+    <div id="push-permission-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:12px 16px;background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 2px 12px rgba(79,70,229,0.4);">
+        <div style="display:flex;align-items:center;justify-content:space-between;max-width:480px;margin:0 auto;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:20px;">🔔</span>
+                <div>
+                    <div style="color:white;font-size:13px;font-weight:700;line-height:1.2;">Activer les notifications</div>
+                    <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:1px;">Pour être alerté des nouvelles transactions</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <button onclick="dismissPushBanner()" style="color:rgba(255,255,255,0.6);font-size:11px;font-weight:600;padding:6px 10px;border-radius:8px;border:none;background:transparent;cursor:pointer;">Plus tard</button>
+                <button onclick="enablePushFromBanner()" style="background:white;color:#4f46e5;font-size:11px;font-weight:800;padding:6px 14px;border-radius:8px;border:none;cursor:pointer;">Activer</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Resume cover — masks GPU-cached frame flash on iOS PWA resume -->
     <div id="resume-cover" style="display:none;position:fixed;inset:0;z-index:99;background:#080b11;opacity:1;transition:opacity 0.15s ease;pointer-events:none;"></div>
@@ -2794,7 +2811,7 @@
             try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
             try { cleanupRevpointsLocal(); } catch(e) {}   // strip Revpoints from localStorage
             try { initializeSupabase(); } catch(e) {}
-            try { registerPushSubscription(); } catch(e) {}
+            try { maybeShowPushBanner(); } catch(e) {}
             setTimeout(() => { try { checkInboxPushReminder(); } catch(e) {} }, 3000);
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
@@ -6888,6 +6905,30 @@
                 `${pending.length} transaction${pending.length > 1 ? 's' : ''} en attente`,
                 `Ouvre Splittr pour valider.`
             );
+        }
+
+        function maybeShowPushBanner() {
+            if (localStorage.getItem('us_push_registered')) return;
+            if (localStorage.getItem('us_push_declined')) return;
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            if (Notification.permission === 'denied') return;
+            // Small delay so it doesn't flash instantly on load
+            setTimeout(() => {
+                const banner = document.getElementById('push-permission-banner');
+                if (banner) banner.style.display = 'block';
+            }, 3500);
+        }
+
+        function dismissPushBanner() {
+            const banner = document.getElementById('push-permission-banner');
+            if (banner) banner.style.display = 'none';
+            localStorage.setItem('us_push_declined', '1');
+        }
+
+        async function enablePushFromBanner() {
+            const banner = document.getElementById('push-permission-banner');
+            if (banner) banner.style.display = 'none';
+            await registerPushSubscription();
         }
         // ============================================================
         // END PUSH NOTIFICATIONS
