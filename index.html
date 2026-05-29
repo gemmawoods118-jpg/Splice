@@ -6832,21 +6832,9 @@
             const payer = getDevicePayer();
             try {
                 // Register inline service worker if not already registered
-                let reg = await navigator.serviceWorker.getRegistration();
+                let reg = await navigator.serviceWorker.getRegistration('./sw.js');
                 if (!reg) {
-                    const swBlob = new Blob([`
-self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : {};
-  e.waitUntil(self.registration.showNotification(data.title || 'Splittr', {
-    body: data.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png'
-  }));
-});
-self.addEventListener('notificationclick', e => { e.notification.close(); });
-                    `], { type: 'application/javascript' });
-                    const swUrl = URL.createObjectURL(swBlob);
-                    reg = await navigator.serviceWorker.register(swUrl);
+                    reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
                 }
                 await navigator.serviceWorker.ready;
                 const permission = await Notification.requestPermission();
