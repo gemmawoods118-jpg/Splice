@@ -2,6 +2,7 @@
 <html lang="fr" style="overscroll-behavior: none; overflow: hidden;">
 <head>
     <meta charset="UTF-8">
+    <meta name="vapid-public-key" content="BCljKeZ7IMJELPM9fFwBpi9u0nlZu3MC4Q1RKTKmsCHoGC032jdYw-xj6ndcZ-UZQPx5fHkqUDwyCaTKf7WOzLw">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- Meta tags iOS PWA (Progressive Web App) -->
@@ -2672,6 +2673,8 @@
                         // Powens returned 401 — token is expired, flag the connection
                         conn.expired = true;
                         savePowensConnections(connections);
+                        // Notify this payer their bank token needs re-auth
+                        try { sendPushNotification(conn.payer, 'Reconnexion bancaire requise', `Ton accès ${conn.bankName || 'banque'} a expiré. Ouvre Splittr pour reconnecter.`); } catch(e) {}
                         continue;
                     }
                     const { transactions, bankName } = result;
@@ -2791,6 +2794,8 @@
             try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
             try { cleanupRevpointsLocal(); } catch(e) {}   // strip Revpoints from localStorage
             try { initializeSupabase(); } catch(e) {}
+            try { registerPushSubscription(); } catch(e) {}
+            setTimeout(() => { try { checkInboxPushReminder(); } catch(e) {} }, 3000);
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
             // Restore any connections saved in a different browser context (Safari vs PWA)
             try { syncPowensConnectionsFromServer(); } catch(e) {}
@@ -4974,6 +4979,16 @@
                     if (error) { console.error('Approve upsert error:', error); queueSync(state.expenses[idx]); }
                 } catch (e) { console.error('Approve upsert threw:', e); queueSync(state.expenses[idx]); }
             } else { queueSync(state.expenses[idx]); }
+            // Notify the other payer
+            try {
+                const otherPayer = getDevicePayer() === 'p1' ? 'p2' : 'p1';
+                const tx = state.expenses[idx];
+                const payerName = getDevicePayer() === 'p1' ? state.config.p1Name : state.config.p2Name;
+                await sendPushNotification(otherPayer,
+                    `${payerName} a validé une transaction`,
+                    `${tx.description || tx.category} · ${tx.amount?.toFixed(2)}${state.config.currency}`
+                );
+            } catch(e) {}
         }
 
         // Small set of IDs that have been intentionally deleted on this device.
@@ -6806,6 +6821,89 @@
         document.querySelectorAll('#settle-btn, [onclick*="approveTransaction"], [onclick*="rejectTransaction"]').forEach(b => {
             b.addEventListener('click', () => haptic('light'));
         });
-    </script>
+    
+        // ============================================================
+        // PUSH NOTIFICATIONS
+        // ============================================================
+        const PUSH_FUNCTIONS_BASE = 'https://fzkyoiytuoazfgamfmde.supabase.co/functions/v1';
+
+        async function registerPushSubscription() {
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            const payer = getDevicePayer();
+            try {
+                // Register inline service worker if not already registered
+                let reg = await navigator.serviceWorker.getRegistration();
+                if (!reg) {
+                    const swBlob = new Blob([`
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  e.waitUntil(self.registration.showNotification(data.title || 'Splittr', {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png'
+  }));
+});
+self.addEventListener('notificationclick', e => { e.notification.close(); });
+                    `], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(swBlob);
+                    reg = await navigator.serviceWorker.register(swUrl);
+                }
+                await navigator.serviceWorker.ready;
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') return;
+                // Get VAPID public key from meta tag or hardcoded
+                const vapidPublicKey = document.querySelector('meta[name="vapid-public-key"]')?.content;
+                if (!vapidPublicKey) return;
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+                });
+                await fetch(`${PUSH_FUNCTIONS_BASE}/push-subscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payer, subscription: sub.toJSON() })
+                });
+                localStorage.setItem('us_push_registered', '1');
+            } catch(e) { console.warn('[Push] Registration failed:', e); }
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+        }
+
+        async function sendPushNotification(payer, title, body) {
+            try {
+                await fetch(`${PUSH_FUNCTIONS_BASE}/push-notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payer, title, body })
+                });
+            } catch(e) { console.warn('[Push] Notify failed:', e); }
+        }
+
+        async function checkInboxPushReminder() {
+            const payer = getDevicePayer();
+            const pending = state.expenses.filter(e =>
+                e.approved === false &&
+                (e.project === state.config.activeProject || (!e.project && state.config.activeProject === 'Principal'))
+            );
+            if (pending.length === 0) return;
+            const lastKey = 'us_last_inbox_push';
+            const last = parseInt(localStorage.getItem(lastKey) || '0', 10);
+            const now = Date.now();
+            if (now - last < 23 * 60 * 60 * 1000) return; // less than 23h ago
+            localStorage.setItem(lastKey, String(now));
+            await sendPushNotification(payer,
+                `${pending.length} transaction${pending.length > 1 ? 's' : ''} en attente`,
+                `Ouvre Splittr pour valider.`
+            );
+        }
+        // ============================================================
+        // END PUSH NOTIFICATIONS
+        // ============================================================
+</script>
 </body>
 </html>
