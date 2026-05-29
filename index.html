@@ -1378,7 +1378,7 @@
             </div>
             
             <!-- Fields -->
-            <div class="space-y-3 overflow-y-auto flex-1 pr-1 py-1">
+            <div class="space-y-3 overflow-y-auto flex-1 pr-1 py-1 scrollbar-none" style="-ms-overflow-style:none;scrollbar-width:none;">
                 <!-- Description -->
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
@@ -1732,6 +1732,13 @@
             const modal = document.getElementById('settings-modal');
             if (show) {
                 modal.classList.remove('hidden');
+                setTimeout(() => {
+                    const inner = modal.querySelector('div');
+                    if (inner && !inner._swipeAttached) {
+                        inner._swipeAttached = true;
+                        attachSwipeToDismiss(inner, () => toggleSettingsModal(false));
+                    }
+                }, 50);
                 // Always re-populate config fields — WebKit blanks password fields on resume
                 const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
                 setVal('config-p1', state.config.p1Name);
@@ -3841,6 +3848,43 @@
             }
         }
 
+        function attachSwipeToDismiss(content, closeFn) {
+            // Only fire from the top 60px of the modal to avoid interfering with scroll
+            const DISMISS_THRESHOLD = 120;
+            let startY = 0, currentY = 0, dragging = false;
+            content.addEventListener('touchstart', e => {
+                const rect = content.getBoundingClientRect();
+                const touchY = e.touches[0].clientY - rect.top;
+                if (touchY > 60) return; // only top zone
+                startY = e.touches[0].clientY;
+                dragging = true;
+                content.style.transition = 'none';
+            }, { passive: true });
+            content.addEventListener('touchmove', e => {
+                if (!dragging) return;
+                currentY = e.touches[0].clientY;
+                const dy = Math.max(0, currentY - startY);
+                content.style.transform = `translateY(${dy}px)`;
+            }, { passive: true });
+            content.addEventListener('touchend', () => {
+                if (!dragging) return;
+                dragging = false;
+                content.style.transition = '';
+                const dy = Math.max(0, currentY - startY);
+                if (dy > DISMISS_THRESHOLD) {
+                    closeFn();
+                } else {
+                    content.style.transform = '';
+                }
+            });
+            content.addEventListener('touchcancel', () => {
+                if (!dragging) return;
+                dragging = false;
+                content.style.transition = '';
+                content.style.transform = '';
+            });
+        }
+
         function openEditTxModal() {
             const modal = document.getElementById('edit-tx-modal');
             const content = document.getElementById('edit-tx-modal-content');
@@ -3908,6 +3952,7 @@
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
                 content.classList.remove('translate-y-full');
+                attachSwipeToDismiss(content, closeEditTxModal);
             }, 10);
         }
 
@@ -3915,6 +3960,7 @@
             const modal = document.getElementById('edit-tx-modal');
             const content = document.getElementById('edit-tx-modal-content');
             
+            content.style.transform = ''; // reset any inline swipe drag
             modal.classList.add('opacity-0');
             content.classList.add('translate-y-full');
             
