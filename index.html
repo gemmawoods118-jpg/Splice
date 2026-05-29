@@ -684,22 +684,6 @@
             <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-2 splash-tagline">Comptes à deux</p>
         </div>
     </div>
-    <!-- Push notification permission banner (shown once, dismissed after tap) -->
-    <div id="push-permission-banner" class="hidden w-full px-4 py-3 flex items-center justify-between gap-3 z-20" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 2px 8px rgba(79,70,229,0.3);">
-        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:20px;">🔔</span>
-                <div>
-                    <div style="color:white;font-size:13px;font-weight:700;line-height:1.2;">Activer les notifications</div>
-                    <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:1px;">Pour être alerté des nouvelles transactions</div>
-                </div>
-            </div>
-            <div style="display:flex;gap:8px;flex-shrink:0;">
-                <button onclick="dismissPushBanner()" style="color:rgba(255,255,255,0.6);font-size:11px;font-weight:600;padding:6px 10px;border-radius:8px;border:none;background:transparent;cursor:pointer;">Plus tard</button>
-                <button onclick="enablePushFromBanner()" style="background:white;color:#4f46e5;font-size:11px;font-weight:800;padding:6px 14px;border-radius:8px;border:none;cursor:pointer;">Activer</button>
-            </div>
-        </div>
-    </div>
 
 
     <!-- Resume cover — masks GPU-cached frame flash on iOS PWA resume -->
@@ -774,6 +758,18 @@
             <span>Hors ligne. Synchronisation à la reconnexion.</span>
         </div>
 
+        <!-- Push notification permission banner (shown once) -->
+        <div id="push-permission-banner" class="hidden w-full px-4 py-2.5 flex items-center justify-between gap-3 z-20 transition-all" style="background:linear-gradient(135deg,#4f46e5cc,#7c3aedcc);border-bottom:1px solid rgba(124,58,237,0.3);">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <i class="fa-solid fa-bell text-white/80 text-xs shrink-0"></i>
+                <span class="text-[11px] font-bold text-white truncate">Activer les notifications pour être alerté des nouvelles transactions</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <button onclick="dismissPushBanner()" class="text-[10px] font-semibold text-white/60 hover:text-white px-2 py-1 transition-colors">Plus tard</button>
+                <button onclick="enablePushFromBanner()" class="text-[10px] font-black bg-white text-indigo-600 px-3 py-1 rounded-lg active:scale-95 transition-all">Activer</button>
+            </div>
+        </div>
+
         <div id="toast-banner" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 whitespace-nowrap max-w-[calc(100vw-32px)]">
             <i id="toast-icon" class="fa-solid fa-check-circle text-lg shrink-0"></i>
             <span id="toast-message" class="overflow-hidden text-ellipsis">Notification</span>
@@ -789,7 +785,8 @@
                 <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl"></div>
                 <div class="absolute -left-10 -top-10 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl"></div>
 
-                <div class="relative z-10">
+                <div class="relative z-10"
+>
                     <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-3">
                         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Dépenses du groupe</span>
                         <span class="text-xl font-black text-white" id="dashboard-total">0.00 <span class="currency-display">€</span></span>
