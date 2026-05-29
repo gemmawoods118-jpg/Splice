@@ -774,7 +774,7 @@
             <span>Hors ligne. Synchronisation à la reconnexion.</span>
         </div>
 
-        <div id="toast-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 whitespace-nowrap max-w-[calc(100vw-32px)]">
+        <div id="toast-banner" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-lg border border-indigo-400/30 flex items-center gap-2 whitespace-nowrap max-w-[calc(100vw-32px)]">
             <i id="toast-icon" class="fa-solid fa-check-circle text-lg shrink-0"></i>
             <span id="toast-message" class="overflow-hidden text-ellipsis">Notification</span>
         </div>
@@ -1863,6 +1863,13 @@
             initializeSupabase();
             toggleSettingsModal(false);
             updateUI();
+            // Auto-sync from Supabase immediately after credentials are saved
+            // Small delay to let initializeSupabase finish setting up the client
+            setTimeout(async () => {
+                if (state.supabaseClient && navigator.onLine) {
+                    try { await fetchSupabaseExpenses(); updateUI(); } catch(e) {}
+                }
+            }, 800);
         }
 
         async function initializeSupabase() {
