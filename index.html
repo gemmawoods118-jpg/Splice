@@ -2,7 +2,7 @@
 <html lang="fr" style="overscroll-behavior: none; overflow: hidden;">
 <head>
     <meta charset="UTF-8">
-    <meta name="vapid-public-key" content="BCljKeZ7IMJELPM9fFwBpi9u0nlZu3MC4Q1RKTKmsCHoGC032jdYw-xj6ndcZ-UZQPx5fHkqUDwyCaTKf7WOzLw">
+    <meta name="vapid-public-key" content="BCljKeZ7IMJELPM9fFwBpi9u0nlZu3MC4Q1RKTKmsCHoGC032jdYw">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- Meta tags iOS PWA (Progressive Web App) -->
@@ -713,12 +713,12 @@
         </div>
     </div>
 
-    <div id="app-shell" class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40 overflow-hidden" style="height: 100vh; height: 100dvh;">
+    <div id="app-shell" class="w-full max-w-md bg-slate-900 flex flex-col justify-between shadow-2xl relative border-x border-slate-800/40" style="height: 100vh; height: 100dvh; overflow: clip;">
     <!-- Reveal the shell immediately — splash is already painted above, so this frame is safe -->
     <script>document.getElementById('app-shell').style.visibility='visible';</script>
         
         <!-- Header & Projects -->
-        <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30" style="padding-top: max(1rem, env(safe-area-inset-top));">
+        <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 sticky top-0" style="padding-top: max(1rem, env(safe-area-inset-top));">
             <!-- Logo Splittr (left) — tap to scroll to top -->
             <div class="flex items-center gap-2 shrink-0 cursor-pointer active:opacity-70 transition-opacity" onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})">
                 <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
@@ -762,7 +762,7 @@
         <div id="push-permission-banner" class="hidden w-full px-4 py-2.5 flex items-center justify-between gap-3 z-20 transition-all" style="background:linear-gradient(135deg,#4f46e5cc,#7c3aedcc);border-bottom:1px solid rgba(124,58,237,0.3);">
             <div class="flex items-center gap-2.5 min-w-0">
                 <i class="fa-solid fa-bell text-white/80 text-xs shrink-0"></i>
-                <span class="text-[11px] font-bold text-white truncate">Activer les notifications pour être alerté des nouvelles transactions</span>
+                <span class="text-[11px] font-bold text-white">Activer les notifications pour être alerté des nouvelles transactions</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
                 <button onclick="dismissPushBanner()" class="text-[10px] font-semibold text-white/60 hover:text-white px-2 py-1 transition-colors">Plus tard</button>
@@ -2815,6 +2815,15 @@
             try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
             try { cleanupRevpointsLocal(); } catch(e) {}   // strip Revpoints from localStorage
             try { initializeSupabase(); } catch(e) {}
+            // Auto-sync on every cold start (app opened fresh / removed from cache)
+            setTimeout(async () => {
+                if (navigator.onLine) {
+                    if (state.supabaseClient) {
+                        try { await fetchSupabaseExpenses(); updateUI(); } catch(e) {}
+                    }
+                    try { await syncAllPowensAccounts(true, true); } catch(e) {}
+                }
+            }, 1200);
             try { maybeShowPushBanner(); } catch(e) {}
             setTimeout(() => { try { checkInboxPushReminder(); } catch(e) {} }, 3000);
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
