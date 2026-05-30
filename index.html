@@ -6887,13 +6887,15 @@
                 // Get VAPID public key from meta tag or hardcoded
                 const vapidPublicKey = document.querySelector('meta[name="vapid-public-key"]')?.content;
                 if (!vapidPublicKey) return;
-                // Unsubscribe any existing subscription first (handles VAPID key rotation)
-                const existingSub = await reg.pushManager.getSubscription();
-                if (existingSub) await existingSub.unsubscribe();
-                const sub = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-                });
+                // Reuse existing subscription if present; only create new one if none exists.
+                // Never call unsubscribe() programmatically on iOS — it breaks re-subscribe outside a user gesture.
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+                    });
+                }
                 await fetch(`${PUSH_FUNCTIONS_BASE}/push-subscribe`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
