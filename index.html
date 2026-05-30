@@ -660,9 +660,24 @@
            The inline script immediately after the app-shell div removes this class so there's
            zero delay — the shell becomes visible on the same frame the splash paints. */
         #app-shell { visibility: hidden; }
+
+        /* iOS status bar frosted glass overlay */
+        #status-bar-cover {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: env(safe-area-inset-top, 44px);
+            background: rgba(9, 13, 22, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 9998;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]" style="overscroll-behavior: none; overflow: hidden;">
+    <div id="status-bar-cover"></div>
 
     <!-- Splash Screen (Animation de bienvenue avec chargement progressif) -->
     <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11]" style="opacity:1;transition:opacity 0.2s ease;">
