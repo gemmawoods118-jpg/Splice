@@ -5286,7 +5286,7 @@
         }
 
         function switchView(viewName) {
-            if (viewName === 'inbox') { requestBadgePermission(); setTimeout(() => { try { maybeShowPushBanner(); } catch(e) {} }, 500); }
+            if (viewName === 'inbox') { requestBadgePermission(); }
             // Clear multi-select when leaving history view
             if (viewName !== 'history' && typeof clearMultiSelect === 'function') clearMultiSelect();
 
@@ -6872,37 +6872,58 @@
         // ============================================================
         const PUSH_FUNCTIONS_BASE = 'https://fzkyoiytuoazfgamfmde.supabase.co/functions/v1';
 
+        async function getOrCreateSWRegistration() {
+            // getRegistration() takes a scope URL, not a script URL
+            let reg = await navigator.serviceWorker.getRegistration('./');
+            if (!reg) reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+            await navigator.serviceWorker.ready;
+            return reg;
+        }
+
+        async function sendSubscriptionToServer(sub) {
+            const payer = getDevicePayer();
+            const res = await fetch(`${PUSH_FUNCTIONS_BASE}/push-subscribe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payer, subscription: sub.toJSON() })
+            });
+            if (res.ok) localStorage.setItem('us_push_registered', '1');
+        }
+
+        // Called silently on app load — only re-sends existing subscription, never creates new one
         async function registerPushSubscription() {
             if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-            const payer = getDevicePayer();
+            if (Notification.permission !== 'granted') return;
             try {
-                // Register inline service worker if not already registered
-                let reg = await navigator.serviceWorker.getRegistration('./sw.js');
-                if (!reg) {
-                    reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+                const reg = await getOrCreateSWRegistration();
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    // Existing subscription found — re-send to DB (keeps it fresh)
+                    await sendSubscriptionToServer(sub);
                 }
-                await navigator.serviceWorker.ready;
+                // No sub = nothing we can do without a user gesture; banner will handle it
+            } catch(e) { console.warn('[Push] Silent re-register failed:', e); }
+        }
+
+        // Called from user tap on Activer button — full subscribe with current VAPID key
+        async function subscribeWithUserGesture() {
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            try {
+                const reg = await getOrCreateSWRegistration();
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') return;
-                // Get VAPID public key from meta tag or hardcoded
                 const vapidPublicKey = document.querySelector('meta[name="vapid-public-key"]')?.content;
-                if (!vapidPublicKey) return;
-                // Reuse existing subscription if present; only create new one if none exists.
-                // Never call unsubscribe() programmatically on iOS — it breaks re-subscribe outside a user gesture.
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-                    });
-                }
-                await fetch(`${PUSH_FUNCTIONS_BASE}/push-subscribe`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ payer, subscription: sub.toJSON() })
+                if (!vapidPublicKey) { console.warn('[Push] No VAPID key found'); return; }
+                // Unsubscribe old (wrong key) then resubscribe fresh — safe inside user gesture
+                const existingSub = await reg.pushManager.getSubscription();
+                if (existingSub) await existingSub.unsubscribe();
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
                 });
-                localStorage.setItem('us_push_registered', '1');
-            } catch(e) { console.warn('[Push] Registration failed:', e); }
+                await sendSubscriptionToServer(sub);
+                showToast('Notifications activées ✓');
+            } catch(e) { console.warn('[Push] Subscribe failed:', e); }
         }
 
         function urlBase64ToUint8Array(base64String) {
@@ -6966,7 +6987,7 @@
         async function enablePushFromBanner() {
             const banner = document.getElementById('push-permission-banner');
             if (banner) banner.classList.add('hidden');
-            await registerPushSubscription();
+            await subscribeWithUserGesture();
         }
         // ============================================================
         // END PUSH NOTIFICATIONS
