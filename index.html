@@ -2382,7 +2382,9 @@
                         populateProjectSelector();
                     }
 
-                    updateUI(); 
+                    updateUI();
+                    // Score any new unscored inbox rows after sync
+                    setTimeout(scoreInboxBatch, 100);
                 }
             } catch (e) {}
         }
@@ -4541,6 +4543,126 @@
             return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'transparent' };
         }
 
+        // ─── MERCHANT SCORING ENGINE ───────────────────────────────────
+
+        function normalizeMerchant(raw) {
+            if (!raw) return '';
+            return raw
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .split(' ').slice(0, 3).join(' ');
+        }
+
+        async function fetchMerchantMemory(projectId) {
+            if (!state.supabaseClient || !navigator.onLine) return new Map();
+            try {
+                const { data, error } = await state.supabaseClient
+                    .from('merchant_memory')
+                    .select('normalized_merchant, accepted_count, ignored_count, last_decision')
+                    .eq('project_id', projectId);
+                if (error || !data) return new Map();
+                return new Map(data.map(r => [r.normalized_merchant, r]));
+            } catch (e) { return new Map(); }
+        }
+
+        function scoreExpense(expense, merchantMemory, projectId, allExpenses) {
+            const merchant = normalizeMerchant(expense.description);
+            let score = 0;
+            const rules = [];
+            const mem = merchantMemory.get(merchant);
+            if (mem && mem.accepted_count > 0) { score += 40; rules.push({ rule: 'merchant_accepted_here', delta: 40 }); }
+            if (mem && mem.ignored_count > 0 && mem.last_decision === 'ignored') { score -= 50; rules.push({ rule: 'merchant_ignored_here', delta: -50 }); }
+            if (!mem || mem.accepted_count === 0) {
+                const seenElsewhere = allExpenses.some(e =>
+                    e.approved === true && e.project !== projectId && normalizeMerchant(e.description) === merchant
+                );
+                if (seenElsewhere) { score += 20; rules.push({ rule: 'merchant_accepted_other_project', delta: 20 }); }
+            }
+            if (expense.category && expense.category !== 'Autre') { score += 10; rules.push({ rule: 'category_tagged', delta: 10 }); }
+            const confidence = Math.max(0, Math.min(100, score));
+            const topRule = [...rules].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
+            const labels = {
+                merchant_accepted_here: 'Marchand habituel de ce projet',
+                merchant_ignored_here: 'Marchand souvent ignoré ici',
+                merchant_accepted_other_project: 'Vu dans un autre projet',
+                category_tagged: 'Catégorie identifiée',
+            };
+            return { confidence, reasoning: { score: confidence, rules, label: topRule ? (labels[topRule.rule] || '') : 'Non classé' } };
+        }
+
+        async function scoreInboxBatch() {
+            const projectId = state.config.activeProject;
+            const unscored = state.expenses.filter(e =>
+                e.approved === false &&
+                (e.project === projectId || (!e.project && projectId === 'Principal')) &&
+                e.confidence == null
+            );
+            if (unscored.length === 0) return;
+            const memory = await fetchMerchantMemory(projectId);
+            const toUpdate = [];
+            unscored.forEach(expense => {
+                const { confidence, reasoning } = scoreExpense(expense, memory, projectId, state.expenses);
+                const idx = state.expenses.findIndex(e => e.id === expense.id);
+                if (idx !== -1) {
+                    state.expenses[idx].confidence = confidence;
+                    state.expenses[idx].reasoning = reasoning;
+                    toUpdate.push({ id: expense.id, confidence, reasoning });
+                }
+            });
+            if (toUpdate.length === 0) return;
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            if (state.supabaseClient && navigator.onLine) {
+                toUpdate.forEach(({ id, confidence, reasoning }) => {
+                    state.supabaseClient.from('expenses').update({ confidence, reasoning }).eq('id', id)
+                        .then(({ error }) => { if (error) console.warn('Score write failed for', id, error); });
+                });
+            }
+        }
+
+        function recordMerchantDecision(expense, decision) {
+            const merchant = normalizeMerchant(expense.description);
+            if (!merchant) return;
+            const projectId = expense.project || state.config.activeProject;
+            (async () => {
+                if (!state.supabaseClient || !navigator.onLine) { queueMerchantMemory(projectId, merchant, decision); return; }
+                try {
+                    const { error } = await state.supabaseClient.rpc('increment_merchant_memory', {
+                        p_project_id: projectId, p_merchant: merchant, p_decision: decision
+                    });
+                    if (error) queueMerchantMemory(projectId, merchant, decision);
+                } catch (e) { queueMerchantMemory(projectId, merchant, decision); }
+            })();
+        }
+
+        function queueMerchantMemory(projectId, merchant, decision) {
+            const key = 'usMerchantMemoryQueue';
+            const queue = JSON.parse(localStorage.getItem(key) || '[]');
+            queue.push({ projectId, merchant, decision, queuedAt: new Date().toISOString() });
+            localStorage.setItem(key, JSON.stringify(queue));
+        }
+
+        async function flushMerchantMemoryQueue() {
+            if (!state.supabaseClient || !navigator.onLine) return;
+            const key = 'usMerchantMemoryQueue';
+            const queue = JSON.parse(localStorage.getItem(key) || '[]');
+            if (queue.length === 0) return;
+            const remaining = [];
+            for (const item of queue) {
+                try {
+                    const { error } = await state.supabaseClient.rpc('increment_merchant_memory', {
+                        p_project_id: item.projectId, p_merchant: item.merchant, p_decision: item.decision
+                    });
+                    if (error) remaining.push(item);
+                } catch (e) { remaining.push(item); }
+            }
+            localStorage.setItem(key, JSON.stringify(remaining));
+        }
+
+        // ─── END MERCHANT SCORING ENGINE ───────────────────────────────
+
         // ---------- RECEIPT SCANNER (OCR + line-item picker) ----------
         // Lazy-loads Tesseract.js on first use to keep initial page load fast.
         // Parses French receipts using line-by-line regex with a boilerplate denylist.
@@ -5098,6 +5220,7 @@
 
             // Snapshot BEFORE updateUI() can re-sort — avoids stale-index bug
             const approvedTx = { ...state.expenses[idx] };
+            recordMerchantDecision(approvedTx, 'accepted');
 
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
 
@@ -5194,6 +5317,7 @@
             trackDeletedId(id);
             const dismissed = state.expenses.find(t => t.id === id);
             if (dismissed && dismissed.powens_id) trackDismissedPowensId(dismissed.powens_id);
+            if (dismissed) recordMerchantDecision(dismissed, 'ignored');
             state.expenses = state.expenses.filter(t => t.id !== id);
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             updateUI();
@@ -5265,6 +5389,7 @@
         
         async function processOfflineQueue() {
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
+            flushMerchantMemoryQueue();
             const row = state.syncQueue[0];
             try {
                 const { error } = await state.supabaseClient.from('expenses').upsert([row], { onConflict: 'id' });
@@ -7344,8 +7469,13 @@
                 return;
             }
 
-            // Path A: sort by recency. No confidence scoring yet.
-            const sorted = [...pending].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            // Sort by confidence desc, fall back to recency for unscored rows
+            const sorted = [...pending].sort((a, b) => {
+                const ca = a.confidence ?? -1;
+                const cb = b.confidence ?? -1;
+                if (cb !== ca) return cb - ca;
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
             const top = sorted.slice(0, 3);
             const overflowCount = pending.length - top.length;
             const currency = state.config.currency || '€';
