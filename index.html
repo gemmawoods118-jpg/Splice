@@ -1512,7 +1512,7 @@
                             <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
                                 <span class="text-[9px] text-slate-500 block mb-1 font-bold" id="modal-edit-name-p1">Alex</span>
                                 <div class="relative font-bold text-slate-100">
-                                    <input type="number" id="modal-edit-custom-amt-p1" step="0.01" oninput="onModalEditCustomAmtInput('p1')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
+                                    <input type="text" inputmode="decimal" id="modal-edit-custom-amt-p1" oninput="onModalEditCustomAmtInput('p1')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
                                     <span class="absolute right-0 top-0 text-slate-500 text-xs currency-display">€</span>
                                 </div>
                                 <span id="modal-edit-custom-pct-p1" class="text-[9px] text-slate-500 font-bold block text-right mt-1">50%</span>
@@ -1520,7 +1520,7 @@
                             <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
                                 <span class="text-[9px] text-slate-500 block mb-1 font-bold" id="modal-edit-name-p2">Sam</span>
                                 <div class="relative font-bold text-slate-100">
-                                    <input type="number" id="modal-edit-custom-amt-p2" step="0.01" oninput="onModalEditCustomAmtInput('p2')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
+                                    <input type="text" inputmode="decimal" id="modal-edit-custom-amt-p2" oninput="onModalEditCustomAmtInput('p2')" class="w-full bg-transparent text-slate-100 font-bold text-sm focus:outline-none text-center">
                                     <span class="absolute right-0 top-0 text-slate-500 text-xs currency-display">€</span>
                                 </div>
                                 <span id="modal-edit-custom-pct-p2" class="text-[9px] text-slate-500 font-bold block text-right mt-1">50%</span>
@@ -4285,12 +4285,12 @@
 
             if (target === 'p1') {
                 p1Val = Math.min(Math.max(p1Val, 0), total);
-                p1Input.value = p1Val.toFixed(2);
+                // Don't overwrite p1Input while user is typing — only update the other side
                 p2Val = total - p1Val;
                 p2Input.value = p2Val.toFixed(2);
             } else {
                 p2Val = Math.min(Math.max(p2Val, 0), total);
-                p2Input.value = p2Val.toFixed(2);
+                // Don't overwrite p2Input while user is typing — only update the other side
                 p1Val = total - p2Val;
                 p1Input.value = p1Val.toFixed(2);
             }
