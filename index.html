@@ -307,12 +307,13 @@
         .ios-nav-btn {
             position: relative;
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 3px;
-            padding: 8px 4px 7px;
+            padding: 8px 2px 7px;
             /* Button radius slightly smaller than pill radius so it visually
                follows the pill's inner curvature — same design language */
             border-radius: 32px;
@@ -329,9 +330,9 @@
             transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .ios-nav-btn span:not(.ios-nav-badge) {
-            font-size: 9.5px;
+            font-size: 8.5px;
             font-weight: 700;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.03em;
             text-transform: uppercase;
             transition: color 0.25s ease;
         }
@@ -745,15 +746,23 @@
                 <span class="text-sm font-black text-white tracking-tight">Splice.</span>
             </div>
             
-            <!-- Sélecteur de Projet (center, takes remaining space) -->
-            <div id="header-project-selector" class="invisible flex-1 min-w-0 flex justify-center">
-                <div class="flex items-center gap-0.5 bg-slate-800/50 pl-3 pr-1 py-1 rounded-xl border border-slate-700/50 max-w-full">
-                    <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0 py-0.5">
-                        <!-- Généré dynamiquement -->
-                    </select>
-                    <button onclick="openNewProjectModal()" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white shrink-0 rounded-lg" aria-label="Nouveau projet"><i class="fa-solid fa-plus text-xs"></i></button>
-                    <button onclick="openManageProjectsModal()" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white shrink-0 rounded-lg" aria-label="Gérer les projets"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
+            <!-- Center slot: either project selector OR Accueil scrolled-amount -->
+            <div class="flex-1 min-w-0 flex justify-center">
+                <!-- Sélecteur de Projet -->
+                <div id="header-project-selector" class="invisible flex justify-center max-w-full">
+                    <div class="flex items-center gap-0.5 bg-slate-800/50 pl-3 pr-1 py-1 rounded-xl border border-slate-700/50 max-w-full">
+                        <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0 py-0.5">
+                            <!-- Généré dynamiquement -->
+                        </select>
+                        <button onclick="openNewProjectModal()" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white shrink-0 rounded-lg" aria-label="Nouveau projet"><i class="fa-solid fa-plus text-xs"></i></button>
+                        <button onclick="openManageProjectsModal()" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white shrink-0 rounded-lg" aria-label="Gérer les projets"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
+                    </div>
                 </div>
+                <!-- Accueil compact amount — visible only when Accueil hero is scrolled out of view -->
+                <button id="header-accueil-amount" class="hidden flex items-center gap-1.5 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-700/50 active:scale-95 transition-transform" onclick="document.getElementById('main-scroll-area')?.scrollTo({top:0,behavior:'smooth'})">
+                    <span id="header-accueil-label" class="text-[9px] font-bold uppercase tracking-widest text-slate-400"></span>
+                    <span id="header-accueil-value" class="text-xs font-black"></span>
+                </button>
             </div>
 
             <!-- Boutons de droite (Rafraîchir + Paramètres) -->
@@ -788,6 +797,14 @@
         <div id="toast-banner" class="hidden fixed left-1/2 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-2xl border border-white/10 inline-flex items-center gap-2 whitespace-nowrap" style="top:80px;transform:translateX(-50%);width:fit-content;max-width:calc(100vw - 32px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
             <i id="toast-icon" class="fa-solid fa-check-circle text-indigo-400 text-sm shrink-0"></i>
             <span id="toast-message" class="overflow-hidden text-ellipsis">Notification</span>
+        </div>
+
+        <!-- Global balance strip — shown on every tab except Accueil. Filled by renderBalanceStrip(). -->
+        <div id="balance-strip" class="hidden shrink-0 z-20 border-b border-slate-800/60 bg-[#090d16]/95 backdrop-blur-md cursor-pointer active:opacity-80 transition-opacity" onclick="switchView('accueil')">
+            <div class="flex items-center justify-between gap-2 px-4 py-2">
+                <span id="balance-strip-label" class="text-[10px] font-bold uppercase tracking-widest text-slate-500"></span>
+                <span id="balance-strip-amount" class="text-xs font-black"></span>
+            </div>
         </div>
 
         <!-- Scroll fade: softens content as it disappears under the header -->
@@ -5196,9 +5213,11 @@
             }
         }
 
-        async function settleUp() {
+        async function settleUp(targetProjectId) {
+            // Defaults to the active project for backward compatibility with existing call sites.
+            const projectId = targetProjectId || state.config.activeProject;
             let d1 = 0; let d2 = 0;
-            const projectExps = state.expenses.filter(exp => exp.approved !== false && (exp.project === state.config.activeProject || (!exp.project && state.config.activeProject === 'Principal')));
+            const projectExps = state.expenses.filter(exp => exp.approved !== false && (exp.project === projectId || (!exp.project && projectId === 'Principal')));
             projectExps.forEach(exp => {
                 const sp1 = exp.p1SharePercent ?? 50; const sp2 = exp.p2SharePercent ?? 50;
                 const o1 = exp.amount * (sp1/100); const o2 = exp.amount * (sp2/100);
@@ -5207,7 +5226,7 @@
                 else { if (exp.payer === 'p1') { d2 += o2; } else { d1 += o1; } }
             });
             const diff = d2 - d1; if (Math.abs(diff) < 0.01) return;
-            const settleLog = { id: Date.now() + '_' + Math.random().toString(36).substr(2, 5), amount: Math.abs(diff), payer: diff > 0 ? 'p2' : 'p1', description: '💸 Équilibrage', category: 'Settlement', icon: 'fa-handshake', p1SharePercent: diff > 0 ? 0 : 100, p2SharePercent: diff > 0 ? 100 : 0, approved: true, isEditing: false, type: 'transfert', project: state.config.activeProject, created_at: new Date().toISOString() };
+            const settleLog = { id: Date.now() + '_' + Math.random().toString(36).substr(2, 5), amount: Math.abs(diff), payer: diff > 0 ? 'p2' : 'p1', description: '💸 Équilibrage', category: 'Settlement', icon: 'fa-handshake', p1SharePercent: diff > 0 ? 0 : 100, p2SharePercent: diff > 0 ? 100 : 0, approved: true, isEditing: false, type: 'transfert', project: projectId, created_at: new Date().toISOString() };
             state.expenses.unshift(settleLog); localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); updateUI(); confetti({ particleCount: 150, spread: 75, origin: { y: 0.6 } });
             const persistable = stripTransientFields(settleLog);
             if (state.supabaseClient && navigator.onLine) {
@@ -5392,6 +5411,13 @@
             if (headerProj) headerProj.classList.toggle('invisible', viewName === 'accueil');
             if (viewName === 'analyse') { populateYearFilterOptions(); renderAnalyseTab(); }
             if (viewName === 'accueil') { try { renderAccueil(); } catch(e) { console.error('[switchView] Accueil render failed:', e); } }
+            // Hide the Accueil header pill on any non-Accueil tab
+            if (viewName !== 'accueil') {
+                const headerPill = document.getElementById('header-accueil-amount');
+                if (headerPill) headerPill.classList.add('hidden');
+            }
+            // Refresh the global balance strip (shows on every tab except Accueil)
+            try { renderBalanceStrip(); } catch(e) { console.error('[switchView] strip render failed:', e); }
         }
 
         function updateUI() {
@@ -7221,12 +7247,14 @@
 
             host.innerHTML = `
                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">${heroLabel}</p>
-                <p class="text-4xl font-black ${heroColor} leading-none mb-4">${heroAmount}</p>
+                <p id="accueil-hero-amount" class="text-4xl font-black ${heroColor} leading-none mb-4">${heroAmount}</p>
                 <div class="space-y-2 mb-1">
                     ${topHtml}
                     ${overflowHtml}
                 </div>
             `;
+            // The amount element is recreated on every render — observer must be (re)attached
+            setupAccueilHeaderObserver();
         }
 
         function toggleAccueilHeroOverflow() {
@@ -7367,6 +7395,13 @@
                     : '<span class="text-[10px] text-slate-600 font-bold">—</span>';
 
                 const safePid = String(pid).replace(/'/g, "\\'");
+                const isImbalanced = Math.abs(net) >= 0.01;
+                // Régler row — only when there's a balance to settle on this project.
+                // event.stopPropagation prevents the tile's tap-to-switch from also firing.
+                const settleBtn = isImbalanced
+                    ? `<button onclick="event.stopPropagation(); settleProjectFromTile('${safePid}')" class="w-full mt-1 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 rounded-lg border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Régler</button>`
+                    : '';
+
                 return `
                     <div class="${wrapperCls}" onclick="onAccueilProjectTileTap('${safePid}')">
                         ${activeDot}
@@ -7379,6 +7414,7 @@
                             <span class="text-[10px] text-slate-400 font-medium">${memberCount} personnes</span>
                             ${pendingBadge}
                         </div>
+                        ${settleBtn}
                     </div>
                 `;
             };
@@ -7401,6 +7437,15 @@
             // switchProject calls updateUI which will re-render Accueil via renderAccueil hook below
         }
 
+        // Settle directly from a project tile. Bypasses the tile's tap-to-switch handler
+        // via event.stopPropagation in the inline onclick. Calls settleUp() targeted at
+        // the specific project, then re-renders so the tile updates to "équilibré".
+        function settleProjectFromTile(projectId) {
+            haptic('success');
+            settleUp(projectId);
+            // settleUp itself calls updateUI → renderAccueil — tile will refresh
+        }
+
         function renderAccueil() {
             // Cheap to call; guard against being called before DOM mounted
             const view = document.getElementById('view-accueil');
@@ -7408,6 +7453,110 @@
             try { renderAccueilHero(); } catch(e) { console.error('[Accueil hero]', e); }
             try { renderAccueilSuggestions(); } catch(e) { console.error('[Accueil suggestions]', e); }
             try { renderAccueilProjects(); } catch(e) { console.error('[Accueil projects]', e); }
+            try { renderBalanceStrip(); } catch(e) { console.error('[Balance strip]', e); }
+        }
+
+        // Shared summary used by the strip, the header pill, and (indirectly) the hero.
+        // Returns { hasAnyExpense, total, isPositive, isBalanced, label, value, colorClass }
+        function getNetBalanceSummary() {
+            const rows = computePersonalBalances();
+            const total = rows.reduce((s, r) => s + r.amount, 0);
+            const hasAnyExpense = (state.expenses || []).some(e => e.approved !== false);
+            const isBalanced = rows.length === 0 || Math.abs(total) < 0.01;
+            const currency = state.config.currency || '€';
+            if (!hasAnyExpense) {
+                return { hasAnyExpense: false, isBalanced: true, total: 0, isPositive: false, label: '', value: '', colorClass: '' };
+            }
+            if (isBalanced) {
+                return { hasAnyExpense: true, isBalanced: true, total: 0, isPositive: false, label: 'Bilan', value: 'Tout est réglé ✓', colorClass: 'text-slate-400' };
+            }
+            const isPositive = total > 0;
+            return {
+                hasAnyExpense: true,
+                isBalanced: false,
+                total,
+                isPositive,
+                label: isPositive ? 'On te doit' : 'Tu dois',
+                value: `${isPositive ? '+' : '−'}${Math.abs(total).toFixed(2).replace('.', ',')} ${currency}`,
+                colorClass: isPositive ? 'text-emerald-400' : 'text-rose-400'
+            };
+        }
+
+        // Strip below the header on every tab except Accueil.
+        // Hidden when (a) we're on Accueil, or (b) the user has no expenses yet
+        // (showing "Bienvenue" on a 32px strip would be noisy).
+        function renderBalanceStrip() {
+            const strip = document.getElementById('balance-strip');
+            if (!strip) return;
+
+            // Hide on Accueil — the hero already shows the full version there.
+            const accueilActive = !document.getElementById('view-accueil')?.classList.contains('hidden');
+            if (accueilActive) {
+                strip.classList.add('hidden');
+                return;
+            }
+
+            const summary = getNetBalanceSummary();
+            // Brand-new user with zero expenses — keep the strip hidden so it doesn't add noise.
+            if (!summary.hasAnyExpense) {
+                strip.classList.add('hidden');
+                return;
+            }
+
+            const lbl = document.getElementById('balance-strip-label');
+            const amt = document.getElementById('balance-strip-amount');
+            if (lbl) lbl.innerText = summary.label;
+            if (amt) {
+                amt.innerText = summary.value;
+                amt.className = `text-xs font-black ${summary.colorClass}`;
+            }
+            strip.classList.remove('hidden');
+        }
+
+        // Scroll-aware header on Accueil: when the hero amount scrolls under the header,
+        // a compact version slides into the header's center slot. iOS-style collapse.
+        let _accueilHeaderObserver = null;
+        function setupAccueilHeaderObserver() {
+            const amountEl = document.getElementById('accueil-hero-amount');
+            const headerPill = document.getElementById('header-accueil-amount');
+            if (!headerPill) return;
+            // No amount on screen (balanced / empty hero) → ensure pill stays hidden
+            if (!amountEl) {
+                headerPill.classList.add('hidden');
+                if (_accueilHeaderObserver) { _accueilHeaderObserver.disconnect(); _accueilHeaderObserver = null; }
+                return;
+            }
+
+            // Tear down any prior observer so we don't double-fire after a re-render
+            if (_accueilHeaderObserver) { _accueilHeaderObserver.disconnect(); _accueilHeaderObserver = null; }
+
+            const summary = getNetBalanceSummary();
+            const lbl = document.getElementById('header-accueil-label');
+            const val = document.getElementById('header-accueil-value');
+            if (lbl) lbl.innerText = summary.label;
+            if (val) {
+                val.innerText = summary.value;
+                val.className = `text-xs font-black ${summary.colorClass}`;
+            }
+
+            _accueilHeaderObserver = new IntersectionObserver((entries) => {
+                // Only act when we're actually on the Accueil tab
+                const onAccueil = !document.getElementById('view-accueil')?.classList.contains('hidden');
+                entries.forEach(entry => {
+                    if (!onAccueil) { headerPill.classList.add('hidden'); return; }
+                    // entry.isIntersecting === false means the hero amount is scrolled out of view
+                    if (entry.isIntersecting) {
+                        headerPill.classList.add('hidden');
+                    } else {
+                        headerPill.classList.remove('hidden');
+                    }
+                });
+            }, {
+                // Trigger as soon as the amount disappears behind the header (height of header ≈ 56px)
+                rootMargin: '-60px 0px 0px 0px',
+                threshold: 0
+            });
+            _accueilHeaderObserver.observe(amountEl);
         }
 </script>
 </body>
