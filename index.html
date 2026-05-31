@@ -9,9 +9,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#080b11">
-    <meta name="apple-mobile-web-app-title" content="Splittr">
+    <meta name="apple-mobile-web-app-title" content="Splice">
     
-    <title>Splittr - Comptes à Deux</title>
+    <title>Splice</title>
     <!-- Tailwind CSS pour un design moderne -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome pour les icônes -->
@@ -695,8 +695,8 @@
                           stroke-dasharray="82" stroke-dashoffset="82"/>
                 </svg>
             </div>
-            <h1 class="text-3xl font-black text-white tracking-tight">Splittr.</h1>
-            <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-2 splash-tagline">Comptes à deux</p>
+            <h1 class="text-3xl font-black text-white tracking-tight">Splice.</h1>
+            <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-2 splash-tagline"></p>
         </div>
     </div>
 
@@ -734,7 +734,7 @@
         
         <!-- Header & Projects -->
         <header id="app-header" class="flex justify-between items-center gap-2 px-4 pb-4 border-b border-slate-800/40 bg-[#090d16] shrink-0 z-30 sticky top-0" style="padding-top: max(1rem, env(safe-area-inset-top));">
-            <!-- Logo Splittr (left) — tap to scroll to top -->
+            <!-- Logo Splice (left) — tap to scroll to top -->
             <div class="flex items-center gap-2 shrink-0 cursor-pointer active:opacity-70 transition-opacity" onclick="document.getElementById('main-scroll-area').scrollTo({top:0,behavior:'smooth'})">
                 <div class="w-6 h-6 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-md flex items-center justify-center shadow-sm">
                     <svg viewBox="0 0 64 64" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
@@ -742,11 +742,11 @@
                         <path d="M 32 6 A 26 26 0 0 1 32 58" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
                     </svg>
                 </div>
-                <span class="text-sm font-black text-white tracking-tight">Splittr.</span>
+                <span class="text-sm font-black text-white tracking-tight">Splice.</span>
             </div>
             
             <!-- Sélecteur de Projet (center, takes remaining space) -->
-            <div class="flex-1 min-w-0 flex justify-center">
+            <div id="header-project-selector" class="invisible flex-1 min-w-0 flex justify-center">
                 <div class="flex items-center gap-0.5 bg-slate-800/50 pl-3 pr-1 py-1 rounded-xl border border-slate-700/50 max-w-full">
                     <select id="project-selector" onchange="switchProject(this.value)" class="bg-transparent text-sm font-black text-slate-100 focus:outline-none appearance-none cursor-pointer text-center truncate min-w-0 py-0.5">
                         <!-- Généré dynamiquement -->
@@ -795,8 +795,8 @@
 
         <div id="main-scroll-area" class="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-28" style="overscroll-behavior-y: contain;">
 
-            <!-- TRICOUNT STYLE BALANCE DASHBOARD -->
-            <section class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-4 border border-slate-700/50 shadow-lg relative overflow-hidden">
+            <!-- TRICOUNT STYLE BALANCE DASHBOARD — now only visible on Accueil -->
+            <section id="legacy-balance-card" class="hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-4 border border-slate-700/50 shadow-lg relative overflow-hidden">
                 <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl"></div>
                 <div class="absolute -left-10 -top-10 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl"></div>
 
@@ -839,8 +839,41 @@
                 </div>
             </section>
 
+            <!-- VIEW 0: ACCUEIL (NEW HOME TAB) -->
+            <div id="view-accueil" class="tab-view active-tab space-y-5">
+
+                <!-- BLOCK 1 — Personal balance hero -->
+                <section id="accueil-hero" class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 border border-slate-700/50 shadow-lg relative overflow-hidden">
+                    <div class="absolute -right-12 -bottom-12 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl"></div>
+                    <div class="absolute -left-12 -top-12 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                    <div id="accueil-hero-content" class="relative z-10"></div>
+                </section>
+
+                <!-- BLOCK 2 — Suggestions inbox preview -->
+                <section id="accueil-suggestions-section" class="space-y-2.5">
+                    <div class="flex items-center justify-between px-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] font-black uppercase tracking-widest text-slate-300">À valider</span>
+                            <span id="accueil-suggestions-count" class="text-[10px] bg-rose-500/10 text-rose-400 font-bold px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <button onclick="switchView('inbox')" class="text-[11px] text-indigo-400 font-bold hover:text-indigo-300 transition-colors">Voir tout →</button>
+                    </div>
+                    <div id="accueil-suggestions-list" class="space-y-2.5"></div>
+                </section>
+
+                <!-- BLOCK 3 — Projects strip -->
+                <section class="space-y-2.5">
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-[11px] font-black uppercase tracking-widest text-slate-300">Tes groupes</span>
+                        <span id="accueil-projects-count" class="text-[10px] text-slate-500 font-bold"></span>
+                    </div>
+                    <div id="accueil-projects-strip" class="flex overflow-x-auto gap-2.5 pb-1 -mx-4 px-4 scrollbar-none"></div>
+                </section>
+            </div>
+
+
             <!-- VIEW 1: MANUAL TRANSACTION ENTRY (Saisie) -->
-            <div id="view-saisie" class="tab-view active-tab space-y-4">
+            <div id="view-saisie" class="tab-view hidden space-y-4">
                 
                 <!-- Saisie Magique en 1-Clic -->
                 <section class="bg-slate-950/20 border border-slate-800 p-3.5 rounded-2xl space-y-2">
@@ -1180,7 +1213,11 @@
         <!-- Bottom Navigation Bar — floating iOS-style glass pill -->
         <nav class="ios-nav-bar">
             <div class="ios-nav-pill">
-                <button onclick="switchView('saisie')" id="nav-btn-saisie" class="ios-nav-btn active" aria-label="Saisie">
+                <button onclick="switchView('accueil')" id="nav-btn-accueil" class="ios-nav-btn active" aria-label="Accueil">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Accueil</span>
+                </button>
+                <button onclick="switchView('saisie')" id="nav-btn-saisie" class="ios-nav-btn" aria-label="Saisie">
                     <i class="fa-solid fa-pen-nib"></i>
                     <span>Saisie</span>
                 </button>
@@ -2706,7 +2743,7 @@
                         conn.expired = true;
                         savePowensConnections(connections);
                         // Notify this payer their bank token needs re-auth
-                        try { sendPushNotification(conn.payer, 'Reconnexion bancaire requise', `Ton accès ${conn.bankName || 'banque'} a expiré. Ouvre Splittr pour reconnecter.`); } catch(e) {}
+                        try { sendPushNotification(conn.payer, 'Reconnexion bancaire requise', `Ton accès ${conn.bankName || 'banque'} a expiré. Ouvre Splice pour reconnecter.`); } catch(e) {}
                         continue;
                     }
                     const { transactions, bankName } = result;
@@ -5330,14 +5367,14 @@
             // Clear multi-select when leaving history view
             if (viewName !== 'history' && typeof clearMultiSelect === 'function') clearMultiSelect();
 
-            ['view-saisie', 'view-inbox', 'view-analyse', 'view-history'].forEach(v => {
+            ['view-accueil', 'view-saisie', 'view-inbox', 'view-analyse', 'view-history'].forEach(v => {
                 const el = document.getElementById(v); 
                 if(el) {
                     el.classList.add('hidden');
                     el.classList.remove('active-tab');
                 }
             });
-            ['nav-btn-saisie', 'nav-btn-inbox', 'nav-btn-analyse', 'nav-btn-history'].forEach(v => {
+            ['nav-btn-accueil', 'nav-btn-saisie', 'nav-btn-inbox', 'nav-btn-analyse', 'nav-btn-history'].forEach(v => {
                 const el = document.getElementById(v);
                 if(el) el.classList.remove('active');
             });
@@ -5350,7 +5387,11 @@
             }
             const tBtn = document.getElementById(`nav-btn-${viewName}`); 
             if(tBtn) tBtn.classList.add('active');
+            // Hide the header project selector on Accueil — the projects strip handles switching there
+            const headerProj = document.getElementById('header-project-selector');
+            if (headerProj) headerProj.classList.toggle('invisible', viewName === 'accueil');
             if (viewName === 'analyse') { populateYearFilterOptions(); renderAnalyseTab(); }
+            if (viewName === 'accueil') { try { renderAccueil(); } catch(e) { console.error('[switchView] Accueil render failed:', e); } }
         }
 
         function updateUI() {
@@ -5567,6 +5608,8 @@
                     });
                 }
             } catch(e) { console.error("Error UI:", e); }
+            // Render the Accueil tab (cheap; safe even when the tab is hidden)
+            try { renderAccueil(); } catch(e) { console.error('[updateUI] Accueil render failed:', e); }
         }
 
         // ==========================================================
@@ -7023,7 +7066,7 @@
             localStorage.setItem(lastKey, String(now));
             await sendPushNotification(payer,
                 `${pending.length} transaction${pending.length > 1 ? 's' : ''} en attente`,
-                `Ouvre Splittr pour valider.`
+                `Ouvre Splice pour valider.`
             );
         }
 
@@ -7058,6 +7101,314 @@
         // ============================================================
         // END PUSH NOTIFICATIONS
         // ============================================================
+
+        // ============================================================
+        // ACCUEIL — wired to live state
+        // ============================================================
+
+        // Per-project balance (extracted from settleUp). Returns { d1, d2 } where
+        // d1 = what p1 owes p2, d2 = what p2 owes p1, in this project.
+        function computeProjectBalance(projectId) {
+            let d1 = 0, d2 = 0;
+            const exps = state.expenses.filter(exp =>
+                exp.approved !== false &&
+                (exp.project === projectId || (!exp.project && projectId === 'Principal'))
+            );
+            exps.forEach(exp => {
+                const sp1 = exp.p1SharePercent ?? 50;
+                const sp2 = exp.p2SharePercent ?? 50;
+                const o1 = exp.amount * (sp1 / 100);
+                const o2 = exp.amount * (sp2 / 100);
+                if (exp.type === 'revenu') {
+                    if (exp.payer === 'p1') d1 += o2; else d2 += o1;
+                } else if (exp.type === 'transfert') {
+                    if (exp.payer === 'p1') d2 += exp.amount; else d1 += exp.amount;
+                } else {
+                    if (exp.payer === 'p1') d2 += o2; else d1 += o1;
+                }
+            });
+            return { d1, d2 };
+        }
+
+        // Returns [{ projectId, projectName, projectIcon, otherName, amount }, ...]
+        // amount > 0 means the other person owes me; amount < 0 means I owe them.
+        function computePersonalBalances() {
+            const me = getDevicePayer();
+            const otherKey = me === 'p1' ? 'p2' : 'p1';
+            const otherName = otherKey === 'p1' ? state.config.p1Name : state.config.p2Name;
+            const projects = state.config.projects || ['Principal'];
+            const rows = [];
+            projects.forEach(p => {
+                const pid = (typeof p === 'string') ? p : (p.id || p.name);
+                const pname = (typeof p === 'string') ? p : (p.name || p.id);
+                const picon = (typeof p === 'string') ? (pid === 'Principal' ? '🏡' : '📂') : (p.icon || '📂');
+                const { d1, d2 } = computeProjectBalance(pid);
+                // From "me"'s perspective: positive = other owes me
+                const net = me === 'p1' ? (d2 - d1) : (d1 - d2);
+                if (Math.abs(net) < 0.01) return; // skip balanced projects
+                rows.push({ projectId: pid, projectName: pname, projectIcon: picon, otherName, amount: net });
+            });
+            return rows;
+        }
+
+        function renderAccueilHero() {
+            const host = document.getElementById('accueil-hero-content');
+            if (!host) return;
+            const rows = computePersonalBalances();
+            const currency = state.config.currency || '€';
+            const total = rows.reduce((s, r) => s + r.amount, 0);
+
+            // BALANCED: all projects net to zero
+            if (rows.length === 0 || Math.abs(total) < 0.01) {
+                // Distinguish "no expenses at all" from "expenses exist but everything settles"
+                const hasAnyExpense = (state.expenses || []).some(e => e.approved !== false);
+                if (!hasAnyExpense) {
+                    host.innerHTML = `
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">Bienvenue</p>
+                        <p class="text-2xl font-black text-slate-200 leading-tight mb-2">Ajoute ta première dépense</p>
+                        <p class="text-xs text-slate-500">Ou connecte ta banque pour des suggestions automatiques.</p>
+                    `;
+                } else {
+                    host.innerHTML = `
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">Bilan</p>
+                        <p class="text-3xl font-black text-slate-300 leading-none mb-1">Tout est réglé ✓</p>
+                        <p class="text-xs text-slate-500 mt-3">Aucun solde en attente sur tes groupes.</p>
+                    `;
+                }
+                return;
+            }
+
+            const isPositive = total > 0;
+            const heroLabel = isPositive ? 'On te doit' : 'Tu dois';
+            const heroColor = isPositive ? 'text-emerald-400' : 'text-rose-400';
+            const sign = isPositive ? '+' : '−';
+            const heroAmount = `${sign}${Math.abs(total).toFixed(2).replace('.', ',')} ${currency}`;
+
+            // Sort rows by absolute amount desc — biggest debt first
+            rows.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+            const TOP_N = 2;
+            const topRows = rows.slice(0, TOP_N);
+            const overflowRows = rows.slice(TOP_N);
+
+            const rowHtml = (r) => {
+                const owesMe = r.amount > 0;
+                const verb = owesMe ? 'te doit' : 'tu dois';
+                const subject = owesMe ? `${r.otherName} ${verb}` : `À ${r.otherName}`;
+                const amt = `${Math.abs(r.amount).toFixed(2).replace('.', ',')} ${currency}`;
+                const amtColor = owesMe ? 'text-emerald-400' : 'text-rose-400';
+                const initial = (r.otherName || '?').charAt(0).toUpperCase();
+                // Stable color per other-person initial — for now we have 1 partner so simple choice
+                const avatarBg = owesMe ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-violet-500/20 border-violet-500/40 text-violet-300';
+                return `
+                    <div class="flex items-center justify-between bg-slate-950/40 px-3 py-2.5 rounded-xl border border-slate-800/50">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-full ${avatarBg} border flex items-center justify-center text-[11px] font-black shrink-0">${initial}</div>
+                            <div class="min-w-0">
+                                <p class="text-xs font-bold text-slate-200 leading-tight truncate">${subject}</p>
+                                <p class="text-[10px] text-slate-500 font-medium leading-tight mt-0.5 truncate">${r.projectIcon} ${r.projectName}</p>
+                            </div>
+                        </div>
+                        <span class="text-sm font-black ${amtColor} shrink-0">${amt}</span>
+                    </div>
+                `;
+            };
+
+            const topHtml = topRows.map(rowHtml).join('');
+            const overflowHtml = overflowRows.length > 0
+                ? `<div id="accueil-hero-overflow" class="hidden space-y-2">${overflowRows.map(rowHtml).join('')}</div>
+                   <button id="accueil-hero-toggle" onclick="toggleAccueilHeroOverflow()" class="w-full text-center pt-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-bold">Voir tous (${rows.length}) →</button>`
+                : '';
+
+            host.innerHTML = `
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">${heroLabel}</p>
+                <p class="text-4xl font-black ${heroColor} leading-none mb-4">${heroAmount}</p>
+                <div class="space-y-2 mb-1">
+                    ${topHtml}
+                    ${overflowHtml}
+                </div>
+            `;
+        }
+
+        function toggleAccueilHeroOverflow() {
+            const overflow = document.getElementById('accueil-hero-overflow');
+            const btn = document.getElementById('accueil-hero-toggle');
+            if (!overflow || !btn) return;
+            const willExpand = overflow.classList.contains('hidden');
+            overflow.classList.toggle('hidden');
+            const total = (computePersonalBalances() || []).length;
+            btn.innerText = willExpand ? 'Voir moins ↑' : `Voir tous (${total}) →`;
+        }
+
+        function renderAccueilSuggestions() {
+            const list = document.getElementById('accueil-suggestions-list');
+            const countEl = document.getElementById('accueil-suggestions-count');
+            const section = document.getElementById('accueil-suggestions-section');
+            if (!list || !countEl || !section) return;
+
+            const me = getDevicePayer();
+            // Privacy: same rule as inbox — only show pending items belonging to me OR with no payer info.
+            const pending = state.expenses.filter(e =>
+                e.approved === false &&
+                (!e.payer || e.payer === me)
+            );
+            countEl.innerText = pending.length;
+
+            // Empty state — hide the whole section
+            if (pending.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+
+            // Path A: sort by recency. No confidence scoring yet.
+            const sorted = [...pending].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const top = sorted.slice(0, 3);
+            const overflowCount = pending.length - top.length;
+            const currency = state.config.currency || '€';
+            const projects = state.config.projects || [];
+
+            const projectMeta = (pid) => {
+                const p = projects.find(x => (x.id || x) === pid);
+                if (!p) return { name: pid || 'Principal', icon: pid === 'Principal' ? '🏡' : '📂' };
+                if (typeof p === 'string') return { name: p, icon: p === 'Principal' ? '🏡' : '📂' };
+                return { name: p.name || p.id, icon: p.icon || '📂' };
+            };
+
+            const cardHtml = (exp) => {
+                const pm = projectMeta(exp.project);
+                const isRevenu = exp.type === 'revenu';
+                const iconColor = isRevenu ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                           : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400';
+                const amtSign = isRevenu ? '+' : '';
+                const safeDesc = (exp.description || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                return `
+                    <div class="bg-slate-950/30 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0 flex-1">
+                                <div class="w-9 h-9 rounded-xl border ${iconColor} flex items-center justify-center shrink-0">
+                                    <i class="fa-solid ${exp.icon || 'fa-asterisk'} text-xs"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-bold text-slate-100 truncate">${safeDesc || 'Sans description'}</p>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        <span class="text-[10px] text-slate-400 font-medium truncate">${pm.icon} ${pm.name}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="text-sm font-black text-slate-100 shrink-0">${amtSign}${(exp.amount || 0).toFixed(2).replace('.', ',')} ${currency}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="approveTransaction('${exp.id}')" class="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Valider</button>
+                            <button onclick="toggleHistoryEdit('${exp.id}', true)" class="py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Éditer</button>
+                            <button onclick="rejectTransaction('${exp.id}')" class="py-2 bg-slate-800/60 hover:bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Ignorer</button>
+                        </div>
+                    </div>
+                `;
+            };
+
+            list.innerHTML = top.map(cardHtml).join('') + (overflowCount > 0
+                ? `<button onclick="switchView('inbox')" class="w-full text-center py-2.5 text-[11px] text-slate-500 hover:text-slate-300 transition-colors font-bold">+ ${overflowCount} autre${overflowCount > 1 ? 's' : ''} dans l'inbox →</button>`
+                : '');
+        }
+
+        function renderAccueilProjects() {
+            const strip = document.getElementById('accueil-projects-strip');
+            const countEl = document.getElementById('accueil-projects-count');
+            if (!strip) return;
+
+            const projects = state.config.projects || ['Principal'];
+            const me = getDevicePayer();
+            const activeId = state.config.activeProject;
+            const currency = state.config.currency || '€';
+
+            if (countEl) countEl.innerText = `${projects.length} ${projects.length > 1 ? 'actifs' : 'actif'}`;
+
+            const tileHtml = (p) => {
+                const pid = (typeof p === 'string') ? p : (p.id || p.name);
+                const pname = (typeof p === 'string') ? p : (p.name || p.id);
+                const picon = (typeof p === 'string') ? (pid === 'Principal' ? '🏡' : '📂') : (p.icon || '📂');
+                const isActive = pid === activeId;
+
+                // Personal balance for this project
+                const { d1, d2 } = computeProjectBalance(pid);
+                const net = me === 'p1' ? (d2 - d1) : (d1 - d2);
+                let balanceText, balanceColor;
+                if (Math.abs(net) < 0.01) {
+                    balanceText = 'équilibré';
+                    balanceColor = 'text-slate-300';
+                } else if (net > 0) {
+                    balanceText = `+${net.toFixed(2).replace('.', ',')} ${currency}`;
+                    balanceColor = 'text-emerald-400';
+                } else {
+                    balanceText = `−${Math.abs(net).toFixed(2).replace('.', ',')} ${currency}`;
+                    balanceColor = 'text-rose-400';
+                }
+
+                // Pending suggestions count in this project
+                const pending = state.expenses.filter(e =>
+                    e.approved === false &&
+                    (e.project === pid || (!e.project && pid === 'Principal')) &&
+                    (!e.payer || e.payer === me)
+                ).length;
+
+                // 2-person world (today): always 2 people. Path B/C will change this.
+                const memberCount = 2;
+
+                const wrapperCls = isActive
+                    ? 'shrink-0 w-40 bg-gradient-to-br from-indigo-600/20 to-violet-600/10 border-2 border-indigo-500/50 rounded-2xl p-3.5 space-y-2 relative cursor-pointer transition-transform active:scale-95'
+                    : 'shrink-0 w-40 bg-slate-950/40 border border-slate-800 rounded-2xl p-3.5 space-y-2 cursor-pointer hover:border-slate-700 transition-all active:scale-95';
+
+                const activeDot = isActive
+                    ? '<div class="absolute top-2 right-2 w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>'
+                    : '';
+
+                const pendingBadge = pending > 0
+                    ? `<span class="text-[10px] bg-rose-500/15 text-rose-400 font-black px-1.5 py-0.5 rounded-full">${pending}</span>`
+                    : '<span class="text-[10px] text-slate-600 font-bold">—</span>';
+
+                const safePid = String(pid).replace(/'/g, "\\'");
+                return `
+                    <div class="${wrapperCls}" onclick="onAccueilProjectTileTap('${safePid}')">
+                        ${activeDot}
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-base">${picon}</span>
+                            <span class="text-xs font-black text-slate-100 truncate">${pname}</span>
+                        </div>
+                        <p class="text-base font-black ${balanceColor}">${balanceText}</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] text-slate-400 font-medium">${memberCount} personnes</span>
+                            ${pendingBadge}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const newTile = `
+                <div class="shrink-0 w-28 bg-slate-950/20 border-2 border-dashed border-slate-700 rounded-2xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500/50 transition-colors" onclick="openNewProjectModal()">
+                    <i class="fa-solid fa-plus text-slate-500 text-sm"></i>
+                    <span class="text-[10px] text-slate-500 font-bold">Nouveau</span>
+                </div>
+            `;
+
+            strip.innerHTML = projects.map(tileHtml).join('') + newTile;
+        }
+
+        // Tile tap: switch project + re-render Accueil so balances + tiles update.
+        // No view change — user stays on Accueil. They can then act on the project from here.
+        function onAccueilProjectTileTap(projectId) {
+            if (projectId === state.config.activeProject) return;
+            switchProject(projectId);
+            // switchProject calls updateUI which will re-render Accueil via renderAccueil hook below
+        }
+
+        function renderAccueil() {
+            // Cheap to call; guard against being called before DOM mounted
+            const view = document.getElementById('view-accueil');
+            if (!view) return;
+            try { renderAccueilHero(); } catch(e) { console.error('[Accueil hero]', e); }
+            try { renderAccueilSuggestions(); } catch(e) { console.error('[Accueil suggestions]', e); }
+            try { renderAccueilProjects(); } catch(e) { console.error('[Accueil projects]', e); }
+        }
 </script>
 </body>
 </html>
