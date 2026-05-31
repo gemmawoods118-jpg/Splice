@@ -2209,11 +2209,7 @@
             scrollArea.addEventListener('touchcancel', endPull);
         }
         // Initialize when the DOM is ready (the scroll area exists from the initial HTML)
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initPullToRefresh);
-        } else {
-            initPullToRefresh();
-        }
+        // initPullToRefresh() is called inside initApp() — no separate boot needed
 
         async function fetchSupabaseExpenses() {
             if (!state.supabaseClient || !navigator.onLine) return;
@@ -2729,11 +2725,22 @@
                         if (/revpoint|spare.?change|round.?up|cashback reward/i.test(tx.description || '')) continue;
                         // ── Layer 1: exact powens_id dedup ──
                         if (knownPowensIds.has(String(tx.powens_id))) continue;
+                        // ── Layer 1.5: fingerprint dedup — catches Powens ID recycling ──
+                        // Builds a slug from amount + date + first 12 chars of cleaned description
+                        // to catch the same real-world transaction arriving with a new powens_id
+                        {
+                            const _slug = (tx.description || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+                            const _fpDupe = state.expenses.some(e =>
+                                e.amount === tx.amount &&
+                                Math.abs(new Date(e.created_at) - new Date(tx.date)) < 86400000 * 1.5 &&
+                                (e.description || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) === _slug
+                            );
+                            if (_fpDupe) continue;
+                        }
                         // ── Layer 2: fuzzy dedup — same amount & date within 1 day ──
                         const txDate = new Date(tx.date);
                         const _txWords = (tx.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
                         const isFuzzyDupe = state.expenses.some(e => {
-                            if (!e.approved) return false; // skip pending inbox items
                             if (Math.abs(e.amount - tx.amount) > 0.01) return false;
                             const d = Math.abs(new Date(e.created_at) - txDate);
                             if (d >= 86400000 * 1.5) return false; // within 1.5 days
@@ -2812,16 +2819,27 @@
                 document.body.classList.add('is-pwa');
             }
 
-            generateAndSetAppIcon();
-            initPullToRefresh();
+            try { generateAndSetAppIcon(); } catch(e) { console.warn('[initApp] icon:', e); }
+            try { initPullToRefresh(); } catch(e) { console.warn('[initApp] ptr:', e); }
 
+            // Primary splash dismiss at 2.1s
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
-                if(splash) {
+                if (splash) {
+                    splash.style.transition = 'opacity 0.22s ease';
                     splash.style.opacity = '0';
-                    setTimeout(() => splash.style.display = 'none', 220);
+                    setTimeout(() => { splash.style.display = 'none'; }, 240);
                 }
             }, 2100);
+            // Hard failsafe: force-hide at 3.5s no matter what
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash && splash.style.display !== 'none') {
+                    splash.style.transition = 'none';
+                    splash.style.opacity = '0';
+                    splash.style.display = 'none';
+                }
+            }, 3500);
 
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
@@ -4391,7 +4409,8 @@
             tx.description = document.getElementById('modal-edit-desc').value.trim();
             tx.amount = parseFloat(document.getElementById('modal-edit-amount').value) || 0;
             tx.isEditing = false;
-            tx.approved = true;
+            // Preserve approved state — editing a pending inbox item must NOT auto-approve it
+            if (tx.approved !== false) tx.approved = true;
 
             const index = state.expenses.findIndex(e => e.id === tx.id);
             if (index !== -1) {
@@ -5007,31 +5026,44 @@
 
         async function approveTransaction(id) {
             await smoothDismiss(`inbox-item-${id}`, 100);
-            
-            const idx = state.expenses.findIndex(t => t.id === id); if (idx === -1) return;
-            state.expenses[idx].approved = true; state.expenses[idx].isEditing = false;
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses)); 
-            
-            const remaining = state.expenses.filter(e => e.approved === false && (e.project === state.config.activeProject || (!e.project && state.config.activeProject === 'Principal')));
-            if (remaining.length === 0) {
-                showSuccessOverlay("Tout est validé !");
-            }
-            
-            updateUI(); 
+
+            const idx = state.expenses.findIndex(t => t.id === id);
+            if (idx === -1) return;
+
+            state.expenses[idx].approved = true;
+            state.expenses[idx].isEditing = false;
+
+            // Snapshot BEFORE updateUI() can re-sort — avoids stale-index bug
+            const approvedTx = { ...state.expenses[idx] };
+
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+
+            const remaining = state.expenses.filter(e =>
+                e.approved === false &&
+                (e.project === state.config.activeProject || (!e.project && state.config.activeProject === 'Principal'))
+            );
+            if (remaining.length === 0) showSuccessOverlay("Tout est validé !");
+
+            updateUI();
+
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(state.expenses[idx])]);
-                    if (error) { console.error('Approve upsert error:', error); queueSync(state.expenses[idx]); }
-                } catch (e) { console.error('Approve upsert threw:', e); queueSync(state.expenses[idx]); }
-            } else { queueSync(state.expenses[idx]); }
+                    const { error } = await state.supabaseClient
+                        .from('expenses')
+                        .upsert([stripTransientFields(approvedTx)], { onConflict: 'id' });
+                    if (error) { console.error('Approve upsert error:', error); queueSync(approvedTx); }
+                } catch(e) { console.error('Approve upsert threw:', e); queueSync(approvedTx); }
+            } else {
+                queueSync(approvedTx);
+            }
+
             // Notify the other payer
             try {
                 const otherPayer = getDevicePayer() === 'p1' ? 'p2' : 'p1';
-                const tx = state.expenses[idx];
                 const payerName = getDevicePayer() === 'p1' ? state.config.p1Name : state.config.p2Name;
                 await sendPushNotification(otherPayer,
                     `${payerName} a validé une transaction`,
-                    `${tx.description || tx.category} · ${tx.amount?.toFixed(2)}${state.config.currency}`
+                    `${approvedTx.description || approvedTx.category} · ${approvedTx.amount?.toFixed(2)}${state.config.currency}`
                 );
             } catch(e) {}
         }
@@ -5162,7 +5194,7 @@
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
             const row = state.syncQueue[0];
             try {
-                const { error } = await state.supabaseClient.from('expenses').insert([row]);
+                const { error } = await state.supabaseClient.from('expenses').upsert([row], { onConflict: 'id' });
                 if (!error) {
                     // Success — pop the row and recurse for the next one
                     state.syncQueue.shift();
@@ -6151,11 +6183,13 @@
             if (state.selectedIds.size === 0) return;
             const ids = Array.from(state.selectedIds);
             let count = 0;
+            const validated = [];
             ids.forEach(id => {
                 const idx = state.expenses.findIndex(e => e.id === id);
                 if (idx !== -1 && state.expenses[idx].approved === false) {
                     state.expenses[idx].approved = true;
                     state.expenses[idx].isEditing = false;
+                    validated.push({ ...state.expenses[idx] });
                     count++;
                 }
             });
@@ -6163,6 +6197,15 @@
                 localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
                 haptic('success');
                 showToast(`✓ ${count} transaction${count > 1 ? 's' : ''} validée${count > 1 ? 's' : ''}`);
+                if (state.supabaseClient && navigator.onLine) {
+                    try {
+                        const { error } = await state.supabaseClient.from('expenses')
+                            .upsert(validated.map(e => stripTransientFields(e)), { onConflict: 'id' });
+                        if (error) { console.error('[bulkValidate] upsert error:', error); validated.forEach(e => queueSync(e)); }
+                    } catch(e) { console.error('[bulkValidate] threw:', e); validated.forEach(v => queueSync(v)); }
+                } else {
+                    validated.forEach(e => queueSync(e));
+                }
             }
             clearMultiSelect();
             updateUI();
@@ -6221,13 +6264,28 @@
             if (state.inboxSelectedIds.size === 0) return;
             const ids = Array.from(state.inboxSelectedIds);
             let count = 0;
+            const validated = [];
             ids.forEach(id => {
                 const idx = state.expenses.findIndex(e => e.id === id);
-                if (idx !== -1) { state.expenses[idx].approved = true; state.expenses[idx].isEditing = false; count++; }
+                if (idx !== -1) {
+                    state.expenses[idx].approved = true;
+                    state.expenses[idx].isEditing = false;
+                    validated.push({ ...state.expenses[idx] });
+                    count++;
+                }
             });
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             haptic('success');
             showToast(`✓ ${count} transaction${count > 1 ? 's' : ''} validée${count > 1 ? 's' : ''}`);
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses')
+                        .upsert(validated.map(e => stripTransientFields(e)), { onConflict: 'id' });
+                    if (error) { console.error('[inboxBulkValidate] upsert error:', error); validated.forEach(e => queueSync(e)); }
+                } catch(e) { console.error('[inboxBulkValidate] threw:', e); validated.forEach(v => queueSync(v)); }
+            } else {
+                validated.forEach(e => queueSync(e));
+            }
             clearInboxMultiselect();
             updateUI();
         }
