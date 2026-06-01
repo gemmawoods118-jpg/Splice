@@ -2422,6 +2422,10 @@
                             projRows.forEach(row => {
                                 const exists = state.config.projects.find(p => (p.id || p) === row.id);
                                 if (!exists) {
+                                    // Skip if a project with the same name already exists locally
+                                    // (prevents duplicate when Supabase still has the old string-id row)
+                                    const nameExists = state.config.projects.find(p => (p.name || p) === row.name);
+                                    if (nameExists) return;
                                     state.config.projects.push({ id: row.id, name: row.name, icon: row.icon || '', currency: row.currency || '€' });
                                     projChanged = true;
                                 }
@@ -3062,6 +3066,7 @@
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
+            try { populateProjectSelector(); } catch(e) {} // ensure select is populated before first render
             // Render immediately against whatever localStorage gave us, so Accueil is
             // never blank on first paint. The async Supabase fetch will overwrite shortly.
             try { updateUI(); } catch(e) {}
@@ -3437,7 +3442,7 @@
             const icon = iconInput.value.trim() || '📂';
             const currency = (curInput && curInput.value) || state.config.globalCurrency || '€';
             if (!name) { closeProjectModal(); return; }
-            const exists = state.config.projects.find(p => (p.id === name) || (p === name));
+            const exists = state.config.projects.find(p => (p.name === name) || (p === name));
             if (exists) {
                 showToast('Ce projet existe déjà');
                 haptic('warn');
@@ -3445,13 +3450,14 @@
             }
 
             // Save the new project (but don't switch yet — we'll do that via switchProject for the cross-fade)
-            state.config.projects.push({id: name, name: name, icon: icon, currency: currency});
+            const newProjectId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+            state.config.projects.push({id: newProjectId, name: name, icon: icon, currency: currency});
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
             populateProjectSelector();
             // ── Persist to Supabase so the partner sees it immediately ──
             if (state.supabaseClient && navigator.onLine) {
                 state.supabaseClient.from('projects')
-                    .upsert({ id: name, name: name, icon: icon, currency: currency }, { onConflict: 'id' })
+                    .upsert({ id: newProjectId, name: name, icon: icon, currency: currency }, { onConflict: 'id' })
                     .then(({ error }) => { if (error) console.warn('Project upsert error', error); });
             }
 
@@ -3464,7 +3470,7 @@
                     inner.classList.remove('modal-exit');
                     closeProjectModal();
                     // Trigger the smooth project switch + bouncy badge welcome
-                    switchProject(name);
+                    switchProject(newProjectId);
                     setTimeout(() => {
                         const badgeBtn = document.querySelector('#project-selector')?.closest('div');
                         if (badgeBtn) {
@@ -3605,9 +3611,9 @@
         function saveProjectEdit(oldId) {
             const row = document.querySelector(`[data-project-row="${oldId}"]`);
             if (!row) return;
-            const isPrincipal = oldId === 'Principal';
-            const newName = isPrincipal ? oldId : (row.querySelector('[data-edit-name]').value.trim() || oldId);
-            const newIcon = isPrincipal ? (state.config.projects.find(p => (p.id || p) === oldId)?.icon || '🏡') : (row.querySelector('[data-edit-icon]').value.trim() || '📂');
+            const isPrincipal = false; // Principal can now be renamed like any other project
+            const newName = row.querySelector('[data-edit-name]') ? (row.querySelector('[data-edit-name]').value.trim() || oldId) : oldId;
+            const newIcon = row.querySelector('[data-edit-icon]') ? (row.querySelector('[data-edit-icon]').value.trim() || '🏡') : (state.config.projects.find(p => (p.id || p) === oldId)?.icon || '🏡');
             const newCurrency = row.querySelector('[data-edit-currency]').value || state.config.globalCurrency || '€';
             if (!newName) { showToast('Nom requis'); return; }
             // Find the project and update
@@ -3615,7 +3621,7 @@
             if (!proj) return;
             // Capture old values before mutation to build a contextual toast at the end
             const oldCurrency = (typeof proj === 'object' && proj.currency) || state.config.globalCurrency || '€';
-            const newId = isPrincipal ? oldId : newName; // Principal id is immutable
+            const newId = oldId; // id is always the stable UUID — only name changes
             // Avoid collisions
             if (newId !== oldId && state.config.projects.some(p => (p.id || p) === newId)) {
                 showToast('Ce nom existe déjà');
@@ -3764,7 +3770,29 @@
                 }));
             }
             
-            if(!state.config.activeProject) state.config.activeProject = 'Principal';
+            // ── UUID migration for legacy 'Principal' project ──────────────────────
+            // If Principal still uses its name as its id (old format), give it a stable UUID
+            // so it can be freely renamed without breaking expense references.
+            const principalProj = state.config.projects.find(p => (p.id || p) === 'Principal');
+            if (principalProj && typeof principalProj === 'object' && principalProj.id === 'Principal') {
+                const storedUUID = localStorage.getItem('us_principal_uuid');
+                const principalUUID = storedUUID || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : ('principal-' + Date.now().toString(36)));
+                if (!storedUUID) localStorage.setItem('us_principal_uuid', principalUUID);
+                principalProj.id = principalUUID;
+                // Migrate expenses
+                state.expenses.forEach(e => { if (e.project === 'Principal' || !e.project) e.project = principalUUID; });
+                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                // Update activeProject if it was 'Principal'
+                if (state.config.activeProject === 'Principal') state.config.activeProject = principalUUID;
+                localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                // Sync migrated Principal to Supabase (fire-and-forget)
+                if (state.supabaseClient && navigator.onLine) {
+                    state.supabaseClient.from('projects')
+                        .upsert({ id: principalUUID, name: principalProj.name || 'Principal', icon: principalProj.icon || '🏡', currency: principalProj.currency || '€' }, { onConflict: 'id' })
+                        .then(({ error }) => { if (error) console.warn('Principal UUID sync error', error); });
+                }
+            }
+            if(!state.config.activeProject) state.config.activeProject = state.config.projects[0]?.id || 'Principal';
             
             const p1 = document.getElementById('config-p1');
             const p2 = document.getElementById('config-p2');
