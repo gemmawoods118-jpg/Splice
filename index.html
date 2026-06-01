@@ -2083,6 +2083,7 @@
                     state.supabaseClient = supabase.createClient(state.config.sbUrl, state.config.sbKey);
                     handleNetworkChange();
                     await fetchSupabaseExpenses();
+                    try { updateUI(); } catch(e) {}          // render immediately after fetch
                     try { updateLastSyncLabel(); } catch(e) {}
                     initRealtimeSubscription();
                     // Warm the merchant memory cache so scores render with full signal on first paint
@@ -3066,6 +3067,28 @@
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
+            // ── One-time repair: revert any UUID-migrated Principal back to 'Principal' ──
+            (function repairPrincipalUUID() {
+                const BAD_UUID = '915142b7-265a-4e17-8b72-a862e5128ce5';
+                let dirty = false;
+                // Fix activeProject
+                if (state.config.activeProject === BAD_UUID) {
+                    state.config.activeProject = 'Principal';
+                    dirty = true;
+                }
+                // Fix projects array
+                const badProj = state.config.projects.find(p => p.id === BAD_UUID);
+                if (badProj) { badProj.id = 'Principal'; dirty = true; }
+                if (dirty) localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                // Fix expenses
+                let expDirty = false;
+                state.expenses.forEach(e => {
+                    if (e.project === BAD_UUID) { e.project = 'Principal'; expDirty = true; }
+                });
+                if (expDirty) localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                // Remove the migration key so it never fires again
+                localStorage.removeItem('us_principal_uuid');
+            })();
             try { populateProjectSelector(); } catch(e) {} // ensure select is populated before first render
             // Render immediately against whatever localStorage gave us, so Accueil is
             // never blank on first paint. The async Supabase fetch will overwrite shortly.
@@ -3770,28 +3793,6 @@
                 }));
             }
             
-            // ── UUID migration for legacy 'Principal' project ──────────────────────
-            // If Principal still uses its name as its id (old format), give it a stable UUID
-            // so it can be freely renamed without breaking expense references.
-            const principalProj = state.config.projects.find(p => (p.id || p) === 'Principal');
-            if (principalProj && typeof principalProj === 'object' && principalProj.id === 'Principal') {
-                const storedUUID = localStorage.getItem('us_principal_uuid');
-                const principalUUID = storedUUID || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : ('principal-' + Date.now().toString(36)));
-                if (!storedUUID) localStorage.setItem('us_principal_uuid', principalUUID);
-                principalProj.id = principalUUID;
-                // Migrate expenses
-                state.expenses.forEach(e => { if (e.project === 'Principal' || !e.project) e.project = principalUUID; });
-                localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
-                // Update activeProject if it was 'Principal'
-                if (state.config.activeProject === 'Principal') state.config.activeProject = principalUUID;
-                localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
-                // Sync migrated Principal to Supabase (fire-and-forget)
-                if (state.supabaseClient && navigator.onLine) {
-                    state.supabaseClient.from('projects')
-                        .upsert({ id: principalUUID, name: principalProj.name || 'Principal', icon: principalProj.icon || '🏡', currency: principalProj.currency || '€' }, { onConflict: 'id' })
-                        .then(({ error }) => { if (error) console.warn('Principal UUID sync error', error); });
-                }
-            }
             if(!state.config.activeProject) state.config.activeProject = state.config.projects[0]?.id || 'Principal';
             
             const p1 = document.getElementById('config-p1');
