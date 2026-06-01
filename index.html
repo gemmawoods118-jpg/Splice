@@ -675,7 +675,13 @@
             z-index: 9998;
             pointer-events: none;
         }
-    </style>
+    
+        /* ── Keyboard open: freeze nav bar at bottom so it doesn't ride up ── */
+        body.keyboard-open .ios-nav-bar {
+            bottom: 0 !important;
+            padding-bottom: 8px !important;
+        }
+</style>
 </head>
 <body class="text-slate-100 font-sans antialiased flex justify-center min-h-screen bg-[#080b11]" style="overscroll-behavior: none; overflow: hidden;">
     <div id="status-bar-cover"></div>
@@ -2067,6 +2073,8 @@
                     await fetchSupabaseExpenses();
                     try { updateLastSyncLabel(); } catch(e) {}
                     initRealtimeSubscription();
+                    // Warm the merchant memory cache so scores render with full signal on first paint
+                    refreshAllMerchantMemory().then(() => { try { updateUI(); } catch(e) {} });
                 } catch (e) { state.supabaseClient = null; }
             } else { 
                 state.supabaseClient = null; 
@@ -2513,8 +2521,8 @@
                     }
 
                     updateUI();
-                    // Score any new unscored inbox rows after sync
-                    setTimeout(scoreInboxBatch, 100);
+                    // Refresh merchant memory after sync — new rows may have memory state from another device
+                    refreshAllMerchantMemory().then(() => updateUI());
                 }
             } catch (e) {}
         }
@@ -3113,7 +3121,25 @@
                 try { syncAllPowensAccounts(true); } catch(e) {}
             }, 30 * 60 * 1000);
 
-            // Refresh sync label every minute so relative time stays accurate
+     
+            // ── Prevent keyboard from pushing nav bar up ───────────────
+            // On iOS, focusin on an input shrinks the viewport and moves
+            // fixed elements. We detect keyboard open/close and pin the
+            // nav bar so it stays at the true bottom of the screen.
+            (function() {
+                const inputs = ['description', 'amount', 'modal-edit-amount', 'modal-edit-description',
+                                'history-search', 'new-project-input', 'config-p1', 'config-p2'];
+                const setKb = open => document.body.classList.toggle('keyboard-open', open);
+                document.addEventListener('focusin', e => {
+                    const tag = e.target?.tagName;
+                    if (tag === 'INPUT' || tag === 'TEXTAREA') setKb(true);
+                });
+                document.addEventListener('focusout', () => {
+                    // Small delay: focusout fires before the keyboard fully dismisses
+                    setTimeout(() => setKb(false), 120);
+                });
+            })();
+       // Refresh sync label every minute so relative time stays accurate
             setInterval(() => {
                 try { updateLastSyncLabel(); } catch(e) {}
             }, 60 * 1000);
@@ -3479,6 +3505,10 @@
                 if (sel) sel.value = name;
                 updateUI();
                 if (!document.getElementById('view-analyse').classList.contains('hidden')) renderAnalyseTab();
+                // Re-render Accueil project tiles so the active highlight updates immediately
+                if (!document.getElementById('view-accueil').classList.contains('hidden')) {
+                    try { renderAccueilProjects(); } catch(e) {}
+                }
             };
 
             if (!scrollArea) { applySwitch(); return; }
@@ -4931,7 +4961,7 @@
             'sq * ':            { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },  // Square POS (cafes/restaurants)
 
             // ── SHOPPING ───────────────────────────────────────────────
-            'action':           { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'action':           { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
             'zara':             { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
             'h&m':              { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
             'hm ':              { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
@@ -5018,16 +5048,49 @@
                 .split(' ').slice(0, 3).join(' ');
         }
 
-        async function fetchMerchantMemory(projectId) {
-            if (!state.supabaseClient || !navigator.onLine) return new Map();
+        // ── Merchant memory cache ───────────────────────────────────────
+        // In-memory map populated from Supabase on startup and after every Powens sync.
+        // Reads are synchronous (sized in the hundreds at most). Writes optimistically
+        // bump the local counter, then async-persist to Supabase via RPC.
+        //   state.merchantMemoryByProject = Map<projectId, Map<merchant, {accepted_count, ignored_count, last_decision}>>
+        function ensureMerchantMemoryState() {
+            if (!state.merchantMemoryByProject) state.merchantMemoryByProject = new Map();
+        }
+        function getMerchantMemoryLocal(projectId) {
+            ensureMerchantMemoryState();
+            return state.merchantMemoryByProject.get(projectId) || new Map();
+        }
+        async function refreshMerchantMemory(projectId) {
+            ensureMerchantMemoryState();
+            if (!state.supabaseClient || !navigator.onLine) return;
             try {
                 const { data, error } = await state.supabaseClient
                     .from('merchant_memory')
                     .select('normalized_merchant, accepted_count, ignored_count, last_decision')
                     .eq('project_id', projectId);
-                if (error || !data) return new Map();
-                return new Map(data.map(r => [r.normalized_merchant, r]));
-            } catch (e) { return new Map(); }
+                if (error || !data) return;
+                state.merchantMemoryByProject.set(projectId, new Map(data.map(r => [r.normalized_merchant, r])));
+            } catch (e) {}
+        }
+        async function refreshAllMerchantMemory() {
+            const projects = (state.config.projects || []).map(p => (typeof p === 'string') ? p : (p.id || p.name));
+            for (const pid of projects) { await refreshMerchantMemory(pid); }
+        }
+        function bumpMerchantMemoryLocal(projectId, merchant, decision) {
+            ensureMerchantMemoryState();
+            let projMap = state.merchantMemoryByProject.get(projectId);
+            if (!projMap) { projMap = new Map(); state.merchantMemoryByProject.set(projectId, projMap); }
+            const existing = projMap.get(merchant) || { normalized_merchant: merchant, accepted_count: 0, ignored_count: 0, last_decision: null };
+            if (decision === 'accepted') existing.accepted_count += 1;
+            else if (decision === 'ignored') existing.ignored_count += 1;
+            existing.last_decision = decision;
+            projMap.set(merchant, existing);
+        }
+        // Sync score computation. Replaces the old "store on row then read it" pattern.
+        function getScoreForExpense(exp) {
+            const projectId = exp.project || state.config.activeProject;
+            const mem = getMerchantMemoryLocal(projectId);
+            return scoreExpense(exp, mem, projectId, state.expenses);
         }
 
         function scoreExpense(expense, merchantMemory, projectId, allExpenses) {
@@ -5122,38 +5185,20 @@
         }
 
                 async function scoreInboxBatch() {
-            const projectId = state.config.activeProject;
-            const unscored = state.expenses.filter(e =>
-                e.approved === false &&
-                (e.project === projectId || (!e.project && projectId === 'Principal')) &&
-                e.confidence == null
-            );
-            if (unscored.length === 0) return;
-            const memory = await fetchMerchantMemory(projectId);
-            const toUpdate = [];
-            unscored.forEach(expense => {
-                const { confidence, reasoning } = scoreExpense(expense, memory, projectId, state.expenses);
-                const idx = state.expenses.findIndex(e => e.id === expense.id);
-                if (idx !== -1) {
-                    state.expenses[idx].confidence = confidence;
-                    state.expenses[idx].reasoning = reasoning;
-                    toUpdate.push({ id: expense.id, confidence, reasoning });
-                }
-            });
-            if (toUpdate.length === 0) return;
-            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
-            if (state.supabaseClient && navigator.onLine) {
-                toUpdate.forEach(({ id, confidence, reasoning }) => {
-                    state.supabaseClient.from('expenses').update({ confidence, reasoning }).eq('id', id)
-                        .then(({ error }) => { if (error) console.warn('Score write failed for', id, error); });
-                });
-            }
+            // DEPRECATED — kept only as a no-op shim so any old setTimeout call site
+            // doesn't throw. Scores are now computed on render via getScoreForExpense().
+            // The old version persisted confidence to the row, which created staleness:
+            // a score computed once never refreshed when merchant memory changed.
+            return;
         }
 
         function recordMerchantDecision(expense, decision) {
             const merchant = normalizeMerchant(expense.description);
             if (!merchant) return;
             const projectId = expense.project || state.config.activeProject;
+            // Optimistically bump local cache so the next render reflects the new score
+            bumpMerchantMemoryLocal(projectId, merchant, decision);
+            // Async-persist to Supabase
             (async () => {
                 if (!state.supabaseClient || !navigator.onLine) { queueMerchantMemory(projectId, merchant, decision); return; }
                 try {
@@ -6221,13 +6266,31 @@
                         if (filteredExpenses.length === 0) {
                             inList.innerHTML = `<p class="text-center text-xs text-slate-600 py-4">Aucune transaction pour ce filtre</p>`;
                         } else {
-                        // Sort newest first, then group by date label (same labels as history: Aujourd'hui, Hier, Cette semaine, etc.)
-                        const sorted = [...filteredExpenses].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                        // Sort + group by confidence tier (high ≥75, medium 40-74, low <40).
+                        // Within each tier, newest first. This surfaces the actionable rows
+                        // at the top of the inbox; low-confidence rows stay visible at the
+                        // bottom so nothing is hidden.
+                        const tierFor = (s) => s >= 75 ? 'high' : (s >= 40 ? 'medium' : 'low');
+                        const tierOrder = { high: 0, medium: 1, low: 2 };
+                        const tierLabels = {
+                            high: 'Confiance élevée',
+                            medium: 'À vérifier',
+                            low: 'Probablement à ignorer'
+                        };
+                        // Pre-compute scores so we don't run the engine twice (sort + render)
+                        const scored = filteredExpenses.map(exp => {
+                            const s = getScoreForExpense(exp);
+                            return { exp, confidence: s.confidence, reasoning: s.reasoning, tier: tierFor(s.confidence) };
+                        });
+                        scored.sort((a, b) => {
+                            if (a.tier !== b.tier) return tierOrder[a.tier] - tierOrder[b.tier];
+                            return new Date(b.exp.created_at) - new Date(a.exp.created_at);
+                        });
                         let currentGroup = null;
                         let groupContainer = null;
-                        sorted.forEach(exp => {
+                        scored.forEach(({ exp, confidence, reasoning, tier }) => {
                             const d = new Date(exp.created_at);
-                            const groupLabel = isNaN(d) ? 'Récent' : dateGroupLabel(d);
+                            const groupLabel = tierLabels[tier];
                             if (groupLabel !== currentGroup) {
                                 currentGroup = groupLabel;
                                 const header = document.createElement('div');
@@ -6251,7 +6314,18 @@
                             const typeBadge = isRevenu
                                 ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-bold">💰 Revenu</span>`
                                 : `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[9px] font-bold">💸 Dépense</span>`;
-                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div><p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><span class="text-sm font-black ${amountColor} shrink-0">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div>
+                            // Confidence pill — 3-tier color, sits above the amount
+                            const pillColor = tier === 'high'
+                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : tier === 'medium'
+                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+                            const confidencePill = `<span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${pillColor} text-[9px] font-black tabular-nums shrink-0">${confidence}%</span>`;
+                            // Reasoning subtitle — the top rule's human-readable label
+                            const reasoningText = reasoning && reasoning.label && reasoning.label !== 'Non classé'
+                                ? `<p class="text-[10px] text-slate-500 mt-0.5 italic">${reasoning.label}</p>`
+                                : '';
+                            c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div>${reasoningText}<p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><div class="flex flex-col items-end gap-1 shrink-0">${confidencePill}<span class="text-sm font-black ${amountColor}">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div></div>
                             <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
                                 <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
@@ -7042,6 +7116,8 @@
                     count++;
                 }
             });
+            // Record each as accepted so merchant memory learns from bulk actions too
+            validated.forEach(v => recordMerchantDecision(v, 'accepted'));
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             haptic('success');
             showToast(`✓ ${count} transaction${count > 1 ? 's' : ''} validée${count > 1 ? 's' : ''}`);
@@ -7062,11 +7138,15 @@
             if (state.inboxSelectedIds.size === 0) return;
             const ids = Array.from(state.inboxSelectedIds);
             haptic('warn');
+            // Capture expenses BEFORE they're removed so we can record decisions
+            const toIgnore = ids.map(id => state.expenses.find(e => e.id === id)).filter(Boolean);
             ids.forEach(id => {
                 const exp = state.expenses.find(e => e.id === id);
                 if (exp && exp.powens_id) trackDismissedPowensId(exp.powens_id);
                 trackDeletedId(id);
             });
+            // Teach merchant memory before we drop the rows
+            toIgnore.forEach(e => recordMerchantDecision(e, 'ignored'));
             const count = ids.length;
             state.expenses = state.expenses.filter(e => !state.inboxSelectedIds.has(e.id));
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
@@ -7997,14 +8077,17 @@
                 return;
             }
 
-            // Sort by confidence desc, fall back to recency for unscored rows
-            const sorted = [...pending].sort((a, b) => {
-                const ca = a.confidence ?? -1;
-                const cb = b.confidence ?? -1;
-                if (cb !== ca) return cb - ca;
-                return new Date(b.created_at) - new Date(a.created_at);
+            // Score each pending row live (sync, uses in-memory merchant memory cache)
+            const scored = pending.map(exp => {
+                const s = getScoreForExpense(exp);
+                return { exp, confidence: s.confidence, reasoning: s.reasoning };
             });
-            const top = sorted.slice(0, 3);
+            // Sort by confidence desc, then recency as tiebreaker
+            scored.sort((a, b) => {
+                if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+                return new Date(b.exp.created_at) - new Date(a.exp.created_at);
+            });
+            const top = scored.slice(0, 3);
             const overflowCount = pending.length - top.length;
             const currency = state.config.currency || '€';
             const projects = state.config.projects || [];
@@ -8016,13 +8099,23 @@
                 return { name: p.name || p.id, icon: p.icon || '📂' };
             };
 
-            const cardHtml = (exp) => {
+            const tierFor = (s) => s >= 75 ? 'high' : (s >= 40 ? 'medium' : 'low');
+            const cardHtml = ({ exp, confidence, reasoning }) => {
                 const pm = projectMeta(exp.project);
                 const isRevenu = exp.type === 'revenu';
                 const iconColor = isRevenu ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                                            : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400';
                 const amtSign = isRevenu ? '+' : '';
                 const safeDesc = (exp.description || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                const tier = tierFor(confidence);
+                const pillColor = tier === 'high'
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : tier === 'medium'
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+                const reasoningText = reasoning && reasoning.label && reasoning.label !== 'Non classé'
+                    ? `<span class="text-[9px] text-slate-500 italic truncate">· ${reasoning.label}</span>`
+                    : '';
                 return `
                     <div class="bg-slate-950/30 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
                         <div class="flex items-start justify-between gap-3">
@@ -8032,12 +8125,16 @@
                                 </div>
                                 <div class="min-w-0">
                                     <p class="text-sm font-bold text-slate-100 truncate">${safeDesc || 'Sans description'}</p>
-                                    <div class="flex items-center gap-1.5 mt-0.5">
-                                        <span class="text-[10px] text-slate-400 font-medium truncate">${pm.icon} ${pm.name}</span>
+                                    <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                        <span class="text-[10px] text-slate-400 font-medium truncate shrink-0">${pm.icon} ${pm.name}</span>
+                                        ${reasoningText}
                                     </div>
                                 </div>
                             </div>
-                            <span class="text-sm font-black text-slate-100 shrink-0">${amtSign}${(exp.amount || 0).toFixed(2).replace('.', ',')} ${currency}</span>
+                            <div class="flex flex-col items-end gap-1 shrink-0">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${pillColor} text-[9px] font-black tabular-nums">${confidence}%</span>
+                                <span class="text-sm font-black text-slate-100">${amtSign}${(exp.amount || 0).toFixed(2).replace('.', ',')} ${currency}</span>
+                            </div>
                         </div>
                         <div class="grid grid-cols-3 gap-2">
                             <button onclick="approveTransaction('${exp.id}')" class="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Valider</button>
