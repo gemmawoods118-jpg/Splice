@@ -3045,9 +3045,6 @@
                     splash.style.opacity = '0';
                     setTimeout(() => { splash.style.display = 'none'; }, 240);
                 }
-                // Defensive: re-render Accueil when the splash drops, in case earlier
-                // render attempts ran before fetchSupabaseExpenses populated state.
-                try { updateUI(); } catch(e) {}
             }, 2100);
             // Hard failsafe: force-hide at 3.5s no matter what
             setTimeout(() => {
@@ -3062,9 +3059,6 @@
             try { loadConfig(); } catch(e) {}
             try { loadCategories(); } catch(e) {}
             try { loadLocalExpenses(); } catch(e) {}
-            // Render immediately against whatever localStorage gave us, so Accueil is
-            // never blank on first paint. The async Supabase fetch will overwrite shortly.
-            try { updateUI(); } catch(e) {}
             try { cleanupOldPowensInboxFlood(); } catch(e) {} // one-time flood cleanup
             try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
             try { cleanupRevpointsLocal(); } catch(e) {}   // strip Revpoints from localStorage
@@ -5355,15 +5349,6 @@
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
             closeProjectPicker();
             haptic('light');
-            // Show a toast so the user knows where the row went — especially important on
-            // Historique, where the row disappears from the current view after reassign.
-            try {
-                const projects = state.config.projects || [];
-                const p = projects.find(x => (x.id || x) === projectId);
-                const targetName = p ? (typeof p === 'string' ? p : (p.name || p.id)) : projectId;
-                const targetIcon = p && typeof p !== 'string' ? (p.icon || '📂') : (projectId === 'Principal' ? '🏡' : '📂');
-                showToast(`Déplacé vers ${targetIcon} ${targetName}`);
-            } catch(e) {}
             updateUI();
 
             // Persist to Supabase
@@ -5980,8 +5965,10 @@
 
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
 
-            // Inbox is global → check global pending count for the "all done" overlay
-            const remaining = state.expenses.filter(e => e.approved === false);
+            const remaining = state.expenses.filter(e =>
+                e.approved === false &&
+                (e.project === state.config.activeProject || (!e.project && state.config.activeProject === 'Principal'))
+            );
             if (remaining.length === 0) showSuccessOverlay("Tout est validé !");
 
             updateUI();
@@ -6358,12 +6345,10 @@
                 const actProj = state.config.activeProject;
                 const proExps = state.expenses.filter(exp => exp.project === actProj || (!exp.project && actProj === 'Principal'));
                 const approvedExpenses = proExps.filter(exp => exp.approved !== false);
-                // Inbox is GLOBAL — pending suggestions span every project. The strategic
-                // positioning is "triage all incoming bank transactions in one place";
-                // project assignment happens at validate time, not before.
-                // Only show pending items that belong to THIS device's payer.
+                // Only show pending items that belong to THIS device's payer
+                // (covers both Powens bank transactions AND Apple Pay/shortcut transactions)
                 const myPayer = getDevicePayer();
-                const unapprovedExpenses = state.expenses.filter(exp =>
+                const unapprovedExpenses = proExps.filter(exp =>
                     exp.approved === false && (!exp.payer || exp.payer === myPayer)
                 );
 
@@ -6554,9 +6539,10 @@
                                 ? `<p class="text-[10px] text-slate-500 mt-0.5 italic">${reasoning.label}</p>`
                                 : '';
                             c.innerHTML = `<div class="flex justify-between items-start gap-3"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center ${amountColor} shrink-0"><i class="fa-solid ${exp.icon||m.icon} text-xs"></i></div><div class="min-w-0"><div class="flex items-baseline gap-2 min-w-0"><p class="text-sm font-bold text-slate-100 truncate flex-1 min-w-0">${exp.description}</p></div>${reasoningText}<p class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">${typeBadge} <span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${payerColor} font-bold text-[10px]">${payerName}</span>${projectChip}${exactDate ? `<span class="text-slate-600 mx-0.5">·</span><span class="text-slate-400 font-medium">${exactDate}</span>` : ''}${exp._fuzzyDupe ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[9px] font-bold"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i>Doublon possible</span>` : ''}</p></div></div><div class="flex flex-col items-end gap-1 shrink-0">${confidencePill}<span class="text-sm font-black ${amountColor}">${isRevenu ? '+' : '-'}${exp.amount.toFixed(2)} ${state.config.currency}</span></div></div>
-                            <div class="grid grid-cols-2 gap-2 border-t border-slate-800 pt-2">
-                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
+                            <div class="grid grid-cols-3 gap-2 border-t border-slate-800 pt-2">
                                 <button onclick="approveTransaction('${exp.id}')" class="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Valider</button>
+                                <button onclick="toggleInboxEdit('${exp.id}',true)" class="py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Éditer</button>
+                                <button onclick="rejectTransaction('${exp.id}')" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">Ignorer</button>
                             </div>`;
                             // Unified gesture handler:
                             // - Vertical drag → ignore (let page scroll)
@@ -6623,9 +6609,6 @@
                             const _onEnd = () => {
                                 if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
                                 if (_mode !== 'swiping') { _mode = 'idle'; return; }
-                                // Any swipe gesture (committed or snapped back) should suppress the
-                                // synthetic click that some browsers fire ~300ms after touchend.
-                                _suppressClickUntil = Date.now() + 400;
                                 const crossed = Math.abs(_curDX) / _cardWidth >= SWIPE_THRESHOLD;
                                 if (crossed) {
                                     // Commit — animate the card off-screen, then call the data layer with skipAnimation
@@ -6656,25 +6639,17 @@
                                 }
                                 _mode = 'idle';
                             };
-                            let _suppressClickUntil = 0;
                             cardEl.addEventListener('touchstart', _onStart, { passive: true });
                             cardEl.addEventListener('touchmove', _onMove, { passive: true });
                             cardEl.addEventListener('touchend', _onEnd);
                             cardEl.addEventListener('touchcancel', _onEnd);
+                            // Tap while in multiselect mode → toggle selection
                             cardEl.addEventListener('click', (e) => {
-                                // Buttons inside the card handle their own clicks
+                                if (state.inboxSelectedIds.size === 0) return; // normal mode, let buttons handle it
+                                // Don't toggle if user tapped one of the action buttons
                                 if (e.target.closest('button')) return;
-                                // Suppress the synthetic click that fires after a swipe gesture
-                                if (Date.now() < _suppressClickUntil) return;
-                                // Multiselect mode → toggle selection instead of opening the modal
-                                if (state.inboxSelectedIds.size > 0) {
-                                    e.stopPropagation();
-                                    toggleInboxSelect(exp.id);
-                                    return;
-                                }
-                                // Clean tap → open the edit modal
                                 e.stopPropagation();
-                                toggleInboxEdit(exp.id, true);
+                                toggleInboxSelect(exp.id);
                             });
                             wrapper.appendChild(c);
                             groupContainer.appendChild(wrapper);
@@ -6740,17 +6715,7 @@
                         item.className = "group flex justify-between items-center bg-slate-950/20 border border-slate-800/50 rounded-xl p-4 w-full hover:border-slate-700 transition-all duration-300";
                         const payerName = exp.payer === 'p1' ? state.config.p1Name : (exp.payer === 'p2' ? state.config.p2Name : '—');
                         const expDate = new Date(exp.created_at).toLocaleDateString('fr-FR',{month:'short',day:'numeric'});
-                        // Project chip — tappable, reassigns this archived row to a different project if it was misclassified.
-                        // No suggestion hint here (unlike Inbox) — archival rows are already decided.
-                        const projMeta = (function(pid) {
-                            const projects = state.config.projects || [];
-                            const p = projects.find(x => (x.id || x) === pid);
-                            if (!p) return { name: pid || 'Principal', icon: pid === 'Principal' ? '🏡' : '📂' };
-                            if (typeof p === 'string') return { name: p, icon: p === 'Principal' ? '🏡' : '📂' };
-                            return { name: p.name || p.id, icon: p.icon || '📂' };
-                        })(exp.project);
-                        const projectChipHtml = `<button onclick="event.stopPropagation(); openProjectPicker('${exp.id}')" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bg-slate-800/60 border-slate-700/50 text-slate-300 text-[10px] font-bold cursor-pointer active:scale-95 transition-transform"><span>${projMeta.icon}</span><span class="truncate max-w-[80px]">${projMeta.name}</span><i class="fa-solid fa-chevron-down text-[7px] opacity-60 ml-0.5"></i></button>`;
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-coins':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap mt-0.5">${expDate} <span class="text-slate-700">·</span> <span class="text-slate-400">${payerName}</span> ${projectChipHtml}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-coins':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-100 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1">${expDate} · <span class="text-slate-400">${payerName}</span><span class="text-slate-700">·</span><span class="${exp.type === 'revenu' ? 'text-emerald-500/70' : exp.type === 'transfert' ? 'text-sky-500/70' : 'text-rose-500/70'}">${exp.type === 'revenu' ? 'Revenu' : exp.type === 'transfert' ? 'Transfert' : 'Dépense'}</span></p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-200">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
@@ -8522,9 +8487,9 @@
                             </div>
                         </div>
                         <div class="grid grid-cols-3 gap-2">
-                            <button onclick="rejectTransaction('${exp.id}')" class="py-2 bg-slate-800/60 hover:bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Ignorer</button>
-                            <button onclick="toggleHistoryEdit('${exp.id}', true)" class="py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Éditer</button>
                             <button onclick="approveTransaction('${exp.id}')" class="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Valider</button>
+                            <button onclick="toggleHistoryEdit('${exp.id}', true)" class="py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Éditer</button>
+                            <button onclick="rejectTransaction('${exp.id}')" class="py-2 bg-slate-800/60 hover:bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95">Ignorer</button>
                         </div>
                     </div>
                 `;
