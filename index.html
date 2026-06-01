@@ -681,6 +681,118 @@
     <div id="status-bar-cover"></div>
 
     <!-- Splash Screen (Animation de bienvenue avec chargement progressif) -->
+
+        <!-- ═══════════════════════════════════════════════════════════════════
+             LOGIN / FIRST-LAUNCH SETUP SCREEN  z-[200] — sits above everything
+        ════════════════════════════════════════════════════════════════════════ -->
+        <div id="login-screen" class="hidden fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#080b11] p-6 overflow-y-auto" style="min-height:100dvh;">
+            <!-- Logo + wordmark -->
+            <div class="flex flex-col items-center mb-8 select-none">
+                <div class="w-16 h-16 mx-auto bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(79,70,229,0.45)] mb-3">
+                    <svg viewBox="0 0 48 48" fill="none" class="w-9 h-9" aria-hidden="true">
+                        <circle cx="24" cy="24" r="14" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="42 46" stroke-dashoffset="-4" opacity="1"/>
+                        <circle cx="24" cy="24" r="14" stroke="rgba(255,255,255,0.55)" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="42 46" stroke-dashoffset="39"/>
+                    </svg>
+                </div>
+                <span class="text-white font-black text-2xl tracking-tight">Splice</span>
+                <span class="text-slate-500 text-xs mt-0.5">Dépenses partagées</span>
+            </div>
+
+            <!-- Step dots -->
+            <div class="flex gap-2 mb-7" id="login-dots">
+                <span class="w-2 h-2 rounded-full bg-indigo-500 transition-all" data-dot="0"></span>
+                <span class="w-2 h-2 rounded-full bg-slate-700 transition-all" data-dot="1"></span>
+                <span class="w-2 h-2 rounded-full bg-slate-700 transition-all" data-dot="2"></span>
+            </div>
+
+            <!-- Card container -->
+            <div class="w-full max-w-sm" id="login-card">
+
+                <!-- ── STEP 0: Prénoms ───────────────────────────────────── -->
+                <div id="login-step-0" class="space-y-5">
+                    <div>
+                        <h2 class="text-white font-black text-lg leading-tight">Qui utilise Splice ?</h2>
+                        <p class="text-slate-400 text-xs mt-1">Entrez vos prénoms — ils apparaîtront partout dans l'app.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Personne 1 <span class="text-indigo-400">(vous)</span></label>
+                            <input id="login-p1" type="text" autocomplete="given-name" placeholder="Ex : Alex"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Personne 2 <span class="text-violet-400">(votre partenaire)</span></label>
+                            <input id="login-p2" type="text" autocomplete="given-name" placeholder="Ex : Sam"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-colors">
+                        </div>
+                    </div>
+                    <button onclick="loginNext(0)" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
+                        Continuer →
+                    </button>
+                </div>
+
+                <!-- ── STEP 1: Supabase ─────────────────────────────────── -->
+                <div id="login-step-1" class="hidden space-y-5">
+                    <div>
+                        <h2 class="text-white font-black text-lg leading-tight">Connexion Supabase</h2>
+                        <p class="text-slate-400 text-xs mt-1">Entrez vos identifiants Supabase pour synchroniser les dépenses entre les deux téléphones.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">URL du projet</label>
+                            <input id="login-sb-url" type="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                                placeholder="https://xxxx.supabase.co"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-xs placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Clé API (anon key)</label>
+                            <input id="login-sb-key" type="password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-xs placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono">
+                            <button type="button" onclick="loginToggleKeyVisibility()" class="mt-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                                Afficher / masquer la clé
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="loginBack(1)" class="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl text-sm active:scale-95 transition-all">← Retour</button>
+                        <button onclick="loginNext(1)" class="flex-[2] py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
+                            Continuer →
+                        </button>
+                    </div>
+                    <p class="text-center text-slate-600 text-xs">Vos données restent sur votre Supabase personnel.<br>Splice ne stocke rien sur ses propres serveurs.</p>
+                </div>
+
+                <!-- ── STEP 2: Ce téléphone = qui ? ────────────────────── -->
+                <div id="login-step-2" class="hidden space-y-5">
+                    <div>
+                        <h2 class="text-white font-black text-lg leading-tight">Ce téléphone, c'est…</h2>
+                        <p class="text-slate-400 text-xs mt-1">Choisissez à qui appartient cet appareil. L'autre personne choisit l'autre option sur son téléphone.</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3" id="login-payer-btns">
+                        <button onclick="loginSelectPayer('p1')" id="login-payer-p1"
+                            class="py-5 rounded-2xl border-2 border-indigo-500 bg-indigo-600/20 text-indigo-300 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2">
+                            <span class="text-2xl" id="login-payer-av-p1">A</span>
+                            <span id="login-payer-name-p1" class="text-sm">Personne 1</span>
+                        </button>
+                        <button onclick="loginSelectPayer('p2')" id="login-payer-p2"
+                            class="py-5 rounded-2xl border-2 border-slate-700 bg-slate-900 text-slate-400 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2">
+                            <span class="text-2xl" id="login-payer-av-p2">S</span>
+                            <span id="login-payer-name-p2" class="text-sm">Personne 2</span>
+                        </button>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="loginBack(2)" class="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl text-sm active:scale-95 transition-all">← Retour</button>
+                        <button onclick="loginFinish()" id="login-finish-btn"
+                            class="flex-[2] py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
+                            C'est parti ! 🚀
+                        </button>
+                    </div>
+                </div>
+
+            </div><!-- /login-card -->
+        </div><!-- /login-screen -->
+
     <div id="splash-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#080b11]" style="opacity:1;transition:opacity 0.2s ease;">
         <div class="text-center">
             <div class="w-20 h-20 mx-auto bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.4)] mb-4 splash-logo-pulse">
@@ -2282,6 +2394,24 @@
                 if (!error && data) {
                     // Also pull latest dismissed powens ids
                     try { fetchDismissedPowensIds(); } catch(e) {}
+                    // ── Sync projects table from Supabase ──────────────
+                    try {
+                        const { data: projRows } = await state.supabaseClient.from('projects').select('*');
+                        if (projRows && projRows.length > 0) {
+                            let projChanged = false;
+                            projRows.forEach(row => {
+                                const exists = state.config.projects.find(p => (p.id || p) === row.id);
+                                if (!exists) {
+                                    state.config.projects.push({ id: row.id, name: row.name, icon: row.icon || '', currency: row.currency || '€' });
+                                    projChanged = true;
+                                }
+                            });
+                            if (projChanged) {
+                                localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+                                populateProjectSelector();
+                            }
+                        }
+                    } catch(e) { console.warn('Projects sync error', e); }
                     const supabaseIds = new Set(data.map(r => r.id));
 
                     // ── MULTI-DEVICE DELETE FIX ──────────────────────────────────────────────
@@ -2913,6 +3043,36 @@
             try { autoExpireInboxItems(); } catch(e) {}       // recurring: remove inbox items > 7 days
             try { cleanupRevpointsLocal(); } catch(e) {}   // strip Revpoints from localStorage
             try { initializeSupabase(); } catch(e) {}
+
+            // ── One-time: push localStorage projects to Supabase ──────
+            // Runs once per device, flagged in localStorage. Ensures projects
+            // created before the projects table existed (e.g. "England") are
+            // visible to the partner on their next refresh.
+            if (!localStorage.getItem('us_projects_migrated')) {
+                setTimeout(() => {
+                    if (!state.supabaseClient || !navigator.onLine) return;
+                    const toSync = (state.config.projects || []).filter(p => {
+                        const id = p.id || p;
+                        return id && typeof id === 'string';
+                    });
+                    if (toSync.length === 0) { localStorage.setItem('us_projects_migrated', '1'); return; }
+                    const rows = toSync.map(p => ({
+                        id:       p.id   || p,
+                        name:     p.name || p.id || p,
+                        icon:     p.icon     || '',
+                        currency: p.currency || '€',
+                    }));
+                    state.supabaseClient.from('projects')
+                        .upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
+                        .then(({ error }) => {
+                            if (!error) {
+                                localStorage.setItem('us_projects_migrated', '1');
+                                console.log('Splice: projects migrated to Supabase', rows.length, 'rows');
+                            }
+                        });
+                }, 2000);
+            }
+
             // Auto-sync on every cold start (app opened fresh / removed from cache)
             setTimeout(async () => {
                 if (navigator.onLine) {
@@ -3013,8 +3173,141 @@
             });
         }
 
-        if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initApp);
-        else initApp();
+        
+        // ─── LOGIN / FIRST-LAUNCH WIZARD ─────────────────────────────────────────
+        let _loginChosenPayer = 'p1';
+
+        function loginToggleKeyVisibility() {
+            const el = document.getElementById('login-sb-key');
+            if (el) el.type = el.type === 'password' ? 'text' : 'password';
+        }
+
+        function loginShowStep(n) {
+            [0, 1, 2].forEach(i => {
+                const s = document.getElementById('login-step-' + i);
+                if (s) s.classList.toggle('hidden', i !== n);
+                const dot = document.querySelector('[data-dot="' + i + '"]');
+                if (dot) {
+                    dot.classList.toggle('bg-indigo-500', i <= n);
+                    dot.classList.toggle('bg-slate-700', i > n);
+                    dot.style.transform = i === n ? 'scale(1.4)' : 'scale(1)';
+                }
+            });
+        }
+
+        function loginNext(fromStep) {
+            if (fromStep === 0) {
+                const p1 = document.getElementById('login-p1').value.trim();
+                const p2 = document.getElementById('login-p2').value.trim();
+                if (!p1 || !p2) {
+                    showToast('Entrez les deux prénoms');
+                    return;
+                }
+                // Update payer button labels immediately for step 2
+                const av1 = document.getElementById('login-payer-av-p1');
+                const av2 = document.getElementById('login-payer-av-p2');
+                const n1  = document.getElementById('login-payer-name-p1');
+                const n2  = document.getElementById('login-payer-name-p2');
+                if (av1) av1.textContent = p1[0].toUpperCase();
+                if (av2) av2.textContent = p2[0].toUpperCase();
+                if (n1)  n1.textContent  = p1;
+                if (n2)  n2.textContent  = p2;
+                loginShowStep(1);
+            } else if (fromStep === 1) {
+                const url = document.getElementById('login-sb-url').value.trim();
+                const key = document.getElementById('login-sb-key').value.trim();
+                if (!url || !key) {
+                    showToast('URL et clé Supabase requis');
+                    return;
+                }
+                if (!url.startsWith('https://')) {
+                    showToast("L'URL doit commencer par https://");
+                    return;
+                }
+                loginShowStep(2);
+            }
+        }
+
+        function loginBack(fromStep) {
+            loginShowStep(fromStep - 1);
+        }
+
+        function loginSelectPayer(payer) {
+            _loginChosenPayer = payer;
+            const p1Name = document.getElementById('login-p1').value.trim() || 'Personne 1';
+            const p2Name = document.getElementById('login-p2').value.trim() || 'Personne 2';
+            const btn1 = document.getElementById('login-payer-p1');
+            const btn2 = document.getElementById('login-payer-p2');
+            if (payer === 'p1') {
+                btn1.className = 'py-5 rounded-2xl border-2 border-indigo-500 bg-indigo-600/20 text-indigo-300 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
+                btn2.className = 'py-5 rounded-2xl border-2 border-slate-700 bg-slate-900 text-slate-400 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
+            } else {
+                btn2.className = 'py-5 rounded-2xl border-2 border-violet-500 bg-violet-600/20 text-violet-300 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
+                btn1.className = 'py-5 rounded-2xl border-2 border-slate-700 bg-slate-900 text-slate-400 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
+            }
+        }
+
+        function loginFinish() {
+            const p1    = document.getElementById('login-p1').value.trim();
+            const p2    = document.getElementById('login-p2').value.trim();
+            const sbUrl = document.getElementById('login-sb-url').value.trim();
+            const sbKey = document.getElementById('login-sb-key').value.trim();
+
+            // Save config to localStorage — same keys initApp reads
+            const existing = (() => { try { return JSON.parse(localStorage.getItem('us_tracker_config')) || {}; } catch(e) { return {}; } })();
+            const cfg = {
+                ...existing,
+                p1Name:  p1  || 'Alex',
+                p2Name:  p2  || 'Sam',
+                sbUrl:   sbUrl,
+                sbKey:   sbKey,
+                currency: existing.currency || '€',
+                globalCurrency: existing.globalCurrency || '€',
+                projects: existing.projects || [{ id: 'Principal', name: 'Principal', icon: '' }],
+                activeProject: existing.activeProject || 'Principal',
+            };
+            localStorage.setItem('us_tracker_config', JSON.stringify(cfg));
+            localStorage.setItem('us_device_payer', _loginChosenPayer);
+
+            // Hide login screen with a fade
+            const screen = document.getElementById('login-screen');
+            if (screen) {
+                screen.style.transition = 'opacity 0.3s ease';
+                screen.style.opacity = '0';
+                setTimeout(() => screen.classList.add('hidden'), 320);
+            }
+
+            // Boot the app
+            initApp();
+        }
+
+        // Called instead of initApp() on every cold start.
+        // Shows login screen on first launch (no sbUrl saved); otherwise boots normally.
+        function bootApp() {
+            try {
+                const saved = localStorage.getItem('us_tracker_config');
+                const cfg   = saved ? JSON.parse(saved) : null;
+                if (!cfg || !cfg.sbUrl || !cfg.sbKey) {
+                    // Pre-fill names if they exist
+                    const p1El = document.getElementById('login-p1');
+                    const p2El = document.getElementById('login-p2');
+                    if (p1El && cfg && cfg.p1Name) p1El.value = cfg.p1Name;
+                    if (p2El && cfg && cfg.p2Name) p2El.value = cfg.p2Name;
+                    loginShowStep(0);
+                    const screen = document.getElementById('login-screen');
+                    if (screen) {
+                        screen.classList.remove('hidden');
+                        screen.style.opacity = '1';
+                    }
+                    return; // don't call initApp yet
+                }
+            } catch(e) {}
+            initApp();
+        }
+        // ─── END LOGIN WIZARD ─────────────────────────────────────────────────────
+
+        if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', bootApp);
+        else bootApp();
 
         // Ajout d'opérateurs pour la calculatrice
         function appendMathOperator(inputId, op) {
@@ -3111,6 +3404,12 @@
             state.config.projects.push({id: name, name: name, icon: icon, currency: currency});
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
             populateProjectSelector();
+            // ── Persist to Supabase so the partner sees it immediately ──
+            if (state.supabaseClient && navigator.onLine) {
+                state.supabaseClient.from('projects')
+                    .upsert({ id: name, name: name, icon: icon, currency: currency }, { onConflict: 'id' })
+                    .then(({ error }) => { if (error) console.warn('Project upsert error', error); });
+            }
 
             // Close the modal with an exit animation, then trigger the welcome celebration
             const modal = document.getElementById('project-modal');
@@ -3294,6 +3593,15 @@
                     state.supabaseClient.from('expenses').update({ project: newId }).eq('project', oldId).then(({ error }) => {
                         if (error) console.error('Project rename update error:', error);
                     });
+                    // Upsert updated project row
+                    state.supabaseClient.from('projects')
+                        .upsert({ id: newId, name: newName, icon: newIcon, currency: newCurrency }, { onConflict: 'id' })
+                        .then(({ error }) => { if (error) console.warn('Project row upsert:', error); });
+                    // Delete old row if id changed
+                    if (newId !== oldId) {
+                        state.supabaseClient.from('projects').delete().eq('id', oldId)
+                            .then(({ error }) => { if (error) console.warn('Project old row delete:', error); });
+                    }
                 }
             }
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
@@ -3343,7 +3651,11 @@
                     if (error) console.error('Project cascade delete error:', error);
                 });
             }
-            // Remove the project itself
+            // Remove the project itself from Supabase
+            if (state.supabaseClient && navigator.onLine) {
+                state.supabaseClient.from('projects').delete().eq('id', id)
+                    .then(({ error }) => { if (error) console.warn('Project row delete:', error); });
+            }
             state.config.projects = state.config.projects.filter(p => (p.id || p) !== id);
             // Switch to Principal if we just deleted the active project
             if (state.config.activeProject === id) state.config.activeProject = 'Principal';
@@ -4537,9 +4849,159 @@
             }
         }
 
+        // ─── MERCHANT OVERRIDE MAP + ENHANCED SCAN ─── (see MERCHANT_OVERRIDES below)
+
+        // ─── MERCHANT OVERRIDE MAP ─────────────────────────────────────────────────
+        // Exact-match lookup (lowercase, trimmed). Runs BEFORE keyword fuzzy scan.
+        // Keys are substrings to match anywhere in the normalised description.
+        const MERCHANT_OVERRIDES = {
+            // ── TRANSPORT ──────────────────────────────────────────────
+            'trainline':        { label: 'Transport',        icon: 'fa-train',          color: 'text-sky-400' },
+            'eurostar':         { label: 'Transport',        icon: 'fa-train',          color: 'text-sky-400' },
+            'sncf':             { label: 'Transport',        icon: 'fa-train',          color: 'text-sky-400' },
+            'ouigo':            { label: 'Transport',        icon: 'fa-train',          color: 'text-sky-400' },
+            'thalys':           { label: 'Transport',        icon: 'fa-train',          color: 'text-sky-400' },
+            'ratp':             { label: 'Transport',        icon: 'fa-subway',         color: 'text-sky-400' },
+            'navigo':           { label: 'Transport',        icon: 'fa-subway',         color: 'text-sky-400' },
+            'uber':             { label: 'Transport',        icon: 'fa-car',            color: 'text-sky-400' },
+            'bolt':             { label: 'Transport',        icon: 'fa-car',            color: 'text-sky-400' },
+            'blablacar':        { label: 'Transport',        icon: 'fa-car',            color: 'text-sky-400' },
+            'flixbus':          { label: 'Transport',        icon: 'fa-bus',            color: 'text-sky-400' },
+            'ryanair':          { label: 'Transport',        icon: 'fa-plane',          color: 'text-sky-400' },
+            'easyjet':          { label: 'Transport',        icon: 'fa-plane',          color: 'text-sky-400' },
+            'air france':       { label: 'Transport',        icon: 'fa-plane',          color: 'text-sky-400' },
+            'transavia':        { label: 'Transport',        icon: 'fa-plane',          color: 'text-sky-400' },
+            'vueling':          { label: 'Transport',        icon: 'fa-plane',          color: 'text-sky-400' },
+            'wizz':             { label: 'Transport',        icon: 'fa-plane',          color: 'text-sky-400' },
+            'total energies':   { label: 'Transport',        icon: 'fa-gas-pump',       color: 'text-sky-400' },
+            'totalenergies':    { label: 'Transport',        icon: 'fa-gas-pump',       color: 'text-sky-400' },
+            'bp ':              { label: 'Transport',        icon: 'fa-gas-pump',       color: 'text-sky-400' },
+            'shell':            { label: 'Transport',        icon: 'fa-gas-pump',       color: 'text-sky-400' },
+            'autoroute':        { label: 'Transport',        icon: 'fa-road',           color: 'text-sky-400' },
+            'sanef':            { label: 'Transport',        icon: 'fa-road',           color: 'text-sky-400' },
+            'vinci autoroute':  { label: 'Transport',        icon: 'fa-road',           color: 'text-sky-400' },
+
+            // ── COURSES / SUPERMARCHÉ ──────────────────────────────────
+            'monoprix':         { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'franprix':         { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'naturalia':        { label: 'Courses',          icon: 'fa-leaf',           color: 'text-amber-400' },
+            'carrefour':        { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'leclerc':          { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'intermarche':      { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'intermarché':      { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'lidl':             { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'aldi':             { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'auchan':           { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'casino':           { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'g20':              { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'picard':           { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'day by day':       { label: 'Courses',          icon: 'fa-leaf',           color: 'text-amber-400' },
+            'bio c bon':        { label: 'Courses',          icon: 'fa-leaf',           color: 'text-amber-400' },
+            'biocbon':          { label: 'Courses',          icon: 'fa-leaf',           color: 'text-amber-400' },
+            'tesco':            { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'sainsbury':        { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'waitrose':         { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'marks spencer':    { label: 'Courses',          icon: 'fa-cart-shopping',  color: 'text-amber-400' },
+            'whole foods':      { label: 'Courses',          icon: 'fa-leaf',           color: 'text-amber-400' },
+
+            // ── RESTO & CAFÉ ───────────────────────────────────────────
+            'uber eats':        { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'ubereats':         { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'deliveroo':        { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'just eat':         { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'mcdo':             { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'mcdonald':         { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'starbucks':        { label: 'Resto & Café',     icon: 'fa-mug-hot',        color: 'text-emerald-400' },
+            'columbus':         { label: 'Resto & Café',     icon: 'fa-mug-hot',        color: 'text-emerald-400' },
+            'paul ':            { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'brioche':          { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'sushi shop':       { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'sushishop':        { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'pret a manger':    { label: 'Resto & Café',     icon: 'fa-mug-hot',        color: 'text-emerald-400' },
+            'pret ':            { label: 'Resto & Café',     icon: 'fa-mug-hot',        color: 'text-emerald-400' },
+            'costa coffee':     { label: 'Resto & Café',     icon: 'fa-mug-hot',        color: 'text-emerald-400' },
+            'nando':            { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'wagamama':         { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'domino':           { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'subway':           { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'burger king':      { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'burgerking':       { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'kfc':              { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'five guys':        { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },
+            'sq * ':            { label: 'Resto & Café',     icon: 'fa-utensils',       color: 'text-emerald-400' },  // Square POS (cafes/restaurants)
+
+            // ── SHOPPING ───────────────────────────────────────────────
+            'action':           { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'zara':             { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'h&m':              { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'hm ':              { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'uniqlo':           { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'mango':            { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'primark':          { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'asos':             { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'sephora':          { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'yves rocher':      { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'fnac':             { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'darty':            { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'ikea':             { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'amazon':           { label: 'Shopping',         icon: 'fa-bag-shopping',   color: 'text-pink-400' },
+            'decathlon':        { label: 'Sport',            icon: 'fa-dumbbell',        color: 'text-rose-400' },
+            'intersport':       { label: 'Sport',            icon: 'fa-dumbbell',        color: 'text-rose-400' },
+            'go sport':         { label: 'Sport',            icon: 'fa-dumbbell',        color: 'text-rose-400' },
+
+            // ── LOISIRS / VOYAGES ──────────────────────────────────────
+            'airbnb':           { label: 'Loisirs & Sorties', icon: 'fa-bed',            color: 'text-violet-400' },
+            'booking':          { label: 'Loisirs & Sorties', icon: 'fa-bed',            color: 'text-violet-400' },
+            'hotels.com':       { label: 'Loisirs & Sorties', icon: 'fa-bed',            color: 'text-violet-400' },
+            'expedia':          { label: 'Loisirs & Sorties', icon: 'fa-bed',            color: 'text-violet-400' },
+            'netflix':          { label: 'Factures & Loyer',  icon: 'fa-tv',             color: 'text-indigo-400' },
+            'spotify':          { label: 'Factures & Loyer',  icon: 'fa-music',          color: 'text-indigo-400' },
+            'apple.com':        { label: 'Factures & Loyer',  icon: 'fa-apple-whole',    color: 'text-indigo-400' },
+            'google':           { label: 'Factures & Loyer',  icon: 'fa-cloud',          color: 'text-indigo-400' },
+            'disney':           { label: 'Loisirs & Sorties', icon: 'fa-ticket',         color: 'text-violet-400' },
+            'canal':            { label: 'Factures & Loyer',  icon: 'fa-tv',             color: 'text-indigo-400' },
+            'allocine':         { label: 'Loisirs & Sorties', icon: 'fa-film',           color: 'text-violet-400' },
+            'ugc':              { label: 'Loisirs & Sorties', icon: 'fa-film',           color: 'text-violet-400' },
+            'mk2':              { label: 'Loisirs & Sorties', icon: 'fa-film',           color: 'text-violet-400' },
+            'fnac spectacle':   { label: 'Loisirs & Sorties', icon: 'fa-ticket',         color: 'text-violet-400' },
+
+            // ── SANTÉ ──────────────────────────────────────────────────
+            'pharmacie':        { label: 'Santé',             icon: 'fa-kit-medical',    color: 'text-red-400' },
+            'doctolib':         { label: 'Santé',             icon: 'fa-stethoscope',    color: 'text-red-400' },
+            'ameli':            { label: 'Santé',             icon: 'fa-heart-pulse',    color: 'text-red-400' },
+
+            // ── FACTURES / LOGEMENT ────────────────────────────────────
+            'edf':              { label: 'Factures & Loyer',  icon: 'fa-bolt',           color: 'text-indigo-400' },
+            'engie':            { label: 'Factures & Loyer',  icon: 'fa-fire-flame-simple', color: 'text-indigo-400' },
+            'orange':           { label: 'Factures & Loyer',  icon: 'fa-wifi',           color: 'text-indigo-400' },
+            'sfr':              { label: 'Factures & Loyer',  icon: 'fa-wifi',           color: 'text-indigo-400' },
+            'free':             { label: 'Factures & Loyer',  icon: 'fa-wifi',           color: 'text-indigo-400' },
+            'bouygues':         { label: 'Factures & Loyer',  icon: 'fa-wifi',           color: 'text-indigo-400' },
+        };
+
+        // Enhanced scanCategory: merchant override map first, then keyword fuzzy scan
         function scanCategory(desc) {
-            const query = desc.toLowerCase().trim();
-            for (const cat of smartCategories) { for (const kw of cat.keywords) { if (query.includes(kw)) return cat; } }
+            if (!desc) return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'transparent' };
+            const q = desc.toLowerCase().trim();
+            // Layer 1: exact merchant override (substring match, highest priority)
+            for (const [key, val] of Object.entries(MERCHANT_OVERRIDES)) {
+                if (q.includes(key)) {
+                    const cat = smartCategories.find(c => c.label === val.label);
+                    return {
+                        label:       val.label,
+                        icon:        val.icon,
+                        color:       val.color,
+                        bgClass:     cat?.bgClass  || 'bg-slate-800/40',
+                        borderClass: cat?.borderClass || 'transparent',
+                    };
+                }
+            }
+            // Layer 2: keyword fuzzy scan (original logic)
+            for (const cat of smartCategories) {
+                for (const kw of cat.keywords) {
+                    if (q.includes(kw)) return cat;
+                }
+            }
             return { label: 'Autre', icon: 'fa-asterisk', color: 'text-slate-500', bgClass: 'bg-slate-800/40', borderClass: 'transparent' };
         }
 
@@ -4569,31 +5031,97 @@
         }
 
         function scoreExpense(expense, merchantMemory, projectId, allExpenses) {
+            const raw = (expense.description || '').toLowerCase().trim();
             const merchant = normalizeMerchant(expense.description);
             let score = 0;
             const rules = [];
+
+            // ── Signal 1: known merchant override (+45) ────────────────
+            const isKnownMerchant = Object.keys(MERCHANT_OVERRIDES).some(k => raw.includes(k));
+            if (isKnownMerchant) {
+                score += 45;
+                rules.push({ rule: 'merchant_override_match', delta: 45 });
+            }
+
+            // ── Signal 2: category keyword match ──────────────────────
+            if (expense.category && expense.category !== 'Autre') {
+                // Strong match: category came from override (45 already added) or keyword
+                const keywordMatch = smartCategories.some(cat =>
+                    cat.label === expense.category &&
+                    cat.keywords.some(kw => raw.includes(kw))
+                );
+                if (keywordMatch && !isKnownMerchant) {
+                    score += 30;
+                    rules.push({ rule: 'category_keyword_strong', delta: 30 });
+                } else if (!keywordMatch && !isKnownMerchant) {
+                    // Category set but no keyword found — manual tag or weak signal
+                    score += 10;
+                    rules.push({ rule: 'category_tagged_manual', delta: 10 });
+                }
+            }
+
+            // ── Signal 3: merchant memory — accepted in THIS project ──
             const mem = merchantMemory.get(merchant);
-            if (mem && mem.accepted_count > 0) { score += 40; rules.push({ rule: 'merchant_accepted_here', delta: 40 }); }
-            if (mem && mem.ignored_count > 0 && mem.last_decision === 'ignored') { score -= 50; rules.push({ rule: 'merchant_ignored_here', delta: -50 }); }
+            if (mem && mem.accepted_count >= 1) {
+                const bonus = Math.min(25, mem.accepted_count * 8);
+                score += bonus;
+                rules.push({ rule: 'merchant_accepted_here', delta: bonus });
+            }
+
+            // ── Signal 4: merchant memory — ignored here ──────────────
+            if (mem && mem.ignored_count >= 2 && mem.last_decision === 'ignored') {
+                score -= 30;
+                rules.push({ rule: 'merchant_ignored_here', delta: -30 });
+            }
+
+            // ── Signal 5: seen approved in another project ─────────────
             if (!mem || mem.accepted_count === 0) {
                 const seenElsewhere = allExpenses.some(e =>
-                    e.approved === true && e.project !== projectId && normalizeMerchant(e.description) === merchant
+                    e.approved === true &&
+                    e.project !== projectId &&
+                    normalizeMerchant(e.description) === merchant
                 );
                 if (seenElsewhere) { score += 20; rules.push({ rule: 'merchant_accepted_other_project', delta: 20 }); }
             }
-            if (expense.category && expense.category !== 'Autre') { score += 10; rules.push({ rule: 'category_tagged', delta: 10 }); }
+
+            // ── Signal 6: same merchant previously approved anywhere ───
+            const approvedBefore = allExpenses.some(e =>
+                e.approved === true && normalizeMerchant(e.description) === merchant
+            );
+            if (approvedBefore && !rules.some(r => r.rule === 'merchant_accepted_here')) {
+                score += 15;
+                rules.push({ rule: 'merchant_seen_approved', delta: 15 });
+            }
+
+            // ── Signal 7: description too short / generic ──────────────
+            if (raw.length < 4) {
+                score -= 20;
+                rules.push({ rule: 'description_too_short', delta: -20 });
+            }
+
             const confidence = Math.max(0, Math.min(100, score));
             const topRule = [...rules].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
             const labels = {
-                merchant_accepted_here: 'Marchand habituel de ce projet',
-                merchant_ignored_here: 'Marchand souvent ignoré ici',
-                merchant_accepted_other_project: 'Vu dans un autre projet',
-                category_tagged: 'Catégorie identifiée',
+                merchant_override_match:          'Marchand identifié',
+                category_keyword_strong:          'Catégorie confirmée',
+                category_tagged_manual:           'Catégorie identifiée',
+                merchant_accepted_here:           'Marchand habituel de ce projet',
+                merchant_ignored_here:            'Marchand souvent ignoré ici',
+                merchant_accepted_other_project:  'Vu dans un autre projet',
+                merchant_seen_approved:           'Marchand déjà approuvé',
+                description_too_short:            'Description trop courte',
             };
-            return { confidence, reasoning: { score: confidence, rules, label: topRule ? (labels[topRule.rule] || '') : 'Non classé' } };
+            return {
+                confidence,
+                reasoning: {
+                    score: confidence,
+                    rules,
+                    label: topRule ? (labels[topRule.rule] || 'Analyse') : 'Non classé',
+                }
+            };
         }
 
-        async function scoreInboxBatch() {
+                async function scoreInboxBatch() {
             const projectId = state.config.activeProject;
             const unscored = state.expenses.filter(e =>
                 e.approved === false &&
