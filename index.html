@@ -3410,7 +3410,7 @@
             state.config.projects.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id || p;
-                opt.innerText = p.icon ? `${p.icon} ${p.name}` : (p === 'Principal' ? `🏡 ${p}` : `📂 ${p}`);
+                opt.innerText = p.icon ? `${p.icon} ${p.name || p}` : ((p.id || p) === 'Principal' ? `🏡 ${p.name || p}` : `📂 ${p.name || p}`);
                 select.appendChild(opt);
             });
             select.value = state.config.activeProject;
