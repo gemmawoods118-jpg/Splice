@@ -9961,6 +9961,81 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             });
         }
 
+        function attachGdpEdgeSwipeBack() {
+            const panel = document.getElementById('group-detail-panel');
+            if (!panel || panel._edgeSwipeAttached) return;
+            panel._edgeSwipeAttached = true;
+
+            const EDGE = 28;       // px from left edge to begin tracking
+            const THRESHOLD = 90;  // px drag to commit back
+            const VEL_THRESHOLD = 0.45; // px/ms to commit back (fast flick)
+
+            // Dim overlay: sits behind the panel content, shows as panel slides right
+            let dimEl = document.getElementById('gdp-edge-dim');
+            if (!dimEl) {
+                dimEl = document.createElement('div');
+                dimEl.id = 'gdp-edge-dim';
+                dimEl.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0);pointer-events:none;z-index:0;transition:background 0.05s;';
+                panel.insertBefore(dimEl, panel.firstChild);
+            }
+
+            let sx = 0, sy = 0, t0 = 0, tracking = false, dx = 0;
+
+            const onStart = e => {
+                if (e.touches[0].clientX > EDGE) return;
+                sx = e.touches[0].clientX;
+                sy = e.touches[0].clientY;
+                t0 = Date.now();
+                dx = 0; tracking = true;
+                panel.style.transition = 'none';
+            };
+
+            const onMove = e => {
+                if (!tracking) return;
+                const cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+                dx = cx - sx;
+                const dy = Math.abs(cy - sy);
+                // Abort if more vertical than horizontal
+                if (dy > Math.abs(dx) + 10 && Math.abs(dx) < 20) { tracking = false; panel.style.transform = ''; return; }
+                if (dx < 0) { panel.style.transform = ''; return; }
+                // Rubber band at extreme right
+                const x = dx < 280 ? dx : 280 + (dx - 280) * 0.15;
+                panel.style.transform = `translateX(${x}px)`;
+                // Dim fades out as panel moves away
+                const ratio = Math.min(x / 320, 1);
+                dimEl.style.background = `rgba(0,0,0,${0.18 * (1 - ratio)})`;
+            };
+
+            const onEnd = e => {
+                if (!tracking) return;
+                tracking = false;
+                const elapsed = Math.max(1, Date.now() - t0);
+                const vel = dx / elapsed;
+                if (dx > THRESHOLD || vel > VEL_THRESHOLD) {
+                    // Commit: spring the panel out to the right
+                    panel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.8,1)';
+                    panel.style.transform  = 'translateX(100%)';
+                    dimEl.style.background = 'rgba(0,0,0,0)';
+                    setTimeout(() => {
+                        panel.classList.add('hidden');
+                        panel.style.transform = '';
+                        panel.style.transition = '';
+                        panel._edgeSwipeAttached = false;
+                    }, 320);
+                } else {
+                    // Snap back with spring bounce
+                    panel.style.transition = 'transform 0.38s cubic-bezier(0.34,1.56,0.64,1)';
+                    panel.style.transform  = 'translateX(0)';
+                    dimEl.style.background = 'rgba(0,0,0,0)';
+                }
+                dx = 0;
+            };
+
+            panel.addEventListener('touchstart', onStart, { passive: true });
+            panel.addEventListener('touchmove',  onMove,  { passive: true });
+            panel.addEventListener('touchend',   onEnd,   { passive: true });
+        }
+
         function openGroupDetailPanel(projectId) {
             window._gdpProjectId = projectId;
             const panel = document.getElementById('group-detail-panel');
@@ -9974,13 +10049,21 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             switchGroupTab('overview');
             renderGroupOverview();
             attachGdpTabSwipe();
+            // Native-feel edge-swipe-back (left 28px of screen → drag right to go back)
+            requestAnimationFrame(() => attachGdpEdgeSwipeBack());
         }
 
         function closeGroupDetailPanel() {
             const panel = document.getElementById('group-detail-panel');
             if (!panel) return;
-            panel.style.transform = 'translateX(100%)';
-            setTimeout(() => panel.classList.add('hidden'), 300);
+            panel.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+            panel.style.transform  = 'translateX(100%)';
+            setTimeout(() => {
+                panel.classList.add('hidden');
+                panel.style.transform  = '';
+                panel.style.transition = '';
+                panel._edgeSwipeAttached = false; // allow re-attach on next open
+            }, 300);
         }
 
         window._gdpCurrentTab = 'overview';
