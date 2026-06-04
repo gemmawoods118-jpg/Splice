@@ -2008,9 +2008,10 @@
             const toastMsg = document.getElementById('toast-message');
             const toastIcon = document.getElementById('toast-icon');
             if (!toast) return;
-            // Strip leading emoji/symbols that render tall and break the compact pill
-            const isWarn = /^[\u26A0\uFE0F\u2757\uD83D\uDD34]/.test(message);
-            const clean = message.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\u2713\u2714\u2705\u26A0\uFE0F\uD83D\uDD04\u2757!\s]+/gu, '').trim() || message;
+            // Safe cross-browser emoji strip: remove any leading non-ASCII symbol chars
+            // Avoids \p{} Unicode property escapes which crash older iOS WebKit
+            const isWarn = /^[⚠️❗]/.test(message);
+            const clean = message.replace(/^[^\x00-\x7E\w]+\s*/, '').trim() || message;
             if (toastMsg) toastMsg.innerText = clean;
             if (toastIcon) {
                 toastIcon.className = 'fa-solid shrink-0 text-sm ' + (isWarn ? 'fa-triangle-exclamation text-amber-400' : 'fa-check-circle text-indigo-400');
@@ -2021,7 +2022,7 @@
             _toastTimer = setTimeout(() => {
                 toast.classList.remove('toast-enter');
                 toast.classList.add('toast-exit');
-                setTimeout(() => { toast.classList.add('hidden'); _toastTimer = null; }, 300);
+                setTimeout(() => { toast.classList.add('hidden'); _toastTimer = null; }, 250);
             }, 2500);
         }
 
@@ -10617,12 +10618,12 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     const iconBg = isRev ? 'rgba(52,211,153,0.1)' : isTrf ? 'rgba(56,189,248,0.1)' : 'rgba(99,102,241,0.08)';
                     const iconBorder = isRev ? 'rgba(52,211,153,0.25)' : isTrf ? 'rgba(56,189,248,0.25)' : 'rgba(226,232,240,1)';
                     const iconCls = isRev ? 'fa-coins text-emerald-500' : isTrf ? 'fa-right-left text-sky-500' : (e.icon||'fa-asterisk') + ' text-indigo-500';
-                    return `<div class="swipe-row-wrapper relative rounded-2xl overflow-hidden mb-0" data-eid="${safeId}">
+                    return `<div class="swipe-row-wrapper relative rounded-2xl overflow-hidden mb-0" data-eid="${safeId}" style="touch-action:pan-y;">
                         <div class="swipe-row-actions absolute inset-y-0 right-0 flex items-center gap-2 pr-2" style="width:130px;pointer-events:none;">
                             <button type="button" onclick="duplicateExpense('${safeId}');renderGroupExpenses();" class="flex flex-col items-center justify-center gap-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded-2xl active:scale-95 transition-transform" style="pointer-events:auto;width:56px;height:56px;"><i class="fa-solid fa-copy text-base"></i>Copier</button>
                             <button type="button" onclick="deleteExpense('${safeId}');renderGroupExpenses();" class="flex flex-col items-center justify-center gap-0.5 bg-rose-500 text-white text-[10px] font-bold rounded-2xl active:scale-95 transition-transform" style="pointer-events:auto;width:56px;height:56px;"><i class="fa-solid fa-trash text-base"></i>Suppr.</button>
                         </div>
-                        <button type="button" class="swipe-row-content w-full text-left flex items-center gap-3 bg-white rounded-2xl border border-slate-200 p-3 shadow-sm cursor-pointer active:bg-slate-50 relative" style="z-index:1;will-change:transform;" onclick="openEditFromInbox('${safeId}')">
+                        <button type="button" class="swipe-row-content w-full text-left flex items-center gap-3 bg-white rounded-2xl border border-slate-200 p-3 shadow-sm cursor-pointer active:bg-slate-50 relative" style="z-index:1;will-change:transform;touch-action:pan-y;" onclick="openEditFromInbox('${safeId}')">
                             <div class="size-10 rounded-xl flex items-center justify-center shrink-0" style="background:${iconBg};border:1px solid ${iconBorder}">
                                 <i class="fa-solid ${iconCls} text-sm"></i>
                             </div>
@@ -10678,20 +10679,20 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     const cy = e.touches[0].clientY;
                     const adx = Math.abs(cx - sx);
                     const ady = Math.abs(cy - sy);
-                    // Determine scroll vs swipe intent on first significant movement
                     if (intent === null) {
                         if (adx < 4 && ady < 4) return;
                         intent = adx > ady ? 'h' : 'v';
                     }
-                    if (intent === 'v') return; // let page scroll/tab-swipe handle it
-                    // Horizontal: take ownership, block page swipe
+                    if (intent === 'v') return;
+                    // Horizontal swipe: take full ownership
                     e.preventDefault();
+                    e.stopPropagation();
                     dx = cx - sx;
                     const base = isOpen ? -REVEAL : 0;
                     const target = Math.min(0, Math.max(-REVEAL, base + dx));
                     content.style.transition = 'none';
                     content.style.transform = `translateX(${target}px)`;
-                }, { passive: false }); // ← non-passive so preventDefault works
+                }, { passive: false, capture: false });
 
                 content.addEventListener('touchend', () => {
                     if (intent !== 'h') { intent = null; return; }
