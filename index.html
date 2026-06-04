@@ -1017,7 +1017,7 @@
             </div>
         </div>
 
-        <div id="toast-banner" class="hidden fixed left-1/2 z-50 bg-white text-slate-800 text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200 inline-flex items-center gap-2 whitespace-nowrap" style="bottom:max(100px, calc(80px + env(safe-area-inset-bottom)));transform:translateX(-50%);width:fit-content;max-width:calc(100vw - 32px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
+        <div id="toast-banner" class="fixed left-1/2 z-50 bg-white text-slate-800 text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200 inline-flex items-center gap-2 whitespace-nowrap" style="bottom:max(100px, calc(80px + env(safe-area-inset-bottom)));transform:translateX(-50%);width:fit-content;max-width:calc(100vw - 32px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);opacity:0;pointer-events:none;">
             <i id="toast-icon" class="fa-solid fa-check-circle text-indigo-400 text-sm shrink-0"></i>
             <span id="toast-message" class="whitespace-nowrap">Notification</span>
         </div>
@@ -2017,12 +2017,14 @@
                 toastIcon.className = 'fa-solid shrink-0 text-sm ' + (isWarn ? 'fa-triangle-exclamation text-amber-400' : 'fa-check-circle text-indigo-400');
             }
             if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
-            toast.classList.remove('hidden', 'toast-exit');
+            // Pure CSS animation — never toggle display/hidden (avoids !important conflict)
+            toast.classList.remove('toast-exit');
+            void toast.offsetWidth; // force reflow so animation restarts cleanly
             toast.classList.add('toast-enter');
             _toastTimer = setTimeout(() => {
                 toast.classList.remove('toast-enter');
                 toast.classList.add('toast-exit');
-                setTimeout(() => { toast.classList.add('hidden'); _toastTimer = null; }, 250);
+                _toastTimer = null;
             }, 2500);
         }
 
@@ -10921,56 +10923,125 @@ function renderGroupAnalyse() {
         function attachSwipeLeftRightToApproveReject(cardEl, id) {
             if (!cardEl) return;
             if (cardEl._swipeLRCleanup) { cardEl._swipeLRCleanup(); }
-            let sx = 0, sy = 0, dx = 0, dy = 0, active = false;
-            const TH = 70;
-            const VERTICAL_LOCK = 12;
+
+            let sx = 0, sy = 0, dx = 0, intent = null, dragging = false;
+            const TH = 58;
+
+            // Inject hint overlays (confirm right, ignore left)
+            if (!cardEl.querySelector('.swipe-hint-r')) {
+                const r = document.createElement('div');
+                r.className = 'swipe-hint-r';
+                r.style.cssText = 'position:absolute;top:0;bottom:0;right:0;display:flex;align-items:center;padding-right:18px;gap:5px;opacity:0;pointer-events:none;transition:opacity 0.08s;';
+                r.innerHTML = '<i class="fa-solid fa-check" style="color:#22c55e;font-size:16px;"></i><span style="font-size:11px;font-weight:700;color:#22c55e;">Confirmer</span>';
+                const l = document.createElement('div');
+                l.className = 'swipe-hint-l';
+                l.style.cssText = 'position:absolute;top:0;bottom:0;left:0;display:flex;align-items:center;padding-left:18px;gap:5px;opacity:0;pointer-events:none;transition:opacity 0.08s;flex-direction:row-reverse;';
+                l.innerHTML = '<i class="fa-solid fa-xmark" style="color:#f43f5e;font-size:16px;"></i><span style="font-size:11px;font-weight:700;color:#f43f5e;">Ignorer</span>';
+                cardEl.style.position = 'relative';
+                cardEl.style.overflow = 'hidden';
+                cardEl.prepend(l);
+                cardEl.prepend(r);
+            }
+            const hintR = cardEl.querySelector('.swipe-hint-r');
+            const hintL = cardEl.querySelector('.swipe-hint-l');
+
+            const rb = (v, lim) => {
+                const s = v < 0 ? -1 : 1, a = Math.abs(v);
+                return a < lim ? v : s * (lim + (a - lim) * 0.3);
+            };
+
             const onStart = e => {
-                const t = e.touches[0];
-                sx = t.clientX; sy = t.clientY; dx = dy = 0; active = true;
+                sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+                dx = 0; intent = null; dragging = false;
                 cardEl.style.transition = 'none';
             };
+
             const onMove = e => {
-                if (!active) return;
-                const t = e.touches[0];
-                dx = t.clientX - sx;
-                dy = t.clientY - sy;
-                if (Math.abs(dy) > VERTICAL_LOCK && Math.abs(dy) > Math.abs(dx)) { active = false; cardEl.style.transition=''; return; }
-                const x = Math.max(-120, Math.min(120, dx));
+                const cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+                const adx = Math.abs(cx - sx), ady = Math.abs(cy - sy);
+                if (!intent) {
+                    if (adx < 5 && ady < 5) return;
+                    intent = adx > ady ? 'h' : 'v';
+                }
+                if (intent === 'v') return;
+                dragging = true;
+                dx = cx - sx;
+                const x = rb(dx, 115);
                 cardEl.style.transform = `translateX(${x}px)`;
-                cardEl.style.opacity = String(1 - Math.min(Math.abs(x) / 240, 0.22));
-            };
-            const onEnd = async () => {
-                if (!active) return;
-                active = false;
-                const shouldApprove = dx > TH;
-                const shouldReject = dx < -TH;
-                if (shouldApprove || shouldReject) {
-                    cardEl.style.transition = 'transform 0.18s cubic-bezier(0.4,0,1,1), opacity 0.18s';
-                    cardEl.style.transform = `translateX(${shouldApprove ? '140' : '-140'}px)`;
-                    cardEl.style.opacity = '0';
-                    setTimeout(async () => {
-                        if (shouldApprove) await approveTransaction(id, true);
-                        if (shouldReject) await rejectTransaction(id, true);
-                        cardEl.style.transform = '';
-                        cardEl.style.opacity = '';
-                    }, 160);
+                const ratio = Math.min(Math.abs(x) / 115, 1);
+                if (x > 18) {
+                    cardEl.style.background = `rgba(34,197,94,${ratio * 0.1})`;
+                    if (hintR) hintR.style.opacity = String(Math.min((x - 18) / 55, 1));
+                    if (hintL) hintL.style.opacity = '0';
+                } else if (x < -18) {
+                    cardEl.style.background = `rgba(244,63,94,${ratio * 0.1})`;
+                    if (hintL) hintL.style.opacity = String(Math.min((-x - 18) / 55, 1));
+                    if (hintR) hintR.style.opacity = '0';
                 } else {
-                    cardEl.style.transition = 'transform 0.28s cubic-bezier(0.34,1.4,0.64,1), opacity 0.28s';
-                    cardEl.style.transform = 'translateX(0)';
-                    cardEl.style.opacity = '1';
+                    cardEl.style.background = '';
+                    if (hintR) hintR.style.opacity = '0';
+                    if (hintL) hintL.style.opacity = '0';
                 }
             };
+
+            const onEnd = async () => {
+                if (!dragging) { intent = null; return; }
+                dragging = false; intent = null;
+                if (hintR) hintR.style.opacity = '0';
+                if (hintL) hintL.style.opacity = '0';
+
+                const approve = dx > TH, reject = dx < -TH;
+                if (approve || reject) {
+                    const dir = approve ? 1 : -1;
+                    // Smooth slide-out + height collapse
+                    const h = cardEl.offsetHeight;
+                    cardEl.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.8,1), opacity 0.25s ease';
+                    cardEl.style.transform  = `translateX(${dir * 105}%)`;
+                    cardEl.style.opacity    = '0';
+                    setTimeout(() => {
+                        cardEl.style.transition = 'max-height 0.32s ease, padding 0.32s ease, margin 0.32s ease';
+                        cardEl.style.maxHeight  = h + 'px';
+                        cardEl.style.overflow   = 'hidden';
+                        requestAnimationFrame(() => {
+                            cardEl.style.maxHeight  = '0';
+                            cardEl.style.paddingTop = '0';
+                            cardEl.style.paddingBottom = '0';
+                            cardEl.style.marginBottom  = '0';
+                        });
+                    }, 50);
+                    setTimeout(async () => {
+                        if (approve) {
+                            const tx   = state.expenses.find(e => e.id === id);
+                            const proj = tx?.project ? (state.config.projects||[]).find(p=>(p.id||p.name||p)===tx.project) : null;
+                            const name = proj ? (typeof proj==='string' ? proj : (proj.name||proj)) : null;
+                            await approveTransaction(id, true);
+                            showToast(name ? `Ajouté à ${name}` : 'Transaction confirmée');
+                        } else {
+                            await rejectTransaction(id, true);
+                            showToast('Transaction ignorée');
+                        }
+                    }, 290);
+                } else {
+                    // Spring back
+                    cardEl.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1), background 0.28s, opacity 0.28s';
+                    cardEl.style.transform  = 'translateX(0)';
+                    cardEl.style.background = '';
+                    cardEl.style.opacity    = '1';
+                }
+            };
+
             cardEl.addEventListener('touchstart', onStart, { passive: true });
-            cardEl.addEventListener('touchmove', onMove, { passive: true });
-            cardEl.addEventListener('touchend', onEnd);
+            cardEl.addEventListener('touchmove',  onMove,  { passive: true });
+            cardEl.addEventListener('touchend',   onEnd);
             cardEl.addEventListener('touchcancel', onEnd);
             cardEl._swipeLRCleanup = () => {
                 cardEl.removeEventListener('touchstart', onStart);
-                cardEl.removeEventListener('touchmove', onMove);
-                cardEl.removeEventListener('touchend', onEnd);
+                cardEl.removeEventListener('touchmove',  onMove);
+                cardEl.removeEventListener('touchend',   onEnd);
                 cardEl.removeEventListener('touchcancel', onEnd);
             };
         }
+
 
 </script>
 
