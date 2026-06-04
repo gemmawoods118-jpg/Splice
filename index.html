@@ -9688,33 +9688,65 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         // SUGGESTION DETAIL PANEL (Lovable-style)
         // ═══════════════════════════════════════════════════════
         
-        // Swipe on suggestion detail card
-        (function() {
-            let sx = 0, dx = 0;
-            const wrapper = document.getElementById('sdp-card-wrapper');
-            if (!wrapper) return;
-            const getCard = () => document.getElementById('sdp-content');
-            wrapper.addEventListener('touchstart', e => { sx = e.touches[0].clientX; dx = 0; }, { passive: true });
-            wrapper.addEventListener('touchmove', e => {
-                dx = e.touches[0].clientX - sx;
-                const card = getCard();
-                if (card) {
-                    card.style.transform = `translateX(${dx * 0.6}px) rotate(${dx * 0.03}deg)`;
-                    card.style.transition = 'none';
-                    card.style.opacity = Math.max(0.5, 1 - Math.abs(dx) / 400);
-                }
-            }, { passive: true });
-            wrapper.addEventListener('touchend', () => {
-                const card = getCard();
-                if (dx < -100) { if (card) { card.style.transform = 'translateX(-120%) rotate(-8deg)'; card.style.transition = 'all 0.3s'; card.style.opacity = '0'; } setTimeout(() => sdpIgnore(), 300); }
-                else if (dx > 100) { if (card) { card.style.transform = 'translateX(120%) rotate(8deg)'; card.style.transition = 'all 0.3s'; card.style.opacity = '0'; } setTimeout(() => sdpConfirm(), 300); }
-                else if (card) { card.style.transform = ''; card.style.transition = 'all 0.25s'; card.style.opacity = '1'; }
-                dx = 0;
-            });
-        })();
+        // SDP card swipe attached at runtime in attachSdpCardSwipe()
 
         window._sdpQueue = [];
         window._sdpIndex = 0;
+
+        function attachSdpCardSwipe() {
+            const wrapper = document.getElementById('sdp-card-wrapper');
+            const card    = document.getElementById('sdp-content');
+            if (!wrapper || !card) return;
+            // Clone card to wipe any stale listeners from previous open
+            const fresh = card.cloneNode(true);
+            card.parentNode.replaceChild(fresh, card);
+            const c = document.getElementById('sdp-content');
+
+            let sx = 0, sy = 0, dx = 0, intent = null;
+
+            c.addEventListener('touchstart', e => {
+                sx = e.touches[0].clientX;
+                sy = e.touches[0].clientY;
+                dx = 0; intent = null;
+                c.style.transition = 'none';
+            }, { passive: true });
+
+            c.addEventListener('touchmove', e => {
+                const adx = Math.abs(e.touches[0].clientX - sx);
+                const ady = Math.abs(e.touches[0].clientY - sy);
+                if (!intent) {
+                    if (adx < 6 && ady < 6) return;
+                    intent = adx > ady ? 'h' : 'v';
+                }
+                if (intent === 'v') return;
+                e.preventDefault();
+                dx = e.touches[0].clientX - sx;
+                const x   = dx > 0 ? Math.min(160, dx) : Math.max(-160, dx);
+                const rot = x * 0.04;
+                c.style.transform = `translateX(${x}px) rotate(${rot}deg)`;
+                c.style.opacity   = String(Math.max(0.5, 1 - Math.abs(x) / 280));
+            }, { passive: false });
+
+            c.addEventListener('touchend', () => {
+                intent = null;
+                if (dx < -80) {
+                    c.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.8,1), opacity 0.25s';
+                    c.style.transform  = 'translateX(-130%) rotate(-12deg)';
+                    c.style.opacity    = '0';
+                    setTimeout(() => sdpIgnore(), 280);
+                } else if (dx > 80) {
+                    c.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.8,1), opacity 0.25s';
+                    c.style.transform  = 'translateX(130%) rotate(12deg)';
+                    c.style.opacity    = '0';
+                    setTimeout(() => sdpConfirm(), 280);
+                } else {
+                    c.style.transition = 'transform 0.42s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
+                    c.style.transform  = 'translateX(0) rotate(0deg)';
+                    c.style.opacity    = '1';
+                }
+                dx = 0;
+            });
+        }
 
         function openSuggestionDetail(expIds) {
             if (!expIds || expIds.length === 0) return;
@@ -9735,6 +9767,9 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 if (backdrop) { backdrop.style.background = 'rgba(15,23,42,0.45)'; backdrop.style.backdropFilter = 'blur(12px)'; backdrop.style.webkitBackdropFilter = 'blur(12px)'; }
             }));
             renderSuggestionDetail();
+        
+            // Attach swipe now that DOM is rendered
+            requestAnimationFrame(() => attachSdpCardSwipe());
         }
 
         function closeSuggestionDetail() {
@@ -9872,6 +9907,8 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     </div>
                 </section>
             `;
+      
+            requestAnimationFrame(() => attachSdpCardSwipe());
         }
 
         function sdpSwitchProject(pid) {
@@ -11300,7 +11337,7 @@ function renderGroupAnalyse() {
             </div>
 
             <!-- Card content — swipeable -->
-            <div id="sdp-card-wrapper" class="px-4 pb-2" style="touch-action:pan-y;">
+            <div id="sdp-card-wrapper" class="px-4 pb-2" style="touch-action:pan-x;">
                 <div id="sdp-content" class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-y-auto" style="max-height:70vh;-webkit-overflow-scrolling:touch;">
                 </div>
             </div>
