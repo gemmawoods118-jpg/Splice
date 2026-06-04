@@ -2215,6 +2215,8 @@
                     try { updateUI(); } catch(e) {}          // render immediately after fetch
                     try { updateLastSyncLabel(); } catch(e) {}
                     initRealtimeSubscription();
+                    // Seed categories table (no-op if already populated, ignoreDuplicates:true)
+                    try { syncCategoriesToSupabase(); } catch(e) {}
                     // Warm the merchant memory cache so scores render with full signal on first paint
                     refreshAllMerchantMemory().then(() => { try { updateUI(); } catch(e) {} });
                 } catch (e) { state.supabaseClient = null; }
@@ -2595,6 +2597,8 @@
                             }
                         });
                         if (_catChanged) { saveConfig(); try { renderCategorySelector(); } catch(_e) {} }
+                        // Seed any local-only categories not yet in Supabase
+                        try { syncCategoriesToSupabase(); } catch(_e) {}
                     }
                 } catch(_e) { console.warn('Categories sync error:', _e); }
                     const supabaseIds = new Set(data.map(r => r.id));
@@ -4029,6 +4033,8 @@
                     localStorage.setItem('us_custom_categories', JSON.stringify(parsed));
                 }
                 state.categories = parsed;
+                // Seed Supabase categories table if empty
+                try { syncCategoriesToSupabase(); } catch(e) {}
             } catch (e) {
                 state.categories = [...DEFAULT_CATEGORIES];
             }
@@ -4359,6 +4365,24 @@
             else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
         }
 
+        function syncCategoriesToSupabase() {
+            if (!state.supabaseClient || !navigator.onLine) return;
+            const cats = (state.categories || []).map(c => ({
+                group_id: 'global',
+                label:    c.label,
+                icon:     c.icon  || 'fa-tag',
+                color:    c.color || 'text-slate-600',
+            }));
+            if (!cats.length) return;
+            state.supabaseClient
+                .from('categories')
+                .upsert(cats, { onConflict: 'group_id,label', ignoreDuplicates: true })
+                .then(({ error }) => {
+                    if (error) console.warn('[syncCategories]', error.message);
+                    else console.log('[syncCategories] upserted', cats.length, 'categories');
+                });
+        }
+
         function applyCustomCategoryName() {
             const inputVal = document.getElementById('custom-category-name').value.trim();
             if (!inputVal) return;
@@ -4375,6 +4399,8 @@
                     { group_id: _groupId, label: formattedName, icon: 'fa-tag', color: 'text-violet-600' },
                     { onConflict: 'group_id,label' }
                 ).then(({ error }) => { if (error) console.warn('[Category upsert]', error.message); });
+                // Re-sync full global list so table is always complete
+                syncCategoriesToSupabase();
             }
             renderCategorySelector(); setManualCategory(newCat.label, newCat.icon); toggleCustomCategoryInput(false);
             showToast(`Catégorie "${formattedName}" ajoutée !`);
@@ -9931,7 +9957,13 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const idx = window._sdpIndex;
             const exp = state.expenses.find(e => e.id === window._sdpQueue[idx]);
             if (exp) {
-                approveTransaction(exp.id);
+                // Assign to the current group BEFORE approving so the upsert writes project to Supabase
+                const projId = window._gdpProjectId;
+                if (projId && !exp.project) {
+                    exp.project = projId;
+                    localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+                }
+                approveTransaction(exp.id, true);
             }
             sdpAdvance();
         }
