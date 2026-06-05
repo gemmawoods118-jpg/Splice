@@ -515,14 +515,32 @@
 
         /* Flying plane animation — when a transaction is saved, a clone of the plane icon
            flies in a curved arc from the submit button to the Historique tab in the nav. */
+        /* New transaction row slide-in */
+        @keyframes slideInRow {
+            from { opacity: 0; transform: translateX(-32px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes highlightNew {
+            0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.35); background: rgba(99,102,241,0.07); }
+            60%  { box-shadow: 0 0 0 6px rgba(99,102,241,0); }
+            100% { box-shadow: none; background: transparent; }
+        }
+        .tx-row-animate {
+            animation: slideInRow 0.32s cubic-bezier(0.2,0,0,1) both;
+        }
+        .tx-row-new {
+            animation: slideInRow 0.32s cubic-bezier(0.2,0,0,1) both,
+                       highlightNew 1.2s ease 0.2s both;
+        }
+
         .flying-plane {
             position: fixed;
             z-index: 95;
             pointer-events: none;
-            color: #ffffff;
+            color: #6366f1;
             font-size: 18px;
             will-change: transform, opacity;
-            filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.6));
+            filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.5));
         }
 
         /* Pulse animation on the Historique nav tab when the plane "lands".
@@ -1155,10 +1173,21 @@
                         
                         <div class="rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 p-5 text-center">
                             <p class="text-[10px] uppercase tracking-wide text-slate-500 font-medium">Montant</p>
-                            <div class="mt-2 flex items-center justify-center gap-1">
-                                <span class="text-3xl font-bold text-slate-400 currency-display">€</span>
+                            <div class="mt-2 relative flex items-center justify-center" style="min-height:52px;">
+                                <div class="absolute left-2 top-1/2 -translate-y-1/2 flex items-center">
+                                    <select id="tx-currency-select" onchange="setTxCurrency(this.value)"
+                                        class="appearance-none bg-transparent text-3xl font-black text-slate-400 pr-1 pl-0 border-none outline-none cursor-pointer hover:text-indigo-500 transition-colors w-auto">
+                                        <option value="€">€</option>
+                                        <option value="$">$</option>
+                                        <option value="£">£</option>
+                                        <option value="CHF">CHF</option>
+                                        <option value="¥">¥</option>
+                                        <option value="kr">kr</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down text-[8px] text-slate-300 pointer-events-none ml-0.5"></i>
+                                </div>
                                 <input type="text" id="amount" inputmode="decimal" placeholder="0.00" required onblur="evaluateMath(this)" oninput="updateSplitSummaryRows()"
-                                    class="w-44 bg-transparent text-center text-4xl font-black tabular-nums text-slate-900 outline-none placeholder:text-slate-300 math-input">
+                                    class="bg-transparent text-center text-4xl font-black tabular-nums text-slate-900 outline-none placeholder:text-slate-300 math-input w-48">
                             </div>
                             <div class="flex gap-1.5 mt-3 justify-center">
                                 <button type="button" onclick="appendMathOperator('amount', '+')" class="w-9 h-8 bg-white/70 hover:bg-white text-indigo-500 font-black rounded-lg text-sm border border-white/80 shadow-sm transition-colors">+</button>
@@ -1167,6 +1196,22 @@
                                 <button type="button" onclick="appendMathOperator('amount', '/')" class="w-9 h-8 bg-white/70 hover:bg-white text-indigo-500 font-black rounded-lg text-sm border border-white/80 shadow-sm transition-colors">÷</button>
                             </div>
                             <p class="mt-2 text-[10px] text-slate-400">Astuce : tapez <code class="font-mono bg-white/50 px-1 rounded">12+5*2</code> pour calculer</p>
+                        </div>
+                        <!-- FX rate note -->
+                        <div id="fx-rate-note" class="hidden mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3 text-xs text-amber-700">
+                            <div class="flex items-center gap-1.5 mb-2.5">
+                                <i class="fa-solid fa-right-left text-amber-400 shrink-0"></i>
+                                <span id="fx-rate-note-text" class="font-medium flex-1">Chargement…</span>
+                            </div>
+                            <div id="fx-rate-input-row" class="flex items-center gap-2">
+                                <span id="fx-rate-label" class="font-black text-amber-800 shrink-0 tabular-nums text-sm">1 ? =</span>
+                                <input type="text" inputmode="decimal" id="fx-rate-input"
+                                    class="flex-1 min-w-0 bg-white border border-amber-300 rounded-lg py-1.5 px-2.5 text-amber-900 font-bold focus:outline-none focus:border-amber-500 text-sm tabular-nums"
+                                    placeholder="0.0000"
+                                    oninput="window._txFxRate = parseFloat(this.value.replace(',','.')) || null; updateSplitSummaryRows();">
+                                <span id="fx-rate-to-sym" class="font-black text-amber-800 shrink-0 text-sm">€</span>
+                            </div>
+                            <p class="text-amber-500 mt-1.5 leading-tight">Modifiable selon le taux de votre banque</p>
                         </div>
 
                         <div class="relative">
@@ -1177,7 +1222,7 @@
                                         class="w-full bg-slate-50 border border-slate-200 focus:border-slate-200 rounded-xl py-3.5 pl-4 pr-10 text-base text-slate-700 focus:outline-none transition-colors shadow-sm">
                                     <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"><i class="fa-solid fa-signature text-xs"></i></div>
                                 </div>
-                                <!-- Hidden file input for camera capture -->
+<!-- Hidden file input for camera capture -->
                                 <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleReceiptCapture(event)">
                                 <button type="button" onclick="document.getElementById('receipt-camera-input').click()" class="shrink-0 w-12 bg-slate-50 border border-slate-200 hover:border-indigo-500/50 rounded-xl text-slate-400 hover:text-indigo-400 transition-all active:scale-95 flex items-center justify-center" aria-label="Scanner un reçu">
                                     <i class="fa-solid fa-receipt text-base"></i>
@@ -1225,10 +1270,48 @@
                             </div>
                         </div>
 
-                        <!-- Groupe selector -->
-                        <div class="mb-3">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-2">Groupe</span>
-                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-none" id="saisie-group-picker"></div>
+                        <!-- Groupe selector — custom dropdown -->
+                        <div class="mb-3" id="saisie-group-wrapper">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1.5">Groupe</span>
+                            <!-- Trigger button -->
+                            <button type="button" id="saisie-group-btn" onclick="toggleSaisieGroupDropdown()"
+                                class="w-full flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-3.5 pr-3.5 text-sm font-semibold text-slate-700 focus:outline-none active:scale-[0.99] transition-all">
+                                <span id="saisie-group-label">Choisir un groupe…</span>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" id="saisie-group-chevron"></i>
+                            </button>
+                            <!-- Dropdown list -->
+                            <div id="saisie-group-dropdown" class="hidden mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50" style="position:relative;">
+                                <div id="saisie-group-options" class="max-h-44 overflow-y-auto py-1"></div>
+                                <div class="border-t border-slate-100">
+                                    <button type="button" onclick="showNewGroupForm()"
+                                        class="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors">
+                                        <i class="fa-solid fa-plus text-xs"></i>
+                                        <span>Nouveau groupe…</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- New group inline form (hidden by default) -->
+                            <div id="saisie-new-group-form" class="hidden mt-2 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                                <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Nouveau groupe</p>
+                                <div class="flex gap-2 items-center">
+                                    <input type="text" id="saisie-new-group-emoji" maxlength="2"
+                                        class="w-11 h-10 bg-white border border-slate-200 rounded-lg text-center text-lg focus:outline-none focus:border-indigo-400"
+                                        placeholder="📂">
+                                    <input type="text" id="saisie-new-group-name"
+                                        class="flex-1 h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm font-semibold text-slate-700 focus:outline-none focus:border-indigo-400"
+                                        placeholder="Nom du groupe">
+                                </div>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="cancelNewGroupSaisie()"
+                                        class="flex-1 h-9 rounded-lg bg-slate-100 text-slate-600 text-sm font-semibold active:scale-95 transition-all">
+                                        Annuler
+                                    </button>
+                                    <button type="button" onclick="createGroupFromSaisie()"
+                                        class="flex-1 h-9 rounded-lg bg-indigo-600 text-white text-sm font-bold active:scale-95 transition-all">
+                                        Créer
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Unified Payer + Split Card -->
@@ -1362,8 +1445,15 @@
                     </div>
                     <div class="text-center pt-2"><span id="analyse-period-debt" class="text-[11px] font-bold bg-indigo-500/10 text-indigo-600 px-3 py-1.5 rounded-full border border-indigo-500/10 block">Tout est équilibré</span></div>
                 </section>
-                <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col items-center">
-                    <div class="w-full max-w-[240px] h-[240px] relative"><canvas id="analyse-chart"></canvas><div id="no-chart-data-message" class="hidden absolute inset-0 bg-white/85 backdrop-blur-sm flex items-center justify-center text-center text-xs text-slate-500 rounded-xl">Aucune donnée disponible.</div></div>
+                <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div class="flex flex-col items-center">
+                        <div class="w-full max-w-[300px] h-[300px] relative">
+                            <canvas id="analyse-chart"></canvas>
+                            <div id="no-chart-data-message" class="hidden absolute inset-0 bg-white/85 backdrop-blur-sm flex items-center justify-center text-center text-xs text-slate-500 rounded-xl">Aucune donnée disponible.</div>
+                        </div>
+                    </div>
+                    <!-- Pie legend injected by renderAnalyse() -->
+                    <div id="analyse-pie-legend" class="mt-4 space-y-2"></div>
                 </section>
                 <section class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3"><h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Détails par catégorie</h3><div id="analyse-categories-list" class="space-y-2"></div></section>
 
@@ -1698,7 +1788,7 @@
             </div>
             
             <!-- Fields -->
-            <div class="space-y-3 overflow-y-auto flex-1 px-5 py-3 scrollbar-none" style="-ms-overflow-style:none;scrollbar-width:none;">
+            <div id="edit-tx-modal-body" class="space-y-3 overflow-y-auto flex-1 px-5 py-3 scrollbar-none" style="-ms-overflow-style:none;scrollbar-width:none;">
                 <!-- Description -->
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Description</label>
@@ -1927,7 +2017,12 @@
         // the entire confirmation — no additional toast needed.
         function flyTransactionToHistory() {
             const sourceIcon = document.getElementById('submit-plane-icon');
-            const targetTab = document.getElementById('nav-btn-profile');
+            // Target: group expenses tab if panel open, else groupes nav button
+            const _gdpPanelOpen = window._gdpProjectId &&
+                !document.getElementById('group-detail-panel')?.classList.contains('hidden');
+            const targetTab = _gdpPanelOpen
+                ? (document.getElementById('gdp-tab-expenses') || document.getElementById('nav-btn-groupes'))
+                : document.getElementById('nav-btn-groupes');
             // Fallback to the overlay if either element is missing
             if (!sourceIcon || !targetTab) { showSuccessOverlay("Enregistré !"); return; }
 
@@ -1982,11 +2077,15 @@
                 fill: 'forwards'
             });
 
-            // When the plane lands, pulse the nav tab
+            // When the plane lands, pulse the target tab and switch to it
             anim.onfinish = () => {
                 flier.remove();
+                // If landed on group expenses tab, switch to it
+                if (_gdpPanelOpen && targetTab.id === 'gdp-tab-expenses') {
+                    try { switchGroupTab('expenses'); } catch(e) {}
+                }
                 // Trigger landing pulse on the icon inside the nav tab
-                const tabIcon = targetTab.querySelector('i');
+                const tabIcon = targetTab.querySelector('i') || targetTab;
                 if (tabIcon) {
                     tabIcon.classList.remove('nav-tab-landed-icon');
                     void tabIcon.offsetWidth;
@@ -2275,7 +2374,10 @@
                     if (!exists && newRow) {
                         state.expenses.unshift(newRow);
                         localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
-                        updateUI();
+                        // Targeted renders — old updateUI was a no-op
+                        try { renderGroupesTab(); } catch(e) {}
+                        const _gdpVis1 = window._gdpProjectId && !document.getElementById('group-detail-panel')?.classList.contains('hidden');
+                        if (_gdpVis1) { renderGroupExpenses(); renderGroupOverview(); }
                         // Subtle notification so the partner knows something arrived
                         if (newRow.approved === false) haptic('light');
                     }
@@ -2289,13 +2391,20 @@
                         state.expenses[index] = Object.assign({}, newRow, {
                             ...(local.receiptItems !== undefined && { receiptItems: local.receiptItems }),
                             ...(local.receiptAllItems !== undefined && { receiptAllItems: local.receiptAllItems }),
+                            // Preserve currency/fxRate if Supabase column missing or null
+                            ...(local.currency && !newRow.currency && { currency: local.currency }),
+                            ...(local.fxRate && !newRow.fxRate && { fxRate: local.fxRate }),
+                            ...(local.amountLocal && !newRow.amountLocal && { amountLocal: local.amountLocal }),
                         });
                     } else if (newRow) {
                         // Row exists on server but not locally yet — add it
                         state.expenses.unshift(newRow);
                     }
                     localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
-                    updateUI();
+                    // Targeted renders (old updateUI targeted removed DOM elements)
+                    try { renderGroupesTab(); } catch(e) {}
+                    const _gdpVis2 = window._gdpProjectId && !document.getElementById('group-detail-panel')?.classList.contains('hidden');
+                    if (_gdpVis2) { renderGroupExpenses(); renderGroupOverview(); }
                     break;
                 }
                 case 'DELETE': {
@@ -2303,7 +2412,9 @@
                     state.expenses = state.expenses.filter(e => e.id !== id);
                     if (state.expenses.length !== beforeLen) {
                         localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
-                        updateUI();
+                        try { renderGroupesTab(); } catch(e) {}
+                        const _gdpVis3 = window._gdpProjectId && !document.getElementById('group-detail-panel')?.classList.contains('hidden');
+                        if (_gdpVis3) { renderGroupExpenses(); renderGroupOverview(); }
                     }
                     break;
                 }
@@ -2538,6 +2649,37 @@
         // Initialize when the DOM is ready (the scroll area exists from the initial HTML)
         // initPullToRefresh() is called inside initApp() — no separate boot needed
 
+        // ── Supabase column mappers (camelCase ↔ snake_case) ─────────────
+        function toSupabaseRow(exp) {
+            if (!exp) return exp;
+            // Strip all local-only and non-existent Supabase columns
+            // Keep camelCase — that's what the DB schema uses
+            const {
+                receiptItems, receiptAllItems, receiptDetectedTotal,
+                _animateIn, _previousCurrency, splitTypeLocal,
+                _fuzzyDupe, _syncAttempts,
+                isEditing, splitParticipants,
+                fxFrom, fxConverted, amountLocal,  // not in DB schema
+                txType,                             // not in DB schema
+                ...rest
+            } = exp;
+            return rest;
+            // Note: p1SharePercent, p2SharePercent, fxRate, currency, project
+            // are kept as-is because the Supabase table uses camelCase columns.
+        }
+
+        function fromSupabaseRow(row) {
+            if (!row) return row;
+            // DB uses camelCase — just ensure defaults for missing fields
+            return {
+                ...row,
+                p1SharePercent: row.p1SharePercent ?? 50,
+                p2SharePercent: row.p2SharePercent ?? 50,
+                fxRate:         row.fxRate         ?? null,
+                currency:       row.currency       ?? null,
+            };
+        }
+
         async function fetchSupabaseExpenses() {
             if (!state.supabaseClient || !navigator.onLine) return;
             try { await flushPendingDeletes(); } catch(e) {}
@@ -2587,7 +2729,10 @@
                 // Sync categories from Supabase
                 try {
                     const _groupId = state.groupId || (state.config && state.config.groupId) || 'default';
-                    const { data: _catRows } = await state.supabaseClient.from('categories').select().eq('group_id', _groupId);
+                    // Fetch both 'global' (built-in + custom synced) and user-specific group rows
+                    const { data: _catRows } = await state.supabaseClient
+                        .from('categories').select()
+                        .in('group_id', ['global', _groupId]);
                     if (_catRows && _catRows.length > 0) {
                         let _catChanged = false;
                         _catRows.forEach(row => {
@@ -2622,7 +2767,7 @@
                     // ALSO: if a row has a pending local edit (upsert in-flight), keep the
                     // local version — don't let stale server data overwrite it mid-network.
                     const localById = new Map((state.expenses || []).map(e => [e.id, e]));
-                    const merged = data.map(serverRow => {
+                    const merged = data.map(_raw => { const serverRow = fromSupabaseRow(_raw);
                         // Pending edit wins unconditionally — server data is stale
                         if (_pendingEdits.has(serverRow.id)) {
                             return _pendingEdits.get(serverRow.id);
@@ -2723,6 +2868,8 @@
                 console.error('[Init] Could not parse us_sync_queue, resetting:', e);
                 state.syncQueue = [];
             }
+            // Clean up any stale snake_case fields from previous broken mapper
+            try { sanitizeSyncQueue(); } catch(e) {}
         }
 
         // ── PENDING EDITS TRACKER ──────────────────────────────────────────────────
@@ -3722,11 +3869,13 @@
                 // Mirror the active project's currency into state.config.currency so all
                 // existing code reading state.config.currency picks up the right symbol.
                 // The persisted (global) currency stays as the fallback.
-                const activeProj = (state.config.projects || []).find(p => (p.id || p) === name);
-                if (activeProj && typeof activeProj === 'object' && activeProj.currency) {
-                    state.config.currency = activeProj.currency;
+                // Mirror active project currency into state.config.currency
+                // (many display sites read it directly). globalCurrency is never touched.
+                const _spProj = (state.config.projects || []).find(p => (p.id || p) === name);
+                if (_spProj && typeof _spProj === 'object' && _spProj.currency) {
+                    state.config.currency = _spProj.currency;
                 } else {
-                    state.config.currency = state.config.globalCurrency || state.config.currency || '€';
+                    state.config.currency = state.config.globalCurrency || '€';
                 }
                 localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
                 state.historySearchQuery = '';
@@ -3819,6 +3968,66 @@
                 `;
             }).join('');
         }
+        
+        // ═══════════════════════════════════════════════════════
+        // FX: Convert all project expenses when currency changes
+        // ═══════════════════════════════════════════════════════
+        const _isoMap = {'€':'EUR','$':'USD','£':'GBP','CHF':'CHF','¥':'JPY','kr':'SEK','NOK':'NOK','DKK':'DKK','CAD':'CAD','AUD':'AUD'};
+
+        async function convertExpensesOnCurrencyChange(pid, oldCur, newCur) {
+            if (!pid || !oldCur || !newCur || oldCur === newCur) return;
+            const fromISO = _isoMap[oldCur] || oldCur;
+            const toISO   = _isoMap[newCur]  || newCur;
+            if (fromISO === toISO) return;
+            const _tryFX = async (urls, i) => {
+                if (i >= urls.length) return null;
+                try {
+                    const r = await fetch(urls[i]);
+                    if (!r.ok) throw new Error(r.status);
+                    const d = await r.json();
+                    return d?.rates?.[toISO] || d?.conversion_rates?.[toISO] || null;
+                } catch { return _tryFX(urls, i + 1); }
+            };
+            const rate = parseFloat(await _tryFX([
+                `https://api.frankfurter.app/latest?from=${fromISO}&to=${toISO}`,
+                `https://open.er-api.com/v6/latest/${fromISO}`
+            ], 0));
+            if (!rate || isNaN(rate)) {
+                showToast(`⚠️ Taux ${oldCur}→${newCur} introuvable — montants non convertis`);
+                return;
+            }
+            showToast(`💱 1 ${oldCur} = ${rate.toFixed(4)} ${newCur} — conversion…`);
+            const affected = state.expenses.filter(e => e.project === pid && e.currency === oldCur);
+            affected.forEach(e => {
+                e.amount   = Math.round((parseFloat(e.amount)  || 0) * rate * 100) / 100;
+                if (e.p1Share !== undefined) e.p1Share = Math.round((parseFloat(e.p1Share)||0) * rate * 100) / 100;
+                if (e.p2Share !== undefined) e.p2Share = Math.round((parseFloat(e.p2Share)||0) * rate * 100) / 100;
+                e.currency    = newCur;
+                e.fxConverted = true;
+                e.fxRate      = rate;
+                e.fxFrom      = oldCur;
+            });
+            localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            updateUI();
+            if (state.supabaseClient && navigator.onLine && affected.length > 0) {
+                try {
+                    const { error } = await state.supabaseClient.from('expenses').upsert(
+                        affected.map(e => ({
+                            id: e.id, amount: e.amount,
+                            p1_share: e.p1Share, p2_share: e.p2Share,
+                            currency: e.currency, fx_rate: e.fxRate, fx_from: e.fxFrom,
+                            updated_at: new Date().toISOString()
+                        })),
+                        { onConflict: 'id' }
+                    );
+                    if (error) console.error('[convertExpenses] Supabase:', error);
+                    else showToast(`✅ ${affected.length} dépense(s) → ${newCur}`);
+                } catch(e) { console.error(e); }
+            } else if (affected.length > 0) {
+                showToast(`✅ ${affected.length} dépense(s) → ${newCur} (hors ligne)`);
+            }
+        }
+
         function saveProjectEdit(oldId) {
             const row = document.querySelector(`[data-project-row="${oldId}"]`);
             if (!row) return;
@@ -3884,7 +4093,10 @@
 
             // Build a contextual toast that names the project so it's clear which one changed
             let toastMsg = `${newName} : projet modifié`;
-            if (currencyChanged) toastMsg = `${newName} : devise → ${newCurrency}`;
+            if (currencyChanged) {
+                toastMsg = `${newName} : devise → ${newCurrency}`;
+                convertExpensesOnCurrencyChange(newId, oldCurrency, newCurrency);
+            }
             else if (newId !== oldId) toastMsg = `Projet renommé : ${oldId} → ${newName}`;
 
             // Animate the manage modal closed, then show the toast
@@ -3948,8 +4160,31 @@
                 const proj = (state.config.projects || []).find(p => (p.id || p) === active);
                 if (proj && typeof proj === 'object' && proj.currency) return proj.currency;
             } catch(e) {}
-            return state.config.currency || '€';
+            return state.config.globalCurrency || state.config.currency || '€';
         }
+        function getProjectCurrency(pid) {
+            if (!pid) return getActiveCurrency();
+            try {
+                const proj = (state.config.projects || []).find(p =>
+                    (p.id || p.name || p) === pid);
+                if (proj && typeof proj === 'object' && proj.currency) return proj.currency;
+            } catch(e) {}
+            // For projects with no explicit currency, use globalCurrency (never a project-specific currency)
+            return state.config.globalCurrency || '€';
+        }
+
+        // Format: "£ 45.00" or "£ 45.00 (€ 53.20)" when currencies differ
+        function fmtWithBase(amount, projCur, baseCur) {
+            const pc = projCur || getActiveCurrency();
+            const bc = baseCur || state.config.globalCurrency || state.config.currency || '€';
+            const fmt = v => parseFloat(v || 0).toLocaleString('fr-FR',
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const main = `${pc} ${fmt(amount)}`;
+            if (pc === bc) return main;
+            return main; // bracket needs a live rate — only show when fxRate stored on exp
+        }
+
+        
 
         function updateCurrencyUI() {
             const cur = getActiveCurrency();
@@ -3979,7 +4214,8 @@
             }
             if(!state.config.currency) state.config.currency = '€';
             // Initialize globalCurrency (the fallback) on first run / from migration
-            if(!state.config.globalCurrency) state.config.globalCurrency = state.config.currency;
+            if(!state.config.globalCurrency) state.config.globalCurrency = state.config.currency || '€';
+            // state.config.currency set below from active project
             if(!state.config.projects) state.config.projects = [{id: 'Principal', name: 'Principal', icon: '🏡'}];
 
             // On load, set the live currency to the active project's override (if any) — otherwise the global one
@@ -4051,9 +4287,12 @@
                 btn.onclick = () => { setManualCategory(cat.label, cat.icon); const b = document.getElementById('cat-autodetect-badge'); if (b) b.classList.add('hidden'); };
                 btn.dataset.category = cat.label;
                 btn.className = "manual-cat-btn flex items-center justify-start px-3.5 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900 hover:border-slate-300 transition-all active:scale-95 gap-2.5";
+                const _builtInCats = ['Courses','Resto & Café','Factures & Loyer','Loisirs & Sorties','Shopping','Transport','Sport','Autre'];
+                const _isCustomCat = !_builtInCats.includes(cat.label);
                 btn.innerHTML = `
                     <span class="text-base text-slate-400"><i class="fa-solid ${cat.icon}"></i></span>
-                    <span class="text-xs font-bold leading-tight">${cat.label}</span>
+                    <span class="text-xs font-bold leading-tight flex-1">${cat.label}</span>
+                   
                 `;
                 grid.appendChild(btn);
             });
@@ -4153,7 +4392,7 @@
         function updateSplitSummaryRows() {
             const amountEl = document.getElementById('amount');
             const totalVal = amountEl ? parseFloat(amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')) : 0;
-            const cur = state.config.currency || '€';
+            const cur = window._txCurrency || state.config.currency || '€';
             const p1Name = state.config.p1Name || 'P1';
             const p2Name = state.config.p2Name || 'P2';
             const payer = state.currentPayer;
@@ -4553,6 +4792,80 @@
             recalcAmountsFromPct(totalVal);
         }
 
+        // ── Per-transaction currency ────────────────────────────────
+        function setTxCurrency(val) {
+            window._txCurrency = val || null;
+            window._txFxRate   = null;
+            // Use the current saisie project's currency as the base (not global activeProject)
+            const _saisieProjObj = (state.config.projects || []).find(p =>
+                (p.id || p.name || p) === state.currentSaisieProject);
+            const globalCur = (_saisieProjObj && _saisieProjObj.currency) || getActiveCurrency();
+            const isForeign = val && val !== globalCur;
+            const sel     = document.getElementById('tx-currency-select');
+            const fxNote  = document.getElementById('fx-rate-note');
+            const fxText  = document.getElementById('fx-rate-note-text');
+            const fxInput = document.getElementById('fx-rate-input');
+            const fxRow   = document.getElementById('fx-rate-input-row');
+            const fxLbl   = document.getElementById('fx-rate-label');
+            const fxToSym = document.getElementById('fx-rate-to-sym');
+            if (sel) { sel.value = val || ''; sel.classList.toggle('text-indigo-500', isForeign); sel.classList.toggle('text-slate-400', !isForeign); }
+            if (fxNote) fxNote.classList.toggle('hidden', !isForeign);
+            if (!isForeign) { if (fxRow) fxRow.classList.add('hidden'); updateSplitSummaryRows(); return; }
+            // Always show input immediately with clear 1 X = ? Y label
+            if (fxLbl)   fxLbl.textContent  = `1 ${val} =`;
+            if (fxToSym) fxToSym.textContent = globalCur;
+            if (fxText)  fxText.textContent  = `Chargement du taux…`;
+            if (fxInput) { fxInput.value = ''; fxInput.placeholder = '0.0000'; fxInput.classList.remove('hidden'); }
+            if (fxRow)   fxRow.classList.remove('hidden');
+            updateSplitSummaryRows();
+            // Symbol → ISO 4217
+            const _iso = {'€':'EUR','$':'USD','£':'GBP','CHF':'CHF','¥':'JPY','kr':'SEK','NOK':'NOK','DKK':'DKK','CAD':'CAD','AUD':'AUD'};
+            const fromISO = _iso[val] || val;
+            const toISO   = _iso[getActiveCurrency()] || getActiveCurrency();
+            if (fromISO === toISO) {
+                window._txFxRate = 1;
+                if (fxText)  fxText.textContent = `Même devise`;
+                if (fxInput) fxInput.value = '1.0000';
+                updateSplitSummaryRows(); return;
+            }
+            const _applyRate = (rate) => {
+                window._txFxRate = parseFloat(rate);
+                if (fxText)  fxText.textContent = `Taux du jour (ECB) — modifiable`;
+                if (fxInput) fxInput.value = parseFloat(rate).toFixed(4);
+                updateSplitSummaryRows();
+            };
+            const _tryFetch = (urls, i) => {
+                if (i >= urls.length) {
+                    if (fxText) fxText.textContent = `Taux non disponible en ligne — saisir manuellement`;
+                    return;
+                }
+                fetch(urls[i])
+                    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                    .then(data => {
+                        const rate = data?.rates?.[toISO] || data?.conversion_rates?.[toISO];
+                        if (rate) { _applyRate(rate); }
+                        else { _tryFetch(urls, i + 1); }
+                    })
+                    .catch(() => _tryFetch(urls, i + 1));
+            };
+            _tryFetch([
+                `https://api.frankfurter.app/latest?from=${fromISO}&to=${toISO}`,
+                `https://open.er-api.com/v6/latest/${fromISO}`
+            ], 0);
+        }
+        function resetTxCurrency() {
+            window._txCurrency = null;
+            window._txFxRate   = null;
+            const sel = document.getElementById('tx-currency-select');
+            if (sel) { sel.value = state.config.currency || '€'; sel.classList.remove('text-indigo-500'); sel.classList.add('text-slate-400'); }
+            const fxNote = document.getElementById('fx-rate-note');
+            if (fxNote) fxNote.classList.add('hidden');
+            const fxRow = document.getElementById('fx-rate-input-row');
+            if (fxRow) fxRow.classList.add('hidden');
+            const fxLbl = document.getElementById('fx-rate-label');
+            if (fxLbl) fxLbl.textContent = '1 ? =';
+        }
+
         async function handleFormSubmission(event) {
             event.preventDefault();
             const submitBtn = document.getElementById('expense-submit-btn');
@@ -4582,7 +4895,12 @@
                 id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
                 amount: rawAmount, payer: state.currentPayer, description: categoryDesc,
                 category: activeCategory, icon: activeIcon, p1SharePercent: p1Pct, p2SharePercent: p2Pct,
-                approved: true, isEditing: false, type: state.txType, project: state.config.activeProject, created_at: new Date().toISOString()
+                approved: true, isEditing: false, type: state.txType, project: state.currentSaisieProject || state.config.activeProject,
+                currency: window._txCurrency || getActiveCurrency(),
+                fxRate: window._txFxRate || null,
+                amountLocal: (window._txFxRate && window._txCurrency && window._txCurrency !== getActiveCurrency())
+                    ? Math.round(rawAmount * window._txFxRate * 100) / 100
+                    : rawAmount, created_at: new Date().toISOString()
             };
             // Attach receipt scan metadata if the user just came from the scanner
             if (window._pendingReceiptMeta) {
@@ -4595,13 +4913,33 @@
             }
 
             state.expenses.unshift(newExpense); localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
+            window._lastAddedId = newExpense.id;   // for highlight
+            window._animateNextRender = true;             // trigger slide-in once
             updateUI();
 
             // Celebration animation — best-effort, never lets a UI glitch interrupt the save flow.
             try { flyTransactionToHistory(); } catch (e) { console.error('Fly animation failed:', e); }
 
+            // Capture group context BEFORE closeSaisieSheet resets currentSaisieProject to null
+            const _fromGroup = !!(state.currentSaisieProject &&
+                window._gdpProjectId &&
+                !document.getElementById('group-detail-panel')?.classList.contains('hidden'));
+            // Close sheet
+            try { closeSaisieSheet(); } catch(e) {}
+            // Render correct view — updateUI() writes into removed DOM elements (no-op), use targeted renders
+            if (_fromGroup) {
+                try { switchView('groupes'); } catch(e) {}
+                try { renderGroupesTab(); } catch(e) {}
+                renderGroupExpenses();
+                renderGroupOverview();
+            } else {
+                try { switchView('groupes'); } catch(e) {}
+                try { renderGroupesTab(); } catch(e) {}
+                try { renderGroupOverview(); } catch(e) {}
+            }
+
             amtIn.value = ''; if (descIn) descIn.value = '';
-            selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); selectPayer(getDevicePayer()); state.splitParticipants = { p1: true, p2: true }; amtIn.blur();
+            resetTxCurrency(); selectTxType('depense'); setManualCategory('Courses', 'fa-cart-shopping'); selectSplit('50_50'); selectPayer(getDevicePayer()); state.splitParticipants = { p1: true, p2: true }; amtIn.blur();
 
             // Build a stripped-down version for Supabase that only contains schema columns.
             // The local copy keeps extra metadata (receipt items, animation flags, etc).
@@ -4609,7 +4947,7 @@
 
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').insert([persistable]);
+                    const { error } = await state.supabaseClient.from('expenses').insert([toSupabaseRow(persistable)]);
                     if (error) {
                         console.error('Supabase insert error (queued for retry):', error);
                         queueSync(persistable);
@@ -4773,6 +5111,9 @@
                 modal.classList.remove('opacity-0');
                 content.style.transition = 'transform 0.32s cubic-bezier(0.32,0.72,0,1)';
                 content.style.transform  = 'translateY(0%)';
+                // Scroll modal body to top every time it opens
+                const _mb = document.getElementById('edit-tx-modal-body');
+                if (_mb) _mb.scrollTop = 0;
                 attachSwipeToDismiss(content, closeEditTxModal);
             }));
         }
@@ -4795,15 +5136,20 @@
         function closeEditTxModal() {
             const modal = document.getElementById('edit-tx-modal');
             const content = document.getElementById('edit-tx-modal-content');
+            // Fast blur removal — swap to no-blur instantly so it doesn't linger
+            modal.classList.remove('backdrop-blur-sm');
+            modal.style.transition = 'opacity 0.15s ease-out';
             modal.classList.add('opacity-0');
-            content.style.transition = 'transform 0.28s cubic-bezier(0.32,0.72,0,1)';
+            content.style.transition = 'transform 0.22s cubic-bezier(0.32,0.72,0,1)';
             content.style.transform  = 'translateY(110%)';
             setTimeout(() => {
                 modal.classList.add('hidden');
+                modal.classList.add('backdrop-blur-sm'); // restore for next open
+                modal.style.transition = '';
                 content.style.transition = 'none';
                 content.style.transform  = 'translateY(110%)';
                 state.editingTransaction = null;
-            }, 300);
+            }, 200);
         }
 
         function selectModalEditType(type, updateSplit = true) {
@@ -5157,7 +5503,7 @@
                 // will use this local version instead of the stale server data.
                 _pendingEdits.set(tx.id, JSON.parse(JSON.stringify(tx)));
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').upsert([stripTransientFields(tx)], { onConflict: 'id' });
+                    const { error } = await state.supabaseClient.from('expenses').upsert([toSupabaseRow(tx)], { onConflict: 'id' });
                     if (error) {
                         console.error('Edit upsert error:', error);
                         queueSync(tx);
@@ -5190,7 +5536,7 @@
             showToast('Dupliqué');
             const persistable = stripTransientFields(clone);
             if (state.supabaseClient && navigator.onLine) {
-                state.supabaseClient.from('expenses').insert([persistable]).then(({ error }) => {
+                state.supabaseClient.from('expenses').insert([toSupabaseRow(persistable)]).then(({ error }) => {
                     if (error) { console.error('Duplicate insert error:', error); queueSync(persistable); }
                 });
             } else {
@@ -5744,7 +6090,7 @@
             if (state.supabaseClient && navigator.onLine) {
                 try {
                     const { error } = await state.supabaseClient.from('expenses')
-                        .upsert(validated.map(e => stripTransientFields(e)), { onConflict: 'id' });
+                        .upsert(validated.map(e => toSupabaseRow(e)), { onConflict: 'id' });
                     if (error) { console.error('[validateAllHigh] upsert error:', error); validated.forEach(e => queueSync(e)); }
                 } catch(e) { console.error('[validateAllHigh] threw:', e); validated.forEach(v => queueSync(v)); }
             } else {
@@ -6180,7 +6526,7 @@
             const countEl = document.getElementById('receipt-selected-count');
             const totalCountEl = document.getElementById('receipt-total-count');
             const btn = document.getElementById('receipt-confirm-btn');
-            if (totalEl) totalEl.innerText = total.toFixed(2).replace('.', ',') + ' ' + (state.config.currency || '€');
+            if (totalEl) totalEl.innerText = total.toFixed(2).replace('.', ',') + ' ' + getActiveCurrency();
             if (countEl) countEl.innerText = selectedItems.length;
             if (totalCountEl) totalCountEl.innerText = receiptState.items.length;
             if (btn) btn.disabled = selectedItems.length === 0;
@@ -6263,7 +6609,7 @@
             const persistable = stripTransientFields(mock);
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').insert([persistable]);
+                    const { error } = await state.supabaseClient.from('expenses').insert([toSupabaseRow(persistable)]);
                     if (error) { console.error('Simulate webhook insert error:', error); queueSync(persistable); }
                 } catch (e) { console.error('Simulate webhook threw:', e); queueSync(persistable); }
             } else { queueSync(persistable); }
@@ -6277,11 +6623,16 @@
         async function smoothDismiss(elId, direction = 100) {
             const el = document.getElementById(elId);
             if (!el) return;
+            // Skip if element has no rendered size (hidden tab) — avoids instant 0px collapse
+            // Note: use getBoundingClientRect not offsetParent (null for position:fixed panels)
+            const _r = el.getBoundingClientRect();
+            if (_r.width === 0 && _r.height === 0) return;
             
-            // 1. Slide out 
+            // 1. Slide out with smooth transition
+            el.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease';
             el.style.transform = `translateX(${direction}%)`;
             el.style.opacity = '0';
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 280));
             
             // 2. Lock current size then shrink gracefully
             el.style.height = el.offsetHeight + 'px';
@@ -6324,7 +6675,7 @@
                 try {
                     const { error } = await state.supabaseClient
                         .from('expenses')
-                        .upsert([stripTransientFields(approvedTx)], { onConflict: 'id' });
+                        .upsert([toSupabaseRow(approvedTx)], { onConflict: 'id' });
                     if (error) { console.error('Approve upsert error:', error); queueSync(approvedTx); }
                 } catch(e) { console.error('Approve upsert threw:', e); queueSync(approvedTx); }
             } else {
@@ -6337,7 +6688,7 @@
                 const payerName = getDevicePayer() === 'p1' ? state.config.p1Name : state.config.p2Name;
                 await sendPushNotification(otherPayer,
                     `${payerName} a validé une transaction`,
-                    `${approvedTx.description || approvedTx.category} · ${approvedTx.amount?.toFixed(2).replace('.', ',')}${state.config.currency}`
+                    `${approvedTx.description || approvedTx.category} · ${approvedTx.amount?.toFixed(2).replace('.', ',')}${approvedTx.currency || getActiveCurrency()}`
                 );
             } catch(e) {}
         }
@@ -6429,16 +6780,42 @@
         }
 
         async function deleteExpense(id) {
+            // Capture before removal so we can dismiss powens_id if present
+            const _expToDelete = state.expenses.find(exp => exp.id === id);
             await smoothDismiss(`history-item-${id}`, -100);
             trackDeletedId(id);
+            // If this was a bank-synced transaction, permanently dismiss its powens_id
+            // so Powens re-import never brings it back to the inbox
+            if (_expToDelete?.powens_id) {
+                try { trackDismissedPowensId(_expToDelete.powens_id); } catch(e) {}
+            }
             state.expenses = state.expenses.filter(exp => exp.id !== id);
             localStorage.setItem('us_expenses', JSON.stringify(state.expenses));
-            updateUI();
+            // Targeted renders replace the old no-op updateUI call
+            const _gdpOpen = window._gdpProjectId &&
+                !document.getElementById('group-detail-panel')?.classList.contains('hidden');
+            if (_gdpOpen) {
+                renderGroupExpenses();
+                renderGroupOverview();
+                try { renderGroupesTab(); } catch(e) {}
+            } else {
+                try { renderGroupesTab(); } catch(e) {}
+                try { renderAccueil(); } catch(e) {}
+            }
             if (state.supabaseClient && navigator.onLine) {
                 try {
                     const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
                     if (error) console.error('Delete error:', error);
                 } catch (e) { console.error('Delete threw:', e); }
+                // Also upsert into dismissed_powens so the partner's device skips it too
+                if (_expToDelete?.powens_id) {
+                    try {
+                        await state.supabaseClient.from('dismissed_powens').upsert(
+                            { powens_id: String(_expToDelete.powens_id) },
+                            { onConflict: 'powens_id', ignoreDuplicates: true }
+                        );
+                    } catch(e) {}
+                }
             }
         }
 
@@ -6460,7 +6837,7 @@
             const persistable = stripTransientFields(settleLog);
             if (state.supabaseClient && navigator.onLine) {
                 try {
-                    const { error } = await state.supabaseClient.from('expenses').insert([persistable]);
+                    const { error } = await state.supabaseClient.from('expenses').insert([toSupabaseRow(persistable)]);
                     if (error) { console.error('Settle insert error:', error); queueSync(persistable); }
                 } catch (e) { console.error('Settle insert threw:', e); queueSync(persistable); }
             } else { queueSync(persistable); }
@@ -6481,14 +6858,47 @@
             } = exp;
             return rest;
         }
-        function queueSync(expense) { state.syncQueue.push(stripTransientFields(expense)); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
+        function queueSync(expense) { state.syncQueue.push(toSupabaseRow(expense)); localStorage.setItem('us_sync_queue', JSON.stringify(state.syncQueue)); handleNetworkChange(); }
         
+        // ── Queue sanitizer ─────────────────────────────────────────────
+        // Removes stale snake_case fields injected by a previously broken
+        // toSupabaseRow() mapper, and re-runs toSupabaseRow() on each entry.
+        async function sanitizeSyncQueue() {
+            try {
+                const raw = localStorage.getItem('us_sync_queue');
+                if (!raw) return;
+                const queue = JSON.parse(raw);
+                if (!Array.isArray(queue) || queue.length === 0) return;
+                const cleaned = queue.map(row => {
+                    // Remove any snake_case columns that don't exist in the DB
+                    const {
+                        amount_local, fx_rate, fx_from, fx_converted,
+                        p1_share_percent, p2_share_percent,
+                        ...rest
+                    } = row;
+                    // Re-apply correct camelCase defaults
+                    return {
+                        ...rest,
+                        p1SharePercent: rest.p1SharePercent ?? p1_share_percent ?? 50,
+                        p2SharePercent: rest.p2SharePercent ?? p2_share_percent ?? 50,
+                        fxRate:         rest.fxRate         ?? fx_rate          ?? null,
+                        amountLocal:    rest.amountLocal    ?? amount_local      ?? null,
+                        fxFrom:         rest.fxFrom         ?? fx_from           ?? null,
+                        fxConverted:    rest.fxConverted    ?? fx_converted      ?? false,
+                    };
+                });
+                state.syncQueue = cleaned;
+                localStorage.setItem('us_sync_queue', JSON.stringify(cleaned));
+                if (cleaned.length > 0) console.log(`[sanitizeSyncQueue] cleaned ${cleaned.length} queued rows`);
+            } catch(e) { console.warn('[sanitizeSyncQueue]', e); }
+        }
+
         async function processOfflineQueue() {
             if (!state.supabaseClient || state.syncQueue.length === 0 || !navigator.onLine) return;
             flushMerchantMemoryQueue();
             const row = state.syncQueue[0];
             try {
-                const { error } = await state.supabaseClient.from('expenses').upsert([row], { onConflict: 'id' });
+                const { error } = await state.supabaseClient.from('expenses').upsert([toSupabaseRow(row)], { onConflict: 'id' });
                 if (!error) {
                     // Success — pop the row and recurse for the next one
                     state.syncQueue.shift();
@@ -6575,7 +6985,7 @@
                 }
             });
 
-            safeSetInnerText('analyse-period-total', `${tS.toFixed(2)} ${state.config.currency}`);
+            safeSetInnerText('analyse-period-total', `${tS.toFixed(2)} ${getActiveCurrency()}`);
             // Actual paid amounts per person
             const valP1 = document.getElementById('analyse-val-p1');
             const valP2 = document.getElementById('analyse-val-p2');
@@ -6585,7 +6995,7 @@
             const diff = d2 - d1; const debtEl = document.getElementById('analyse-period-debt');
             if (Math.abs(diff) < 0.01) { debtEl.innerText = "Équilibré sur ce mois"; debtEl.className = "text-[11px] font-bold bg-indigo-500/10 text-indigo-600 px-3 py-1.5 rounded-full block"; }
             else if (diff > 0) { debtEl.innerText = `${state.config.p2Name} doit ${diff.toFixed(2)} ${state.config.currency}`; debtEl.className = "text-[11px] font-bold bg-emerald-500/10 text-emerald-600 px-3 py-1.5 rounded-full block"; }
-            else { debtEl.innerText = `${state.config.p1Name} doit ${Math.abs(diff).toFixed(2)} ${state.config.currency} à ${state.config.p2Name}`; debtEl.className = "text-[11px] font-bold bg-rose-500/10 text-rose-500 px-3 py-1.5 rounded-full block"; }
+            else { debtEl.innerText = `${state.config.p1Name} doit ${Math.abs(diff).toFixed(2)} ${getActiveCurrency()} à ${state.config.p2Name}`; debtEl.className = "text-[11px] font-bold bg-rose-500/10 text-rose-500 px-3 py-1.5 rounded-full block"; }
 
             const listEl = document.getElementById('analyse-categories-list'); listEl.innerHTML = '';
             const msgEl = document.getElementById('no-chart-data-message');
@@ -6607,7 +7017,46 @@
             if (canvas && typeof Chart !== 'undefined') {
                 if(state.chartInstance) state.chartInstance.destroy();
                 try { Chart.register(ChartDataLabels); } catch(e){}
-                state.chartInstance = new Chart(canvas.getContext('2d'), { type: 'pie', data: { labels: lbls, datasets: [{ data: dats, backgroundColor: cols, borderWidth: 2, borderColor: '#F8FAFC', hoverOffset: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (v,c) => { let s=c.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); let p=(v*100/s).toFixed(0); return p>4?`${p}%`:''}, color: '#fff', font: { weight: 'bold', size: 11 } }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${c.parsed.toFixed(2)} ${state.config.currency}` } } } } });
+                state.chartInstance = new Chart(canvas.getContext('2d'), {
+                    type: 'pie',
+                    data: { labels: lbls, datasets: [{ data: dats, backgroundColor: cols, borderWidth: 3, borderColor: '#F8FAFC', hoverOffset: 10 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                                formatter: (v, c) => {
+                                    const s = c.chart.data.datasets[0].data.reduce((a,b) => a+b, 0);
+                                    const p = (v * 100 / s).toFixed(0);
+                                    return p > 5 ? `${p}%` : '';
+                                },
+                                color: '#fff', font: { weight: 'bold', size: 12 }
+                            },
+                            tooltip: { callbacks: { label: (c) => ` ${c.label} : ${c.parsed.toFixed(2)} ${state.config.currency}` } }
+                        }
+                    }
+                });
+
+                // ── Pie legend ───────────────────────────────────────────
+                const _legend = document.getElementById('analyse-pie-legend');
+                if (_legend) {
+                    const _total = dats.reduce((a,b) => a+b, 0);
+                    _legend.innerHTML = lbls.map((lbl, i) => {
+                        const _pct = _total > 0 ? Math.round(dats[i] * 100 / _total) : 0;
+                        const _amt = dats[i].toFixed(2).replace('.', ',');
+                        const _cur = state.config.currency || '€';
+                        const _w   = _total > 0 ? Math.round(dats[i] * 100 / _total) : 0;
+                        return `<div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full shrink-0" style="background:${cols[i]}"></span>
+                            <span class="text-xs font-semibold text-slate-700 flex-1 truncate">${lbl}</span>
+                            <div class="flex-1 mx-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                <div class="h-full rounded-full" style="width:${_w}%;background:${cols[i]}"></div>
+                            </div>
+                            <span class="text-xs font-bold text-slate-500 shrink-0">${_pct}%</span>
+                            <span class="text-xs font-bold text-slate-700 shrink-0 tabular-nums">${_amt} ${_cur}</span>
+                        </div>`;
+                    }).join('');
+                }
             }
         }
 
@@ -6746,9 +7195,16 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 }
 
                 let d1 = 0; let d2 = 0; let t1 = 0; let t2 = 0; let s1 = 0; let s2 = 0; let totalGroup = 0;
+                const _activeCur = getActiveCurrency();
                 approvedExpenses.forEach(exp => {
                     const sp1 = exp.p1SharePercent ?? 50; const sp2 = exp.p2SharePercent ?? 50;
-                    const o1 = exp.amount * (sp1/100); const o2 = exp.amount * (sp2/100);
+                    const expCur = exp.currency || _activeCur;
+                    let amt = exp.amount;
+                    if (expCur !== _activeCur) {
+                        if (exp.fxRate && exp.fxRate > 0) amt = exp.amount * exp.fxRate;
+                        else if (exp.amountLocal && exp.amountLocal > 0) amt = exp.amountLocal;
+                    }
+                    const o1 = amt * (sp1/100); const o2 = amt * (sp2/100);
                     
                     if (exp.type === 'depense' || !exp.type) {
                         totalGroup += exp.amount; s1 += o1; s2 += o2;
@@ -6764,22 +7220,23 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const b1 = diff > 0 ? `+${diff.toFixed(2)}` : diff < 0 ? `${diff.toFixed(2)}` : `0.00`;
                 const b2 = diff < 0 ? `+${Math.abs(diff).toFixed(2)}` : diff > 0 ? `-${diff.toFixed(2)}` : `0.00`;
 
-                safeSetInnerText('dashboard-total', `${totalGroup.toFixed(2)} ${state.config.currency}`);
+                safeSetInnerText('dashboard-total', `${totalGroup.toFixed(2)} ${getActiveCurrency()}`);
                 safeSetInnerText('dash-name-p1', state.config.p1Name);
                 safeSetInnerText('dash-name-p2', state.config.p2Name);
                 
-                safeSetInnerText('dash-paid-p1', `${t1.toFixed(2)} ${state.config.currency}`);
-                safeSetInnerText('dash-share-p1', `${s1.toFixed(2)} ${state.config.currency}`);
-                (document.getElementById('dash-balance-p1')||{}).innerText = `Bilan : ${b1} ${state.config.currency}`;
+                safeSetInnerText('dash-paid-p1', `${t1.toFixed(2)} ${getActiveCurrency()}`);
+                safeSetInnerText('dash-share-p1', `${s1.toFixed(2)} ${getActiveCurrency()}`);
+                (document.getElementById('dash-balance-p1')||{}).innerText = `Bilan : ${b1} ${getActiveCurrency()}`;
                 (document.getElementById('dash-balance-p1')||{}).className = diff > 0 ? "text-sm font-black text-emerald-600" : diff < 0 ? "text-sm font-black text-rose-500" : "text-sm font-black text-slate-400";
 
-                safeSetInnerText('dash-paid-p2', `${t2.toFixed(2)} ${state.config.currency}`);
-                safeSetInnerText('dash-share-p2', `${s2.toFixed(2)} ${state.config.currency}`);
-                (document.getElementById('dash-balance-p2')||{}).innerText = `Bilan : ${b2} ${state.config.currency}`;
+                safeSetInnerText('dash-paid-p2', `${t2.toFixed(2)} ${getActiveCurrency()}`);
+                safeSetInnerText('dash-share-p2', `${s2.toFixed(2)} ${getActiveCurrency()}`);
+                (document.getElementById('dash-balance-p2')||{}).innerText = `Bilan : ${b2} ${getActiveCurrency()}`;
                 (document.getElementById('dash-balance-p2')||{}).className = diff < 0 ? "text-sm font-black text-emerald-600" : diff > 0 ? "text-sm font-black text-rose-500" : "text-sm font-black text-slate-400";
 
                 const sDisp = document.getElementById('dashboard-summary');
                 const sBtn = document.getElementById('settle-btn');
+                if (sDisp) {
                 // The "te doit" / "tu dois" text depends on whose phone this is.
                 // getDevicePayer() returns 'p1' or 'p2' — used to flip the perspective.
                 const devicePayer = getDevicePayer();
@@ -6793,12 +7250,13 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     sDisp.innerText = "Tout est équilibré !"; sDisp.className = "text-xs font-bold text-indigo-600";
                     if(sBtn) sBtn.classList.add('hidden');
                 } else if (theyOwe) {
-                    sDisp.innerText = `${theirName} te doit ${owedAmount} ${state.config.currency}`; sDisp.className = "text-xs font-bold text-emerald-600";
+                    sDisp.innerText = `${theirName} te doit ${owedAmount} ${getActiveCurrency()}`; sDisp.className = "text-xs font-bold text-emerald-600";
                     if(sBtn) sBtn.classList.remove('hidden');
                 } else {
-                    sDisp.innerText = `Tu dois ${owedAmount} ${state.config.currency} à ${theirName}`; sDisp.className = "text-xs font-bold text-rose-500";
+                    sDisp.innerText = `Tu dois ${owedAmount} ${getActiveCurrency()} à ${theirName}`; sDisp.className = "text-xs font-bold text-rose-500";
                     if(sBtn) sBtn.classList.remove('hidden');
                 }
+                } // end if(sDisp)
 
                 const inBadge = document.getElementById('nav-inbox-badge'); const inCount = document.getElementById('inbox-badge-count'); const inList = document.getElementById('inbox-list');
                 const navBadge = document.getElementById('nav-accueil-badge');
@@ -6932,7 +7390,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-baseline justify-between gap-2">
                                                 <h3 class="font-semibold text-slate-900 truncate">${exp.description || 'Sans description'}</h3>
-                                                <span class="font-bold text-slate-900 tabular-nums shrink-0">${isRevenu ? '+' : ''}${(exp.amount||0).toFixed(2).replace('.',',')} ${state.config.currency||'€'}</span>
+                                                <span class="font-bold text-slate-900 tabular-nums shrink-0">${isRevenu ? '+' : ''}${(exp.amount||0).toFixed(2).replace('.',',')} ${exp.currency || getProjectCurrency(exp.project) || state.config.currency || '€'}</span>
                                             </div>
                                             <p class="text-xs text-slate-500 mt-0.5">${exactDate || ''}${exactDate && payerName ? ' · ' : ''}${payerName ? payerName : ''}</p>
                                             <div class="mt-2.5 flex items-center justify-between gap-2 flex-wrap">
@@ -7150,7 +7608,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                             return { name: p.name || p.id, icon: p.icon || '📂' };
                         })(exp.project);
                         const projectChipHtml = `<button onclick="event.stopPropagation(); openProjectPicker('${exp.id}')" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bg-slate-100 border-slate-200 text-slate-600 text-[10px] font-bold cursor-pointer active:scale-95 transition-transform"><span>${projMeta.icon}</span><span class="truncate max-w-[80px]">${projMeta.name}</span><i class="fa-solid fa-chevron-down text-[7px] opacity-60 ml-0.5"></i></button>`;
-                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-coins':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-800 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap mt-0.5">${expDate} <span class="text-slate-700">·</span> <span class="text-slate-400">${payerName}</span> ${projectChipHtml}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-700">${exp.amount.toFixed(2)}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-500 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                        item.innerHTML = `<div class="flex items-center gap-3.5 flex-1 min-w-0"><div class="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0" style="background-color:${exp.type==='revenu'?'rgba(52,211,153,0.12)':exp.type==='transfert'?'rgba(56,189,248,0.12)':'rgba(99,102,241,0.1)'};border-color:${exp.type==='revenu'?'rgba(52,211,153,0.3)':exp.type==='transfert'?'rgba(56,189,248,0.3)':'rgba(99,102,241,0.2)'};color:${exp.type==='revenu'?'#34d399':exp.type==='transfert'?'#38bdf8':'#818cf8'}"><i class="fa-solid ${exp.type==='revenu'?'fa-coins':exp.type==='transfert'?'fa-right-left':(exp.icon||'fa-asterisk')} text-sm"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-slate-800 truncate">${exp.description}</p><p class="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap mt-0.5">${expDate} <span class="text-slate-700">·</span> <span class="text-slate-400">${payerName}</span> ${projectChipHtml}</p></div></div><div class="flex items-center gap-2 shrink-0"><span class="text-sm font-black text-slate-700">${exp.amount.toFixed(2)} ${exp.currency || getActiveCurrency()}</span><button onclick="duplicateExpense('${exp.id}')" class="text-slate-600 hover:text-indigo-400 p-1.5"><i class="fa-solid fa-copy"></i></button><button onclick="toggleHistoryEdit('${exp.id}',true)" class="text-slate-600 hover:text-amber-500 p-1.5"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="deleteExpense('${exp.id}')" class="text-slate-600 hover:text-rose-500 p-1.5"><i class="fa-solid fa-trash-can"></i></button></div>`;
                         list.appendChild(item);
                     });
                 }
@@ -7415,7 +7873,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     const newRecurring = state.expenses.filter(e => e.id && e.id.startsWith('auto_rec_'));
                     newRecurring.forEach(exp => {
                         state.supabaseClient.from('expenses')
-                            .upsert([stripTransientFields(exp)], { onConflict: 'id', ignoreDuplicates: true })
+                            .upsert([toSupabaseRow(exp)], { onConflict: 'id', ignoreDuplicates: true })
                             .then(({ error }) => { if (error) queueSync(exp); });
                     });
                 }
@@ -7484,6 +7942,16 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     state.supabaseClient.from('expenses').delete().eq('id', id).then(({ error }) => {
                         if (error) console.error('Delete-after-undo error for id', id, error);
                     });
+                    // Dismiss powens_id so Powens re-import never resurrects it on either device
+                    if (snapshot?.powens_id) {
+                        try {
+                            state.supabaseClient.from('dismissed_powens').upsert(
+                                { powens_id: String(snapshot.powens_id) },
+                                { onConflict: 'powens_id', ignoreDuplicates: true }
+                            );
+                            trackDismissedPowensId(snapshot.powens_id);
+                        } catch(e) {}
+                    }
                 }
             }, 4000);
             showUndoToast(`Transaction supprimée`, { snapshot, originalIdx, supabaseDeleteTimer }, (data) => {
@@ -7802,7 +8270,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 if (state.supabaseClient && navigator.onLine) {
                     try {
                         const { error } = await state.supabaseClient.from('expenses')
-                            .upsert(validated.map(e => stripTransientFields(e)), { onConflict: 'id' });
+                            .upsert(validated.map(e => toSupabaseRow(e)), { onConflict: 'id' });
                         if (error) { console.error('[bulkValidate] upsert error:', error); validated.forEach(e => queueSync(e)); }
                     } catch(e) { console.error('[bulkValidate] threw:', e); validated.forEach(v => queueSync(v)); }
                 } else {
@@ -7884,7 +8352,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             if (state.supabaseClient && navigator.onLine) {
                 try {
                     const { error } = await state.supabaseClient.from('expenses')
-                        .upsert(validated.map(e => stripTransientFields(e)), { onConflict: 'id' });
+                        .upsert(validated.map(e => toSupabaseRow(e)), { onConflict: 'id' });
                     if (error) { console.error('[inboxBulkValidate] upsert error:', error); validated.forEach(e => queueSync(e)); }
                 } catch(e) { console.error('[inboxBulkValidate] threw:', e); validated.forEach(v => queueSync(v)); }
             } else {
@@ -8119,7 +8587,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             if (state.supabaseClient && navigator.onLine) {
                 ids.forEach(id => {
                     const exp = state.expenses.find(e => e.id === id);
-                    if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)]).then(({ error }) => {
+                    if (exp) state.supabaseClient.from('expenses').upsert([toSupabaseRow(exp)]).then(({ error }) => {
                         if (error) { console.error('Bulk-cat upsert error:', error); queueSync(exp); }
                     });
                 });
@@ -8139,7 +8607,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 if (state.supabaseClient && navigator.onLine) {
                     data.snapshots.forEach(s => {
                         const exp = state.expenses.find(e => e.id === s.id);
-                        if (exp) state.supabaseClient.from('expenses').upsert([stripTransientFields(exp)]).then(({ error }) => {
+                        if (exp) state.supabaseClient.from('expenses').upsert([toSupabaseRow(exp)]).then(({ error }) => {
                             if (error) { console.error('Undo-cat upsert error:', error); queueSync(exp); }
                         });
                     });
@@ -8431,7 +8899,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const totals = state.expenses
                     .filter(e => e.approved !== false && (e.project === actProj || (!e.project && actProj === 'Principal')) && (e.type === 'depense' || !e.type))
                     .reduce((s, e) => s + e.amount, 0);
-                animateCounterTo('dashboard-total', totals, ` ${state.config.currency}`);
+                animateCounterTo('dashboard-total', totals, ` ${getActiveCurrency()}`);
             } catch(e) { console.warn('Enhanced UI:', e); }
         };
 
@@ -8667,13 +9135,21 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             let d1 = 0, d2 = 0;
             const exps = state.expenses.filter(exp =>
                 exp.approved !== false &&
-                (exp.project === projectId || (!exp.project && projectId === 'Principal'))
+                (expMatchesProject(exp, projectId, (state.config.projects||[]).find(p=>(p.id||p.name||p)===projectId)))
             );
+            const _projCur = getProjectCurrency ? getProjectCurrency(projectId) : getActiveCurrency();
             exps.forEach(exp => {
                 const sp1 = exp.p1SharePercent ?? 50;
                 const sp2 = exp.p2SharePercent ?? 50;
-                const o1 = exp.amount * (sp1 / 100);
-                const o2 = exp.amount * (sp2 / 100);
+                // Convert amount to project currency if the expense used a different currency
+                const expCur = exp.currency || _projCur;
+                let amt = exp.amount;
+                if (expCur !== _projCur) {
+                    if (exp.fxRate && exp.fxRate > 0) amt = exp.amount * exp.fxRate;
+                    else if (exp.amountLocal && exp.amountLocal > 0) amt = exp.amountLocal;
+                }
+                const o1 = amt * (sp1 / 100);
+                const o2 = amt * (sp2 / 100);
                 if (exp.type === 'revenu') {
                     if (exp.payer === 'p1') d1 += o2; else d2 += o1;
                 } else if (exp.type === 'transfert') {
@@ -9194,6 +9670,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             haptic('success');
             closeAccueilProjectEdit();
             const currencyChanged = oldCurrency !== newCurrency;
+            if (currencyChanged) convertExpensesOnCurrencyChange(pid, oldCurrency, newCurrency);
             showToast(currencyChanged ? `${newName} : devise → ${newCurrency}` : `${newName} : projet modifié`);
         }
 
@@ -9238,7 +9715,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         function renderGroupesTab() {
             const list = document.getElementById('groupes-list');
             if (!list) return;
-            const currency = getActiveCurrency();
+            const _globalCur = state.config.globalCurrency || getActiveCurrency();
             const me = getDevicePayer();
             const activeId = state.config.activeProject || 'Principal';
             const rawProjects = state.config.projects || [];
@@ -9257,11 +9734,28 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const net = me === 'p1' ? (d2 - d1) : (d1 - d2);
                 const totalSpend = state.expenses
                     .filter(e => e.approved !== false && e.type !== 'revenu' && (e.project === pid || (!e.project && pid === 'Principal')))
-                    .reduce((s, e) => s + (e.amount || 0), 0);
+                    .reduce((s, e) => {
+                    const _pc = getProjectCurrency(pid);
+                    const ec = e.currency || _pc;
+                    let a = e.amount || 0;
+                    if (ec !== _pc) {
+                        if (e.fxRate > 0) a = a * e.fxRate;
+                        else if (e.amountLocal > 0) a = e.amountLocal;
+                    }
+                    return s + a;
+                }, 0);
 
                 const isImbalanced = Math.abs(net) >= 0.01;
+                const projCur = getProjectCurrency(pid);
+                const _baseForBracket = _globalCur;
                 const balanceLabel = !isImbalanced ? 'Tout est réglé' : (net > 0 ? 'On te doit' : 'Tu dois');
-                const balanceValue = isImbalanced ? `${Math.abs(net).toFixed(2).replace('.', ',')} ${currency}` : '';
+                const balanceValue = isImbalanced ? (() => {
+                    const v = Math.abs(net).toFixed(2).replace('.', ',');
+                    const base = _baseForBracket !== projCur
+                        ? ` <span class="text-slate-400 font-normal text-[0.8em]">(${_baseForBracket})</span>`
+                        : '';
+                    return `${v} ${projCur}${base}`;
+                })() : '';
                 const balanceColor = !isImbalanced ? 'text-slate-500' : (net > 0 ? 'text-emerald-600' : 'text-rose-500');
                 const pending = state.expenses.filter(e =>
                     e.approved === false &&
@@ -9286,7 +9780,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                         <div class="mt-4 flex items-end justify-between">
                             <div>
                                 <p class="text-[11px] uppercase tracking-wide text-slate-500 font-medium">Total dépensé</p>
-                                <p class="text-lg font-bold text-slate-900 tabular-nums">${totalSpend.toFixed(2).replace('.', ',')} ${currency}</p>
+                                <p class="text-lg font-bold text-slate-900 tabular-nums">${totalSpend.toFixed(2).replace('.', ',')} ${projCur}</p>
                             </div>
                         </div>
                         <div class="mt-3 flex items-center justify-between gap-2 pt-3 border-t border-slate-200">
@@ -9476,7 +9970,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 if (exp.category === 'Settlement') {
                     events.push({ type: 'settlement', icon: 'fa-handshake',
                         color: 'bg-emerald-50 text-emerald-600 border-emerald-200', title: 'Equilibrage',
-                        sub: (exp.amount||0).toFixed(2).replace('.',',') + ' ' + currency,
+                        sub: (exp.amount||0).toFixed(2).replace('.',',') + ' ' + (exp.currency || currency),
                         time: exp.created_at || exp.date || null, pending: false,
                     amount: exp.amount, payer: exp.payer === me ? myName : otherName,
                     category: exp.category || 'Autre' });
@@ -9682,7 +10176,39 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const sheet    = document.getElementById('saisie-sheet');
             const backdrop = document.getElementById('saisie-backdrop');
             if (!sheet) return;
+            // Auto-select active group if called from within group detail panel
+            const _gdpPanelOpen = window._gdpProjectId &&
+                !document.getElementById('group-detail-panel')?.classList.contains('hidden');
+            state.currentSaisieProject = _gdpPanelOpen
+                ? window._gdpProjectId
+                : (state.config.activeProject || null);
             sheet.classList.add('sheet-open');
+            resetTxCurrency(); // reset first, then rAF overrides with project currency
+            requestAnimationFrame(() => {
+                // view-saisie is the scrollable inner div (sheet has overflow:hidden)
+                const _vs = document.getElementById('view-saisie');
+                if (_vs) _vs.scrollTop = 0;
+                // Render group picker with pre-selection visible immediately on open
+                try { renderSaisieGroupPicker(); } catch(e) {}
+                // Pre-select the group's currency if it differs from global
+                const _saisieProj = (state.config.projects || []).find(p =>
+                    (p.id || p.name || p) === state.currentSaisieProject);
+                const _projetCur = _saisieProj && _saisieProj.currency;
+                if (_projetCur) {
+                    // Directly set the select + internal state to the group's currency
+                    // WITHOUT calling setTxCurrency() — that would trigger FX fetch logic
+                    // since getActiveCurrency() reads activeProject, not our temp override.
+                    window._txCurrency = null; // group currency = base = no FX
+                    window._txFxRate   = null;
+                    const _sel = document.getElementById('tx-currency-select');
+                    if (_sel) { _sel.value = _projetCur; _sel.classList.remove('text-indigo-500'); _sel.classList.add('text-slate-400'); }
+                    const _fxRow  = document.getElementById('fx-rate-input-row');
+                    const _fxNote = document.getElementById('fx-rate-note');
+                    if (_fxRow)  _fxRow.classList.add('hidden');
+                    if (_fxNote) _fxNote.classList.add('hidden');
+                    try { updateSplitSummaryRows(); } catch(e) {}
+                }
+            });
             if (backdrop) backdrop.classList.add('sheet-open');
             haptic('light');
             // Swipe-down to close
@@ -9698,6 +10224,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         }
 
         function closeSaisieSheet() {
+            state.currentSaisieProject = null; // reset group picker for next open
             const sheet    = document.getElementById('saisie-sheet');
             const backdrop = document.getElementById('saisie-backdrop');
             if (!sheet) return;
@@ -9970,6 +10497,11 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
 
         function sdpAdvance() {
             window._sdpIndex++;
+            const _remaining = window._sdpQueue.length - window._sdpIndex;
+            const _cnt = document.getElementById('gdp-missing-count');
+            if (_cnt) _cnt.textContent = Math.max(0, _remaining);
+            const _banner = document.getElementById('gdp-missing-banner');
+            if (_banner && _remaining <= 0) _banner.classList.add('hidden');
             if (window._sdpIndex >= window._sdpQueue.length) {
                 closeSuggestionDetail();
                 try { renderAccueil(); } catch(e) {}
@@ -10118,6 +10650,30 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             switchGroupTab('overview');
             renderGroupOverview();
             attachGdpTabSwipe();
+            // Pre-fetch FX rates for this group so toGroupCurrency() can convert
+            // expenses that were imported without fxRate (e.g. Powens bank imports)
+            (async () => {
+                try {
+                    const _gProj = (state.config.projects || []).find(p => (p.id||p.name||p) === projectId);
+                    const _gCur  = (_gProj && _gProj.currency) || '€';
+                    const _home  = state.config.globalCurrency || '€';
+                    if (_gCur === _home) { window._gdpFxRates = {}; return; }
+                    // Fetch rate: 1 HOME → ? GROUP (e.g. 1 € → ? £)
+                    const _isoMap = {'€':'EUR','£':'GBP','$':'USD','CHF':'CHF','¥':'JPY'};
+                    const _from = _isoMap[_home]  || _home;
+                    const _to   = _isoMap[_gCur]  || _gCur;
+                    const _r = await fetch(`https://api.frankfurter.app/latest?from=${_from}&to=${_to}`);
+                    const _d = await _r.json();
+                    const _rate = _d?.rates?.[_to];
+                    if (_rate) {
+                        window._gdpFxRates = window._gdpFxRates || {};
+                        window._gdpFxRates[_home + '_' + _gCur] = _rate;
+                        // Re-render now that we have the rate
+                        try { renderGroupOverview(); } catch(e) {}
+                        try { renderGroupExpenses(); } catch(e) {}
+                    }
+                } catch(e) {}
+            })();
             // Native-feel edge-swipe-back (left 28px of screen → drag right to go back)
             requestAnimationFrame(() => attachGdpEdgeSwipeBack());
         }
@@ -10131,8 +10687,10 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 panel.classList.add('hidden');
                 panel.style.transform  = '';
                 panel.style.transition = '';
-                panel._edgeSwipeAttached = false; // allow re-attach on next open
+                panel._edgeSwipeAttached = false;
             }, 300);
+            // Always land on the groupes tab when closing group detail
+            try { switchView('groupes'); } catch(e) {}
         }
 
         window._gdpCurrentTab = 'overview';
@@ -10199,11 +10757,45 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
 
             window._gdpCurrentTab = tab;
             if (tab === 'expenses') renderGroupExpenses();
+            if (tab === 'overview') renderGroupOverview();
             if (tab === 'settings') renderGroupAnalyse();
             if (tab === 'balances') renderGroupBalances();
         }
 
         function openGroupSettings() { switchGroupTab('settings'); }
+
+        function selectGroupCurrency(cur) {
+            window._gdpEditCurrency = cur;
+            document.querySelectorAll('.gdp-cur-btn').forEach(b => {
+                const active = b.dataset.cur === cur;
+                b.className = `gdp-cur-btn px-3.5 py-1.5 rounded-xl border text-sm font-bold transition-all ${active ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`;
+            });
+            // Live FX preview vs global currency
+            const globalCur = state.config.globalCurrency || state.config.currency || '€';
+            let fxDiv = document.getElementById('gdp-fx-preview');
+            if (!fxDiv) {
+                fxDiv = document.createElement('p');
+                fxDiv.id = 'gdp-fx-preview';
+                fxDiv.className = 'text-xs text-indigo-500 mt-2 font-semibold tabular-nums';
+                document.getElementById('gdp-currency-picker')?.after(fxDiv);
+            }
+            if (!cur || cur === globalCur) { fxDiv.textContent = ''; return; }
+            fxDiv.textContent = `Chargement taux ${cur}→${globalCur}…`;
+            const _iso2 = {'€':'EUR','$':'USD','£':'GBP','CHF':'CHF','¥':'JPY','kr':'SEK','NOK':'NOK','DKK':'DKK','CAD':'CAD','AUD':'AUD'};
+            const fromISO = _iso2[cur] || cur, toISO = _iso2[globalCur] || globalCur;
+            if (fromISO === toISO) { fxDiv.textContent = ''; return; }
+            const _t = (urls, i) => {
+                if (i >= urls.length) { fxDiv.textContent = `Taux ${cur}→${globalCur} indisponible`; return; }
+                fetch(urls[i]).then(r => r.json())
+                    .then(d => {
+                        const rate = d?.rates?.[toISO] || d?.conversion_rates?.[toISO];
+                        if (rate) fxDiv.textContent = `1 ${cur} = ${parseFloat(rate).toFixed(4)} ${globalCur} (ECB)`;
+                        else _t(urls, i + 1);
+                    }).catch(() => _t(urls, i + 1));
+            };
+            _t([`https://api.frankfurter.app/latest?from=${fromISO}&to=${toISO}`,
+                `https://open.er-api.com/v6/latest/${fromISO}`], 0);
+        }
 
         function openGroupSettingsSheet() {
             const sheet = document.getElementById('group-settings-sheet');
@@ -10232,6 +10824,16 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 if (active) { active.classList.add('border-indigo-500','bg-indigo-50'); active.classList.remove('border-transparent','bg-slate-50'); }
             }
             window._gdpEditType = ptype || null;
+            // Currency picker
+            const _currencyPicker = document.getElementById('gdp-currency-picker');
+            if (_currencyPicker) {
+                const _projCur = (typeof proj === 'object' && proj.currency) ? proj.currency : (state.config.currency || '€');
+                window._gdpEditCurrency = _projCur;
+                _currencyPicker.innerHTML = ['€','$','£','CHF','¥','kr'].map(c => `
+                    <button type="button" onclick="selectGroupCurrency('${c}')"
+                        class="gdp-cur-btn px-3.5 py-1.5 rounded-xl border text-sm font-bold transition-all ${c === _projCur ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}"
+                        data-cur="${c}">${c}</button>`).join('');
+            }
             // Render member list
             renderGdpMemberList(proj);
             sheet.classList.remove('hidden');
@@ -10345,6 +10947,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 proj.name = newName;
                 proj.icon = newIcon;
                 if (window._gdpEditType) proj.type = window._gdpEditType;
+                if (window._gdpEditCurrency) proj.currency = window._gdpEditCurrency;
                 const sd  = document.getElementById('gdp-edit-start-date');
                 const ed  = document.getElementById('gdp-edit-end-date');
                 const loc = document.getElementById('gdp-edit-location');
@@ -10364,7 +10967,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     id:         (typeof _p === 'object' ? (_p.id || _p.name) : _p),
                     name:       newName,
                     icon:       newIcon,
-                    currency:   (typeof _p === 'object' ? (_p.currency || state.config.globalCurrency || '€') : (state.config.globalCurrency || '€')),
+                    currency:   (window._gdpEditCurrency || (typeof _p === 'object' ? (_p.currency || state.config.globalCurrency || '€') : (state.config.globalCurrency || '€'))),
                     type:       (()=>{ const _t = window._gdpEditType || (typeof _p === 'object' ? _p.type : null) || null; const _m = {voyage:'trip',coloc:'home',couple:'couple',evenement:'event',pro:'other',trip:'trip',home:'home',event:'event',subscriptions:'subscriptions',other:'other'}; return _t ? (_m[_t] || 'other') : null; })(),
                     city:       (typeof _p === 'object' ? (_p.city || _p.location || null) : null),
                     start_date: (typeof _p === 'object' ? (_p.start_date || _p.startDate || null) : null),
@@ -10453,6 +11056,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
 
 
         function renderGroupBalances() {
+            const proj = (state.config.projects||[]).find(p=>(p.id||p.name||p)===pid);
             const pid = window._gdpProjectId;
             if (!pid) return;
             const currency = getActiveCurrency();
@@ -10466,7 +11070,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const p2Name = state.config.p2Name || 'Personne 2';
 
             const expenses = state.expenses.filter(e =>
-                e.approved !== false && (e.project === pid || (!e.project && pid === 'Principal'))
+                e.approved !== false && (expMatchesProject(e, pid, proj))
             );
             const expensesOnly = expenses.filter(e => e.type !== 'revenu');
             const revenusOnly = expenses.filter(e => e.type === 'revenu');
@@ -10589,6 +11193,63 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         }
 
 
+                // Smoothly counts a numeric display from its previous value to the new one
+        function animateCounter(el, toVal, opts) {
+            if (!el) return;
+            const fmt    = opts && opts.fmt ? opts.fmt : (v => v.toFixed(2).replace('.', ','));
+            const prefix = opts && opts.prefix != null ? opts.prefix : '';
+            const suffix = opts && opts.suffix != null ? opts.suffix : '';
+            const dur    = opts && opts.dur   ? opts.dur   : 520;
+            const fromVal = parseFloat(el.dataset.counterVal) || 0;
+            el.dataset.counterVal = toVal;
+            if (Math.abs(toVal - fromVal) < 0.005) { el.textContent = prefix + fmt(toVal) + suffix; return; }
+            const start = performance.now();
+            function step(now) {
+                const p = Math.min((now - start) / dur, 1);
+                // ease-out cubic
+                const e = 1 - Math.pow(1 - p, 3);
+                const cur = fromVal + (toVal - fromVal) * e;
+                el.textContent = prefix + fmt(cur) + suffix;
+                if (p < 1) requestAnimationFrame(step);
+                else el.textContent = prefix + fmt(toVal) + suffix;
+            }
+            requestAnimationFrame(step);
+        }
+
+                // Check if an expense belongs to a project — matches on id OR name to handle legacy data
+        function expMatchesProject(e, pid, proj) {
+            if (!pid) return false;
+            if (e.project === pid) return true;
+            if (!e.project && pid === 'Principal') return true;
+            // Legacy: expense stored by name, project now has UUID id
+            if (proj && typeof proj === 'object') {
+                if (e.project === proj.name) return true;
+                if (e.project === proj.id)   return true;
+            }
+            return false;
+        }
+
+        // Convert an expense amount to the group's currency using stored fxRate/amountLocal
+        function toGroupCurrency(exp, groupCur) {
+            const eCur = exp.currency || groupCur;
+            if (eCur === groupCur) return exp.amount || 0;
+            // amountLocal is already in group currency if fxRate was applied at save time
+            if (exp.amountLocal != null) return exp.amountLocal;
+            if (exp.fxRate) return (exp.amount || 0) * exp.fxRate;
+            // Fallback: use cached live rate fetched on panel open (e.g. Powens imports)
+            const _homeCur = state.config.globalCurrency || '€';
+            const _cachedKey = eCur + '_' + groupCur;          // e.g. '€_£'
+            const _reverseKey = groupCur + '_' + eCur;         // e.g. '£_€' stored as home→group
+            const _rates = window._gdpFxRates || {};
+            // Try: stored as homeCur→groupCur (how we cache it)
+            const _homeToGroup = _rates[_homeCur + '_' + groupCur];
+            if (_homeToGroup && eCur === _homeCur) return (exp.amount || 0) * _homeToGroup;
+            // Generic lookup
+            if (_rates[_cachedKey]) return (exp.amount || 0) * _rates[_cachedKey];
+            // No rate available — return raw amount
+            return exp.amount || 0;
+        }
+
         function renderGroupOverview() {
             const pid = window._gdpProjectId;
             if (!pid) return;
@@ -10596,7 +11257,10 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const pname = (typeof proj === 'string') ? proj : (proj.name || proj.id);
             const picon = (typeof proj === 'string') ? (pid === 'Principal' ? '🏡' : '📂') : (proj.icon || '📂');
             const ptype = (typeof proj === 'object') ? proj.type : null;
-            const currency = getActiveCurrency();
+            // Read currency directly from this project's config (not global state)
+            // getActiveCurrency() reflects the last switchProject call, not the panel's project
+            const _rgoProj = (state.config.projects || []).find(p => (p.id || p.name || p) === pid);
+            const currency = (_rgoProj && _rgoProj.currency) || getActiveCurrency();
             const me = getDevicePayer();
 
             document.getElementById('gdp-icon').textContent = picon;
@@ -10628,19 +11292,20 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const gdpStatCards = document.getElementById('gdp-stat-cards');
 
             const expenses = state.expenses.filter(e =>
-                e.approved !== false && (e.project === pid || (!e.project && pid === 'Principal'))
+                e.approved !== false && expMatchesProject(e, pid, proj)
             );
             const pending = state.expenses.filter(e =>
-                e.approved === false && (e.project === pid || (!e.project && pid === 'Principal'))
+                e.approved === false && expMatchesProject(e, pid, proj)
             ).length;
-            const total = expenses.filter(e => e.type !== 'revenu').reduce((s,e) => s + (e.amount||0), 0);
+            const total = expenses.filter(e => e.type !== 'revenu').reduce((s,e) => s + toGroupCurrency(e, currency), 0);
             const { d1, d2 } = computeProjectBalance(pid);
             const net = me === 'p1' ? (d2 - d1) : (d1 - d2);
 
             const fmtM = v => v.toFixed(2).replace('.',',') + ' ' + currency;
-            document.getElementById('gdp-balance-value').textContent = (net >= 0 ? '+' : '') + fmtM(net);
+            const _bvEl = document.getElementById('gdp-balance-value');
+            if (_bvEl) animateCounter(_bvEl, net, { fmt: v => (v >= 0 ? '+' : '') + Math.abs(v).toFixed(2).replace('.',','), suffix: ' ' + currency });
             document.getElementById('gdp-balance-label').textContent = Math.abs(net) < 0.01 ? 'Tout est réglé ✓' : (net > 0 ? 'On te doit' : 'Tu dois');
-            try { document.getElementById('gdp-stat-total').textContent = fmtM(total); } catch(e) {}
+            try { animateCounter(document.getElementById('gdp-stat-total'), total, { fmt: v => Math.abs(v).toFixed(2).replace('.',','), suffix: ' ' + currency }); } catch(e) {}
             try { document.getElementById('gdp-stat-count').textContent = expenses.length; } catch(e) {}
             try { document.getElementById('gdp-stat-pending').textContent = pending; } catch(e) {}
 
@@ -10648,9 +11313,25 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const _stTotal = document.getElementById('gdp-stat-total-val');
             const _stOwed = document.getElementById('gdp-stat-owed-val');
             const _stOwedLbl = document.getElementById('gdp-stat-owed-label');
-            if (_stTotal) _stTotal.textContent = fmtM(total);
+            if (_stTotal) {
+                animateCounter(_stTotal, total, { fmt: v => Math.abs(v).toFixed(2).replace('.',','), suffix: ' ' + currency });
+                // Show home-currency equivalent below total if group currency differs
+                const _homeCur2 = state.config.globalCurrency || '€';
+                const _h2g2 = (window._gdpFxRates || {})[_homeCur2 + '_' + currency];
+                let _totalHomeEl = document.getElementById('gdp-stat-total-home');
+                if (currency !== _homeCur2 && _h2g2 && total > 0) {
+                    const _homeTotal = (total / _h2g2).toFixed(2).replace('.',',');
+                    if (!_totalHomeEl) {
+                        _totalHomeEl = document.createElement('p');
+                        _totalHomeEl.id = 'gdp-stat-total-home';
+                        _totalHomeEl.className = 'text-[11px] text-slate-400 mt-0.5';
+                        _stTotal.parentNode.appendChild(_totalHomeEl);
+                    }
+                    _totalHomeEl.textContent = `≈ ${_homeTotal} ${_homeCur2}`;
+                } else if (_totalHomeEl) { _totalHomeEl.textContent = ''; }
+            }
             if (_stOwed) {
-                _stOwed.textContent = fmtM(Math.abs(net));
+                animateCounter(_stOwed, Math.abs(net), { fmt: v => Math.abs(v).toFixed(2).replace('.',','), suffix: ' ' + currency });
                 _stOwed.className = 'mt-1 text-xl font-bold tabular-nums ' + (net > 0.01 ? 'text-emerald-600' : net < -0.01 ? 'text-rose-500' : 'text-slate-900');
             }
             if (_stOwedLbl) _stOwedLbl.textContent = net > 0.01 ? 'On te doit' : net < -0.01 ? 'Tu dois' : 'Solde';
@@ -10697,7 +11378,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                             <p class="text-sm font-semibold text-slate-900 truncate">${e.description||'Sans description'}</p>
                             <p class="text-xs text-slate-500">${new Date(e.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})} · <span class="${pColor} font-semibold">${pName}</span></p>
                         </div>
-                        <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${(e.amount||0).toFixed(2).replace('.',',')} ${currency}</span>
+                        <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${(e.amount||0).toFixed(2).replace('.',',')} ${e.currency || currency}${e.fxRate && e.amountLocal ? ` <span class='text-[10px] font-normal text-slate-400'>(${(e.amountLocal||0).toFixed(2)} ${currency})</span>` : ''}</span>
                     </div>`;}).join('');
         }
 
@@ -10709,9 +11390,12 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const filterRow = document.getElementById('gdp-cat-filter-row');
             if (!list || !pid) return;
             const q = (document.getElementById('gdp-search')?.value || '').toLowerCase().trim();
-            const currency = getActiveCurrency();
+            // Read currency from this project's config directly
+            const _rgeProj = (state.config.projects || []).find(p => (p.id || p.name || p) === pid);
+            const proj = _rgeProj; // alias for expMatchesProject
+            const currency = (_rgeProj && _rgeProj.currency) || getActiveCurrency();
             const allExpenses = state.expenses.filter(e =>
-                e.approved !== false && (e.project === pid || (!e.project && pid === 'Principal'))
+                e.approved !== false && expMatchesProject(e, pid, proj)
             );
 
             const catCounts = {};
@@ -10772,10 +11456,10 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     const iconBg = isRev ? 'rgba(52,211,153,0.1)' : isTrf ? 'rgba(56,189,248,0.1)' : 'rgba(99,102,241,0.08)';
                     const iconBorder = isRev ? 'rgba(52,211,153,0.25)' : isTrf ? 'rgba(56,189,248,0.25)' : 'rgba(226,232,240,1)';
                     const iconCls = isRev ? 'fa-coins text-emerald-500' : isTrf ? 'fa-right-left text-sky-500' : (e.icon||'fa-asterisk') + ' text-indigo-500';
-                    return `<div class="swipe-row-wrapper relative rounded-2xl overflow-hidden mb-0" data-eid="${safeId}" style="touch-action:pan-y;">
+                    return `<div class="swipe-row-wrapper relative rounded-2xl overflow-hidden mb-0" id="history-item-${safeId}" data-eid="${safeId}" style="touch-action:pan-y;">
                         <div class="swipe-row-actions absolute inset-y-0 right-0 flex items-center gap-2 pr-2" style="width:130px;pointer-events:none;">
-                            <button type="button" onclick="duplicateExpense('${safeId}');renderGroupExpenses();" class="flex flex-col items-center justify-center gap-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded-2xl active:scale-95 transition-transform" style="pointer-events:auto;width:56px;height:56px;"><i class="fa-solid fa-copy text-base"></i>Copier</button>
-                            <button type="button" onclick="deleteExpense('${safeId}');renderGroupExpenses();" class="flex flex-col items-center justify-center gap-0.5 bg-rose-500 text-white text-[10px] font-bold rounded-2xl active:scale-95 transition-transform" style="pointer-events:auto;width:56px;height:56px;"><i class="fa-solid fa-trash text-base"></i>Suppr.</button>
+                            <button type="button" onclick="duplicateExpense('${safeId}'); setTimeout(() => { try { renderGroupExpenses(); } catch(e){} }, 50);" class="flex flex-col items-center justify-center gap-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded-2xl active:scale-95 transition-transform" style="pointer-events:auto;width:56px;height:56px;"><i class="fa-solid fa-copy text-base"></i>Copier</button>
+                            <button type="button" onclick="deleteExpense('${safeId}')" class="flex flex-col items-center justify-center gap-0.5 bg-rose-500 text-white text-[10px] font-bold rounded-2xl active:scale-95 transition-transform" style="pointer-events:auto;width:56px;height:56px;"><i class="fa-solid fa-trash text-base"></i>Suppr.</button>
                         </div>
                         <button type="button" class="swipe-row-content w-full text-left flex items-center gap-3 bg-white rounded-2xl border border-slate-200 p-3 shadow-sm cursor-pointer active:bg-slate-50 relative" style="z-index:1;will-change:transform;touch-action:pan-y;" onclick="openEditFromInbox('${safeId}')">
                             <div class="size-10 rounded-xl flex items-center justify-center shrink-0" style="background:${iconBg};border:1px solid ${iconBorder}">
@@ -10785,10 +11469,51 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                 <p class="text-sm font-semibold text-slate-900 truncate">${e.description||'Sans description'}</p>
                                 <p class="text-xs text-slate-500">${new Date(e.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})} · ${typeLabel} · <span class="${payerColor} font-semibold">${payerName}</span></p>
                             </div>
-                            <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${(e.amount||0).toFixed(2).replace('.',',')} ${currency}</span>
+                            <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${(() => {
+                                        const _eCur   = e.currency || currency;
+                                        const _amt    = (e.amount||0).toFixed(2).replace('.',',');
+                                        const _homeCur = state.config.globalCurrency || '€';
+                                        const _rates   = window._gdpFxRates || {};
+                                        const _h2g     = _rates[_homeCur + '_' + currency]; // e.g. €→£ rate
+                                        if (_eCur !== currency) {
+                                            // Foreign (e.g. EUR) expense in GBP group → show GBP first, EUR in brackets
+                                            const _conv = e.amountLocal != null ? e.amountLocal
+                                                        : e.fxRate     ? (e.amount||0) * e.fxRate
+                                                        : _h2g && _eCur === _homeCur ? (e.amount||0) * _h2g
+                                                        : null;
+                                            if (_conv != null) {
+                                                return `${_conv.toFixed(2).replace('.',',')} ${currency} <span class='text-[10px] font-normal text-slate-400'>(${_amt} ${_eCur})</span>`;
+                                            }
+                                            return `${_amt} ${_eCur}`;
+                                        }
+                                        // Same currency as group (e.g. GBP in GBP group)
+                                        // Show home-currency equivalent in brackets if different
+                                        if (currency !== _homeCur && _h2g) {
+                                            const _homeAmt = ((e.amount||0) / _h2g).toFixed(2).replace('.',',');
+                                            return `${_amt} ${currency} <span class='text-[10px] font-normal text-slate-400'>(${_homeAmt} ${_homeCur})</span>`;
+                                        }
+                                        return `${_amt} ${_eCur}`;
+                                    })()}</span>
                         </button>
                     </div>`;
                 }).join('');
+
+
+
+            // Only animate rows when explicitly requested (new add) — not on delete/filter/etc
+            if (window._animateNextRender && window._lastAddedId) {
+                window._animateNextRender = false;
+                const _newId = window._lastAddedId;
+                requestAnimationFrame(() => {
+                    // Only animate the NEW row — slide in + purple pulse
+                    const newRow = list.querySelector(`[data-eid="${_newId}"]`);
+                    if (newRow) {
+                        newRow.style.animationDelay = '0ms';
+                        newRow.classList.add('tx-row-new');
+                    }
+                    setTimeout(() => { window._lastAddedId = null; }, 1200);
+                });
+            }
 
             // iOS Mail-style swipe-to-reveal action buttons.
             // Key: non-passive touchmove so we can preventDefault on horizontal-only
@@ -11032,18 +11757,135 @@ function renderGroupAnalyse() {
         };
 
         // ═══════════════════════════════════════════════════════
+        // Render group picker chips in the saisie form
+        // ═══════════════════════════════════════════════════════
+        function renderSaisieGroupPicker() {
+            const opts    = document.getElementById('saisie-group-options');
+            const lbl     = document.getElementById('saisie-group-label');
+            if (!opts) return;
+            const projects = (state.config.projects || []).filter(p => p && typeof p === 'object' && (p.id || p.name));
+            const current  = state.currentSaisieProject || state.config.activeProject || '';
+            opts.innerHTML = '';
+
+            // Project options
+            projects.forEach(p => {
+                const pid   = p.id || p.name || '';
+                const label = p.name || pid;
+                const icon  = p.icon || '📂';
+                const active = pid === current;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full flex items-center gap-2 px-3.5 py-2.5 text-sm hover:bg-slate-50 active:bg-slate-100 transition-colors' + (active ? ' font-bold text-indigo-600' : ' text-slate-700');
+                btn.innerHTML = `<span>${icon}</span><span>${label}</span>${active ? '<i class="fa-solid fa-check ml-auto text-indigo-500 text-xs"></i>' : ''}`;
+                btn.onclick = () => selectSaisieProject(pid);
+                opts.appendChild(btn);
+            });
+            // Update label
+            if (lbl) {
+                if (!current) { lbl.textContent = 'Choisir un groupe…'; }
+                else {
+                    const p = projects.find(x => (x.id||x.name||x) === current);
+                    lbl.textContent = p ? `${p.icon||'📂'} ${p.name||current}` : current;
+                }
+            }
+        }
+
+        function toggleSaisieGroupDropdown() {
+            const dd  = document.getElementById('saisie-group-dropdown');
+            const chv = document.getElementById('saisie-group-chevron');
+            if (!dd) return;
+            const isOpen = !dd.classList.contains('hidden');
+            dd.classList.toggle('hidden', isOpen);
+            if (chv) chv.style.transform = isOpen ? '' : 'rotate(180deg)';
+            if (!isOpen) renderSaisieGroupPicker();
+        }
+
+        function closeSaisieGroupDropdown() {
+            const dd  = document.getElementById('saisie-group-dropdown');
+            const chv = document.getElementById('saisie-group-chevron');
+            if (dd)  dd.classList.add('hidden');
+            if (chv) chv.style.transform = '';
+        }
+
+        function selectSaisieProject(pid) {
+            state.currentSaisieProject = pid || null;
+            closeSaisieGroupDropdown();
+            renderSaisieGroupPicker();
+        }
+
+        function showNewGroupForm() {
+            closeSaisieGroupDropdown();
+            const form = document.getElementById('saisie-new-group-form');
+            if (form) form.classList.remove('hidden');
+            setTimeout(() => document.getElementById('saisie-new-group-name')?.focus(), 80);
+        }
+
+        function onSaisieGroupChange(val) {
+            // Legacy — not used with custom dropdown
+            if (val === '__new__') { showNewGroupForm(); return; }
+            selectSaisieProject(val || null);
+        }
+
+        function cancelNewGroupSaisie() {
+            const form = document.getElementById('saisie-new-group-form');
+            if (form) form.classList.add('hidden');
+            const n = document.getElementById('saisie-new-group-name');
+            const e = document.getElementById('saisie-new-group-emoji');
+            if (n) n.value = '';
+            if (e) e.value = '';
+        }
+
+        async function createGroupFromSaisie() {
+            const nameIn  = document.getElementById('saisie-new-group-name');
+            const emojiIn = document.getElementById('saisie-new-group-emoji');
+            const name    = (nameIn?.value || '').trim();
+            const icon    = (emojiIn?.value || '📂').trim() || '📂';
+            if (!name) { nameIn?.focus(); return; }
+
+            const newProj = {
+                id:         name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now(),
+                name:       name,
+                icon:       icon,
+                currency:   state.config.globalCurrency || state.config.currency || '€',
+                members:    [state.config.p1Name || 'P1', state.config.p2Name || 'P2'],
+                created_at: new Date().toISOString(),
+            };
+
+            // Add to local state
+            if (!state.config.projects) state.config.projects = [];
+            state.config.projects.push(newProj);
+            state.currentSaisieProject = newProj.id;
+            saveConfig();
+
+            // Sync to Supabase projects table
+            if (state.supabaseClient && navigator.onLine) {
+                try {
+                    const { error } = await state.supabaseClient.from('projects').upsert({
+                        id:         newProj.id,
+                        name:       newProj.name,
+                        icon:       newProj.icon,
+                        currency:   newProj.currency,
+                        members:    newProj.members,
+                        created_at: newProj.created_at,
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'id' });
+                    if (error) console.error('[createGroupFromSaisie] Supabase error:', error);
+                    else showToast(`✅ Groupe "${name}" créé`);
+                } catch(e) { console.error(e); }
+            }
+
+            // Refresh UI
+            document.getElementById('saisie-new-group-form')?.classList.add('hidden');
+            if (nameIn)  nameIn.value  = '';
+            if (emojiIn) emojiIn.value = '';
+            renderSaisieGroupPicker();
+            try { renderGroupesTab(); } catch(e) {}
+        }
+
+                // ═══════════════════════════════════════════════════════
         // PATCH openSaisieSheet to populate group picker
         // ═══════════════════════════════════════════════════════
-        const _origOpenSaisieSheet = typeof openSaisieSheet === 'function' ? openSaisieSheet : null;
-        if (_origOpenSaisieSheet) {
-            openSaisieSheet = function(...args) {
-                // Reset saisie project to context-aware default
-                const gdpOpen = window._gdpProjectId && !document.getElementById('group-detail-panel')?.classList.contains('hidden');
-                state.currentSaisieProject = gdpOpen ? window._gdpProjectId : (state.config.activeProject || null);
-                _origOpenSaisieSheet(...args);
-                requestAnimationFrame(() => renderSaisieGroupPicker());
-            };
-        }
+        // currentSaisieProject logic moved inside openSaisieSheet directly
 
         // ═══════════════════════════════════════════════════════
         // PATCH saveSaisieExpense to use currentSaisieProject
@@ -11051,6 +11893,8 @@ function renderGroupAnalyse() {
         // We hook into the expense creation: override the project assignment
         // by patching the state right before save. This is done by overriding
         // the submit button's default behaviour.
+        
+        document.addEventListener('click', function(e) { if (!e.target.closest('#saisie-group-wrapper')) closeSaisieGroupDropdown(); });
         document.addEventListener('DOMContentLoaded', () => {
             // When saisie sheet is open, currentSaisieProject drives which project the expense lands in
             // This is already used if saveSaisieExpense reads state.currentSaisieProject.
@@ -11300,7 +12144,8 @@ function renderGroupAnalyse() {
                     </div>
                     <div id="gdp-cat-filter-row" class="flex overflow-x-auto gap-2 pb-1 scrollbar-none"></div>
                 </div>
-                <div id="gdp-expenses-list" class="space-y-2"></div>
+                <div id="gdp-expenses-list" class="space-y-2 overflow-hidden"></div>
+                
             </div>
 
             <!-- Analyse tab (was settings) -->
@@ -11357,8 +12202,9 @@ function renderGroupAnalyse() {
     <!-- ═══ SUGGESTION DETAIL PANEL ═══ -->
     <div id="suggestion-detail-panel" class="hidden fixed inset-0 z-[56] flex flex-col" onclick="if(event.target===this)closeSuggestionDetail()" style="max-width:100vw">
         <!-- Backdrop: fades in independently so blur is smooth, not hard-cut -->
-        <div id="sdp-backdrop" class="absolute inset-0" style="background:rgba(15,23,42,0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);transition:background 0.38s ease,backdrop-filter 0.38s ease,-webkit-backdrop-filter 0.38s ease;pointer-events:none;"></div>
-        <div class="flex-1 flex flex-col justify-end relative" id="sdp-sheet-wrapper" style="max-width:448px;margin:0 auto;width:100%;">
+        <div id="sdp-backdrop" onclick="closeSuggestionDetail()" class="absolute inset-0 cursor-pointer" style="background:rgba(15,23,42,0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);transition:background 0.38s ease,backdrop-filter 0.38s ease,-webkit-backdrop-filter 0.38s ease;"></div>
+        <div class="flex-1 cursor-pointer" onclick="closeSuggestionDetail()" id="sdp-tap-zone"></div>
+        <div class="flex flex-col relative" id="sdp-sheet-wrapper" onclick="event.stopPropagation()" style="max-width:448px;margin:0 auto;width:100%;">
             <!-- Header bar -->
             <div class="flex items-center justify-between px-5 pb-2 pt-2">
                 <button onclick="closeSuggestionDetail()" class="size-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-slate-600 shadow-sm active:scale-90 transition-transform">
@@ -11400,6 +12246,14 @@ function renderGroupAnalyse() {
                 <div class="flex gap-2">
                     <input type="text" id="gdp-edit-icon" maxlength="2" class="w-14 bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-center text-xl focus:outline-none focus:border-indigo-400">
                     <input type="text" id="gdp-edit-name" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm text-slate-700 focus:outline-none focus:border-indigo-400">
+                </div>
+            </div>
+
+            <!-- Group currency -->
+            <div>
+                <label class="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1.5">Devise du groupe</label>
+                <div class="flex gap-2 flex-wrap" id="gdp-currency-picker">
+                    <!-- injected by openGroupSettingsSheet() -->
                 </div>
             </div>
 
