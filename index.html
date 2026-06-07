@@ -785,13 +785,14 @@
             pointer-events: auto;
             visibility: visible;
         }
-        #group-settings-sheet > div {
+        #gss-panel {
             transform: translateY(105%);
-            transition: transform 0.45s cubic-bezier(0.32, 1, 0.23, 1);
+            transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
             will-change: transform;
         }
-        #group-settings-sheet.gss-open > div {
+        #group-settings-sheet.gss-open #gss-panel {
             transform: translateY(0);
+            transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
         }
         #group-settings-sheet {
             background-color: rgba(0,0,0,0);
@@ -825,6 +826,100 @@
                         0 5px 16px rgba(15,23,42,0.08) !important;
         }
 
+        
+
+
+        /* Clip native iOS date picker to its container */
+        #group-settings-sheet input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        #group-settings-sheet input[type="date"]::-webkit-date-and-time-value {
+            text-align: left;
+        }
+
+        /* ── Login step transitions ── */
+        /* Steps are stacked via absolute positioning — only the active one is visible */
+        #login-card { position: relative; }
+        .login-step {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(24px);
+            transition: opacity 0.26s cubic-bezier(0.4,0,0.2,1), transform 0.26s cubic-bezier(0.4,0,0.2,1);
+        }
+        .login-step.step-active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(0);
+        }
+        .login-step.step-exit-left  { opacity: 0; transform: translateX(-24px); pointer-events: none; }
+        .login-step.step-exit-right { opacity: 0; transform: translateX(24px);  pointer-events: none; }
+        /* Min-height on card so it doesn't collapse when steps are absolute */
+        #login-card { min-height: 320px; }
+
+        /* Tab transitions handled by .tab-view CSS */
+
+        /* ── Login screen fade-in ── */
+        #login-screen { transition: opacity 0.3s ease; }
+
+        
+        /* ── First-launch entry animations ── */
+        @keyframes launchFadeDown {
+            from { opacity: 0; transform: translateY(-16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes launchScaleUp {
+            from { opacity: 0; transform: scale(0.93) translateY(14px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes launchSlideUp {
+            from { opacity: 0; transform: translateY(22px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes launchCardIn {
+            from { opacity: 0; transform: translateY(32px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        /* fill-mode: both — holds from-state during delay, to-state after end */
+        .launch-header { animation: launchFadeDown 0.6s  cubic-bezier(0.22,1,0.36,1) both; }
+        .launch-hero   { animation: launchScaleUp  0.65s cubic-bezier(0.22,1,0.36,1) both; }
+        .launch-nav    { animation: launchSlideUp  0.6s  cubic-bezier(0.22,1,0.36,1) both; }
+        .launch-card   { animation: launchCardIn   0.6s  cubic-bezier(0.22,1,0.36,1) both; }
+
+        
+        /* ── App launch pre-hide (prevents flash before animation) ── */
+        /* While 'app-launching' is on app-shell, key elements are invisible */
+        .app-launching #app-header {
+            opacity: 0 !important;
+            transform: translateY(-14px) !important;
+            transition: none !important;
+        }
+        .app-launching #accueil-hero {
+            opacity: 0 !important;
+            transform: scale(0.94) translateY(10px) !important;
+            transition: none !important;
+        }
+        .app-launching #app-nav {
+            opacity: 0 !important;
+            transform: translateY(20px) !important;
+            transition: none !important;
+        }
+        .app-launching #accueil-suggestions-list > * {
+            opacity: 0 !important;
+            transform: translateY(24px) !important;
+            transition: none !important;
+        }
+        .app-launching #accueil-hero-amount {
+            opacity: 0 !important;
+        }
+
         </style>
 </head>
 <body class="text-slate-800 antialiased flex justify-center min-h-screen bg-[#FAFAF9]" style="font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif; overscroll-behavior: none; overflow: hidden;">
@@ -852,92 +947,83 @@
             <div class="flex gap-2 mb-7" id="login-dots">
                 <span class="w-2 h-2 rounded-full bg-indigo-500 transition-all" data-dot="0"></span>
                 <span class="w-2 h-2 rounded-full bg-slate-300 transition-all" data-dot="1"></span>
-                <span class="w-2 h-2 rounded-full bg-slate-300 transition-all" data-dot="2"></span>
+                
             </div>
 
             <!-- Card container -->
             <div class="w-full max-w-sm" id="login-card">
 
                 <!-- ── STEP 0: Prénoms ───────────────────────────────────── -->
-                <div id="login-step-0" class="space-y-5">
+                <div id="login-step-0" class="login-step step-active space-y-5">
                     <div>
-                        <h2 class="text-slate-900 font-black text-lg leading-tight">Qui utilise Splice ?</h2>
-                        <p class="text-slate-400 text-xs mt-1">Entrez vos prénoms — ils apparaîtront partout dans l'app.</p>
+                        <h2 class="text-slate-900 font-black text-lg leading-tight">Bienvenue sur Splice 👋</h2>
+                        <p class="text-slate-400 text-xs mt-1">Comment vous appelez-vous ? Ce prénom apparaîtra dans l'app.</p>
                     </div>
-                    <div class="space-y-3">
-                        <div>
-                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Personne 1 <span class="text-indigo-400">(vous)</span></label>
-                            <input id="login-p1" type="text" autocomplete="given-name" placeholder="Ex : Alex"
-                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Personne 2 <span class="text-violet-600">(votre partenaire)</span></label>
-                            <input id="login-p2" type="text" autocomplete="given-name" placeholder="Ex : Sam"
-                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-violet-500 transition-colors">
-                        </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1.5">Votre prénom</label>
+                        <input id="login-p1" type="text" autocomplete="given-name" placeholder="Ex : Alex"
+                            class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors">
                     </div>
                     <button onclick="loginNext(0)" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
                         Continuer →
                     </button>
                 </div>
 
-                <!-- ── STEP 1: Supabase ─────────────────────────────────── -->
-                <div id="login-step-1" class="hidden space-y-5">
+                <!-- ── STEP 1: Connexion ──────────────────────────────── -->
+                <div id="login-step-1" class="login-step space-y-5">
                     <div>
-                        <h2 class="text-slate-900 font-black text-lg leading-tight">Connexion Supabase</h2>
-                        <p class="text-slate-400 text-xs mt-1">Entrez vos identifiants Supabase pour synchroniser les dépenses entre les deux téléphones.</p>
+                        <h2 class="text-slate-900 font-black text-lg leading-tight" id="login-step1-title">Connexion</h2>
+                        <p class="text-slate-400 text-xs mt-1" id="login-step1-sub">Entrez vos identifiants pour accéder à Splice.</p>
                     </div>
                     <div class="space-y-3">
                         <div>
-                            <label class="text-xs font-bold text-slate-400 block mb-1.5">URL du projet</label>
-                            <input id="login-sb-url" type="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                                placeholder="https://xxxx.supabase.co"
-                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-xs placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors font-mono">
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Email</label>
+                            <input id="login-email" type="email" autocomplete="email" autocorrect="off" autocapitalize="off" spellcheck="false"
+                                placeholder="votre@email.com"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors">
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Clé API (anon key)</label>
-                            <input id="login-sb-key" type="password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
-                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-xs placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors font-mono">
-                            <button type="button" onclick="loginToggleKeyVisibility()" class="mt-1.5 text-xs text-slate-500 hover:text-slate-600 transition-colors">
-                                Afficher / masquer la clé
-                            </button>
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Mot de passe</label>
+                            <input id="login-password" type="password" autocomplete="current-password"
+                                placeholder="••••••••"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors">
                         </div>
+                        <!-- Confirm password — signup mode only -->
+                        <div id="login-confirm-pw-wrap" class="hidden" style="overflow:hidden;transition:max-height 0.25s ease,opacity 0.2s ease;max-height:0;opacity:0;">
+                            <label class="text-xs font-bold text-slate-400 block mb-1.5">Confirmer le mot de passe</label>
+                            <input id="login-confirm-pw" type="password" autocomplete="new-password"
+                                placeholder="••••••••"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors">
+                        </div>
+                        <p id="login-auth-error" class="text-xs text-rose-500 hidden mt-1"></p>
                     </div>
                     <div class="flex gap-3">
                         <button onclick="loginBack(1)" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm active:scale-95 transition-all">← Retour</button>
-                        <button onclick="loginNext(1)" class="flex-[2] py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
-                            Continuer →
+                        <button id="login-step1-btn" onclick="loginNext(1)"
+                            class="flex-[2] py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
+                            Se connecter →
                         </button>
                     </div>
-                    <p class="text-center text-slate-600 text-xs">Vos données restent sur votre Supabase personnel.<br>Splice ne stocke rien sur ses propres serveurs.</p>
+                    <!-- Toggle signup / login -->
+                    <p class="text-center text-slate-400 text-xs">
+                        Pas encore de compte ?
+                        <button onclick="loginToggleSignup()" id="login-toggle-btn" class="text-indigo-500 font-bold underline-offset-2 hover:underline">Créer un compte</button>
+                    </p>
                 </div>
 
-                <!-- ── STEP 2: Ce téléphone = qui ? ────────────────────── -->
-                <div id="login-step-2" class="hidden space-y-5">
-                    <div>
-                        <h2 class="text-slate-900 font-black text-lg leading-tight">Ce téléphone, c'est…</h2>
-                        <p class="text-slate-400 text-xs mt-1">Choisissez à qui appartient cet appareil. L'autre personne choisit l'autre option sur son téléphone.</p>
+                <!-- ── STEP 2: Confirmation ───────────────────────────── -->
+                <div id="login-step-2" class="login-step space-y-5">
+                    <div class="text-center py-6">
+                        <div class="w-16 h-16 mx-auto bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/30">
+                            <span class="text-white font-black text-2xl" id="login-confirm-avatar">G</span>
+                        </div>
+                        <h2 class="text-slate-900 font-black text-lg leading-tight" id="login-confirm-title">Bonjour !</h2>
+                        <p class="text-slate-400 text-xs mt-2" id="login-confirm-sub">Connecté(e) avec succès.</p>
                     </div>
-                    <div class="grid grid-cols-2 gap-3" id="login-payer-btns">
-                        <button onclick="loginSelectPayer('p1')" id="login-payer-p1"
-                            class="py-5 rounded-2xl border-2 border-indigo-500 bg-indigo-600/20 text-indigo-600 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2">
-                            <span class="text-2xl" id="login-payer-av-p1">A</span>
-                            <span id="login-payer-name-p1" class="text-sm">Personne 1</span>
-                        </button>
-                        <button onclick="loginSelectPayer('p2')" id="login-payer-p2"
-                            class="py-5 rounded-2xl border-2 border-slate-200 bg-white text-slate-400 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2">
-                            <span class="text-2xl" id="login-payer-av-p2">S</span>
-                            <span id="login-payer-name-p2" class="text-sm">Personne 2</span>
-                        </button>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="loginBack(2)" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm active:scale-95 transition-all">← Retour</button>
-                        <button onclick="loginFinish()" id="login-finish-btn"
-                            class="flex-[2] py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
-                            C'est parti ! 🚀
-                        </button>
-                    </div>
+                    <button onclick="loginFinish()"
+                        class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/60 active:scale-95 transition-all">
+                        C'est parti ! 🚀
+                    </button>
                 </div>
 
             </div><!-- /login-card -->
@@ -1505,7 +1591,7 @@
         </div>
 
         <!-- Bottom Navigation Bar — floating iOS-style glass pill -->
-        <nav class="ios-nav-bar">
+        <nav id="app-nav" class="ios-nav-bar">
             <div class="ios-nav-pill pointer-events-auto bg-white/82 backdrop-blur-2xl border border-white/60 shadow-[0_-1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.08)] rounded-[40px] px-1.5 py-1">
                 <button onclick="switchView('accueil')" id="nav-btn-accueil" class="ios-nav-btn active relative" data-no-ripple aria-label="Inbox">
                     <i class="fa-solid fa-inbox"></i>
@@ -1611,8 +1697,8 @@
     </div>
 
     <!-- Project Picker Sheet — bottom-anchored picker for reassigning an inbox row to a different project -->
-    <div id="project-picker-sheet" class="hidden fixed inset-0 z-[65] bg-black/20 backdrop-blur-sm" onclick="if(event.target===this)closeProjectPicker()">
-        <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl max-h-[70vh] flex flex-col">
+    <div id="project-picker-sheet" class="hidden fixed inset-0 z-[65] bg-black/20 backdrop-blur-sm" style="opacity:0;pointer-events:none;transition:opacity 0.25s ease" onclick="if(event.target===this)closeProjectPicker()">
+        <div id="project-picker-panel" class="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl max-h-[70vh] flex flex-col" style="transform:translateY(100%);transition:transform 0.32s cubic-bezier(0.32,1,0.23,1)">
             <div class="flex justify-between items-center pb-3 border-b border-slate-200 mb-3 shrink-0">
                 <h3 class="text-sm font-bold text-slate-900">Choisir le projet</h3>
                 <button onclick="closeProjectPicker()" class="text-slate-400 hover:text-slate-900"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -1815,6 +1901,12 @@
                                 <button type="button" onclick="appendMathOperator('modal-edit-amount', '/')" class="w-9 h-7 bg-white/70 hover:bg-white text-indigo-500 font-black rounded-lg text-sm border border-white/80 shadow-sm transition-colors">÷</button>
                             </div>
                         </div>
+                    </div>
+                    <!-- FX Rate info row — shown when tx currency differs from group currency -->
+                    <div id="modal-edit-fx-row" class="hidden mx-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-right-arrow-left text-amber-500 text-xs"></i>
+                        <p id="modal-edit-fx-text" class="text-xs text-amber-700 font-medium flex-1"></p>
+                        <button type="button" onclick="refreshModalEditFxRate()" class="text-[10px] text-amber-600 font-bold underline underline-offset-2">Actualiser</button>
                     </div>
                 </div>
 
@@ -2306,22 +2398,58 @@
         }
 
         async function initializeSupabase() {
-            if (state.config.sbUrl && state.config.sbKey && typeof supabase !== 'undefined') {
-                try {
-                    state.supabaseClient = supabase.createClient(state.config.sbUrl, state.config.sbKey);
+            const SUPA_URL = 'https://fzkyoiytuoazfgamfmde.supabase.co';
+            const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a3lvaXl0dW9hemZnYW1mbWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjIyNjEsImV4cCI6MjA5NDkzODI2MX0.ZADlx_r7M34OSkL-pgr4qD2pGof8rng8jw680r_6Oqc';
+            if (typeof supabase === 'undefined') { state.supabaseClient = null; handleNetworkChange(); return; }
+            try {
+                state.supabaseClient = supabase.createClient(SUPA_URL, SUPA_KEY, {
+                    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
+                });
+                let { data: { session } } = await state.supabaseClient.auth.getSession();
+                if (!session) {
+                    const raw = localStorage.getItem('us_sb_session');
+                    if (raw) {
+                        try {
+                            const s = JSON.parse(raw);
+                            const { data, error } = await state.supabaseClient.auth.setSession({
+                                access_token: s.access_token, refresh_token: s.refresh_token
+                            });
+                            if (!error && data?.session) {
+                                session = data.session;
+                                localStorage.setItem('us_sb_session', JSON.stringify(data.session));
+                            }
+                        } catch(_) {}
+                    }
+                }
+                if (!session) {
+                    state.supabaseClient = null;
+                    const ls = document.getElementById('login-screen');
+                    if (ls) { ls.classList.remove('hidden'); ls.style.opacity = '1'; }
                     handleNetworkChange();
-                    await fetchSupabaseExpenses();
-                    try { updateUI(); } catch(e) {}          // render immediately after fetch
-                    try { updateLastSyncLabel(); } catch(e) {}
-                    initRealtimeSubscription();
-                    // Seed categories table (no-op if already populated, ignoreDuplicates:true)
-                    try { syncCategoriesToSupabase(); } catch(e) {}
-                    // Warm the merchant memory cache so scores render with full signal on first paint
-                    refreshAllMerchantMemory().then(() => { try { updateUI(); } catch(e) {} });
-                } catch (e) { state.supabaseClient = null; }
-            } else { 
-                state.supabaseClient = null; 
-                handleNetworkChange(); 
+                    return;
+                }
+                const jwtPayer = session.user?.app_metadata?.payer;
+                if (jwtPayer) localStorage.setItem('us_device_payer', jwtPayer);
+                state.config.sbUrl = SUPA_URL;
+                state.config.sbKey = SUPA_KEY;
+                state.supabaseClient.auth.onAuthStateChange((event, sess) => {
+                    if (sess) localStorage.setItem('us_sb_session', JSON.stringify(sess));
+                    if (event === 'SIGNED_OUT') {
+                        localStorage.removeItem('us_sb_session');
+                        localStorage.removeItem('us_device_payer');
+                    }
+                });
+                handleNetworkChange();
+                await fetchSupabaseExpenses();
+                try { updateUI(); } catch(e) {}
+                try { updateLastSyncLabel(); } catch(e) {}
+                initRealtimeSubscription();
+                try { syncCategoriesToSupabase(); } catch(e) {}
+                refreshAllMerchantMemory().then(() => { try { updateUI(); } catch(e) {} });
+            } catch(e) {
+                console.error('[initializeSupabase]', e);
+                state.supabaseClient = null;
+                handleNetworkChange();
             }
         }
 
@@ -2431,12 +2559,17 @@
             try { syncPowensConnectionsFromServer(); } catch(e) {}
             const now = Date.now();
             if (now - _lastAutoSync < 5 * 60 * 1000) return; // throttle: 5 min
-            const conns = loadPowensConnections().filter(c => c.userToken || c.accessToken);
-            if (conns.length === 0) return;
             _lastAutoSync = now;
             try { autoExpireInboxItems(); } catch(e) {}
+            // Always refresh Supabase data on resume (catches partner's changes)
+            if (state.supabaseClient && navigator.onLine) {
+                try { await fetchSupabaseExpenses(); updateUI(); } catch(e) {}
+            }
+            // Only sync Powens if connections exist
+            const conns = loadPowensConnections().filter(c => c.userToken || c.accessToken);
+            if (conns.length === 0) return;
             try {
-                await syncAllPowensAccounts(true); // true = silent (no loading spinner)
+                await syncAllPowensAccounts(true); // silent — no view hijack
             } catch(e) { console.warn('[AutoSync]', e); }
         }
 
@@ -2891,28 +3024,17 @@
         //                     <supabase-url>/functions/v1/powens-sync
 
         async function syncPowensConnectionsFromServer() {
-            if (!state.config.sbUrl || !state.config.sbKey) return;
+            if (!state.supabaseClient) return;
             try {
-                const res = await fetch(state.config.sbUrl + '/rest/v1/powens_connections?select=*', {
-                    headers: {
-                        'apikey': state.config.sbKey,
-                        'Authorization': 'Bearer ' + state.config.sbKey
-                    }
-                });
-                if (!res.ok) return;
-                const rows = await res.json();
-                if (!rows.length) return;
-                // Map DB columns back to app format
+                const { data: rows, error } = await state.supabaseClient
+                    .from('powens_connections')
+                    .select('payer, powens_user_id, user_token, connection_id, bank_name, last_sync, expired');
+                if (error || !rows || rows.length === 0) return;
                 const serverConns = rows.map(r => ({
-                    payer: r.payer,
-                    powensUserId: r.powens_user_id,
-                    userToken: r.user_token,
-                    connectionId: r.connection_id,
-                    bankName: r.bank_name,
-                    lastSync: r.last_sync,
-                    expired: r.expired || false
+                    payer: r.payer, powensUserId: r.powens_user_id, userToken: r.user_token,
+                    connectionId: r.connection_id, bankName: r.bank_name,
+                    lastSync: r.last_sync, expired: r.expired || false,
                 }));
-                // Merge: server wins for connections not in local, local wins for newer lastSync
                 const local = loadPowensConnections();
                 let changed = false;
                 for (const sc of serverConns) {
@@ -2922,11 +3044,11 @@
                 }
                 if (changed) {
                     localStorage.setItem('us_powens', JSON.stringify(local));
-                    renderPowensSettings();
+                    try { renderPowensSettings(); } catch(e) {}
                     showToast('✓ Compte bancaire restauré');
                     setTimeout(() => syncAllPowensAccounts(), 1000);
                 }
-            } catch(e) {}
+            } catch(e) { console.warn('[syncPowensConnectionsFromServer]', e); }
         }
 
         function loadPowensConnections() {
@@ -2935,31 +3057,23 @@
         }
         function savePowensConnections(arr) {
             localStorage.setItem('us_powens', JSON.stringify(arr));
-            // Also persist to Supabase so the PWA can read it regardless of which
-            // browser context (Safari vs PWA) originally saved the connection.
-            if (state.config.sbUrl && state.config.sbKey) {
-                arr.forEach(conn => {
-                    fetch(state.config.sbUrl + '/rest/v1/powens_connections?on_conflict=payer', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'apikey': state.config.sbKey,
-                            'Authorization': 'Bearer ' + state.config.sbKey,
-                            'Prefer': 'resolution=merge-duplicates,return=minimal'
-                        },
-                        body: JSON.stringify({
-                            payer: conn.payer,
-                            powens_user_id: conn.powensUserId,
-                            user_token: conn.userToken,
-                            connection_id: conn.connectionId || null,
-                            bank_name: conn.bankName || null,
-                            last_sync: conn.lastSync || null,
-                            expired: conn.expired || false,
-                            updated_at: new Date().toISOString()
-                        })
-                    }).catch(() => {});
-                });
-            }
+            if (!state.supabaseClient) return;
+            arr.forEach(conn => {
+                state.supabaseClient
+                    .from('powens_connections')
+                    .upsert({
+                        payer:          conn.payer,
+                        powens_user_id: conn.powensUserId || null,
+                        user_token:     conn.userToken    || null,
+                        connection_id:  conn.connectionId || null,
+                        bank_name:      conn.bankName     || null,
+                        last_sync:      conn.lastSync     || null,
+                        expired:        conn.expired      || false,
+                        updated_at:     new Date().toISOString(),
+                        group_id:       'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    }, { onConflict: 'payer' })
+                    .then(({ error }) => { if (error) console.error('[savePowensConnections]', error); });
+            });
         }
         // One-time cleanup: remove the flood of unapproved Powens transactions older than today
         // that were imported during the first 90-day sync. Runs once, flagged in localStorage.
@@ -3131,27 +3245,24 @@
             // This works even in Safari (which has no sbUrl in its own localStorage).
             const _sbUrl = sbUrl || (state.config && state.config.sbUrl);
             const _sbKey = sbKey || (state.config && state.config.sbKey);
-            if (_sbUrl && _sbKey) {
-                fetch(_sbUrl + '/rest/v1/powens_connections?on_conflict=payer', {
+            if (state.supabaseClient) {
+                state.supabaseClient.from('powens_connections').upsert({
+                    payer: conn.payer, powens_user_id: conn.powensUserId,
+                    user_token: conn.userToken, connection_id: conn.connectionId || null,
+                    bank_name: null, last_sync: null, expired: false,
+                    updated_at: new Date().toISOString(), group_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                }, { onConflict: 'payer' })
+                .then(({ error }) => { if (error) console.error('[Powens] DB write failed', error); });
+            } else {
+                fetch('https://fzkyoiytuoazfgamfmde.supabase.co/rest/v1/powens_connections?on_conflict=payer', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': _sbKey,
-                        'Authorization': 'Bearer ' + _sbKey,
-                        'Prefer': 'resolution=merge-duplicates,return=minimal'
-                    },
-                    body: JSON.stringify({
-                        payer: conn.payer,
-                        powens_user_id: conn.powensUserId,
-                        user_token: conn.userToken,
-                        connection_id: conn.connectionId || null,
-                        bank_name: conn.bankName || null,
-                        last_sync: conn.lastSync || null,
-                        expired: false,
-                        updated_at: new Date().toISOString()
-                    })
-                }).then(() => console.log('[Powens] connection written to Supabase ✓'))
-                  .catch(e => console.error('[Powens] Supabase write failed:', e));
+                    headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a3lvaXl0dW9hemZnYW1mbWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjIyNjEsImV4cCI6MjA5NDkzODI2MX0.ZADlx_r7M34OSkL-pgr4qD2pGof8rng8jw680r_6Oqc',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a3lvaXl0dW9hemZnYW1mbWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjIyNjEsImV4cCI6MjA5NDkzODI2MX0.ZADlx_r7M34OSkL-pgr4qD2pGof8rng8jw680r_6Oqc', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+                    body: JSON.stringify({ payer: conn.payer, powens_user_id: conn.powensUserId,
+                        user_token: conn.userToken, connection_id: conn.connectionId || null,
+                        bank_name: null, last_sync: null, expired: false,
+                        updated_at: new Date().toISOString(), group_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
+                }).catch(e => console.error('[Powens] fallback write failed', e));
             }
 
             haptic('success');
@@ -3329,10 +3440,13 @@
             if (syncBtn)  syncBtn.disabled = false;
             try { updateLastSyncLabel(); } catch(e) {}
             if (totalNew > 0) {
-                if (!silent) showToast(`${totalNew} transaction${totalNew > 1 ? 's' : ''} importée${totalNew > 1 ? 's' : ''}`);
-                else showToast(`🔄 ${totalNew} nouvelle${totalNew > 1 ? 's' : ''} transaction${totalNew > 1 ? 's' : ''}`);
-                // Switch to Inbox so they can review
-                setTimeout(() => switchView('inbox'), 600);
+                if (!silent) {
+                    showToast(`${totalNew} transaction${totalNew > 1 ? 's' : ''} importée${totalNew > 1 ? 's' : ''}`);
+                    setTimeout(() => switchView('inbox'), 600);
+                } else {
+                    // Silent sync (background/focus): never hijack the view — just badge + toast
+                    showToast(`🔄 ${totalNew} nouvelle${totalNew > 1 ? 's' : ''} transaction${totalNew > 1 ? 's' : ''} — vérifiez l'Inbox`);
+                }
             } else if (hadError) {
                 if (!silent) showToast('Erreur de synchronisation — vérifiez la connexion');
             } else {
@@ -3359,7 +3473,17 @@
                 if (splash) {
                     splash.style.transition = 'opacity 0.22s ease';
                     splash.style.opacity = '0';
-                    setTimeout(() => { splash.style.display = 'none'; }, 240);
+                    setTimeout(() => {
+                        splash.style.display = 'none';
+                        // If this is a fresh login, trigger the entry animation now
+                        if (window._pendingLaunchAnimation) {
+                            window._pendingLaunchAnimation = false;
+                            // Delay slightly so renderAccueilSuggestions() (200ms below) runs first
+                            setTimeout(() => {
+                                try { animateAppEntry(); } catch(e) { console.warn('[launch anim]', e); }
+                            }, 280);
+                        }
+                    }, 260);
                 }
                 // Defensive: re-render Accueil when the splash drops, in case earlier
                 // render attempts ran before fetchSupabaseExpenses populated state.
@@ -3445,7 +3569,8 @@
                 }, 2000);
             }
 
-            // Auto-sync on every cold start (app opened fresh / removed from cache)
+            // Auto-sync on every cold start — delayed until AFTER splash hides (3200ms)
+            // so sync results never cause blank-screen transitions during splash
             setTimeout(async () => {
                 if (navigator.onLine) {
                     if (state.supabaseClient) {
@@ -3453,7 +3578,7 @@
                     }
                     try { await syncAllPowensAccounts(true, true); } catch(e) {}
                 }
-            }, 1200);
+            }, 3200);
             try { maybeShowPushBanner(); } catch(e) {}
             setTimeout(() => { try { checkInboxPushReminder(); } catch(e) {} }, 3000);
             try { checkPowensCallback(); } catch(e) {} // handles redirect from Powens webview
@@ -3573,48 +3698,132 @@
         }
 
         function loginShowStep(n) {
-            [0, 1, 2].forEach(i => {
-                const s = document.getElementById('login-step-' + i);
-                if (s) s.classList.toggle('hidden', i !== n);
-                const dot = document.querySelector('[data-dot="' + i + '"]');
-                if (dot) {
-                    dot.classList.toggle('bg-indigo-500', i <= n);
-                    dot.classList.toggle('bg-slate-300', i > n);
-                    dot.style.transform = i === n ? 'scale(1.4)' : 'scale(1)';
+            const steps = [0, 1, 2].map(i => document.getElementById('login-step-' + i));
+            const current = steps.findIndex(s => s && s.classList.contains('step-active'));
+            const goingForward = n > current;
+
+            steps.forEach((s, i) => {
+                if (!s) return;
+                if (i === n) {
+                    // Incoming: start from right or left based on direction
+                    s.classList.remove('step-active', 'step-exit-left', 'step-exit-right');
+                    s.style.transform = goingForward ? 'translateX(24px)' : 'translateX(-24px)';
+                    s.style.opacity = '0';
+                    // Force reflow, then animate in
+                    s.offsetHeight;
+                    s.style.transform = '';
+                    s.style.opacity = '';
+                    s.classList.add('step-active');
+                } else if (i === current) {
+                    // Outgoing
+                    s.classList.remove('step-active');
+                    s.classList.add(goingForward ? 'step-exit-left' : 'step-exit-right');
+                } else {
+                    // Other steps: just park them off-screen
+                    s.classList.remove('step-active', 'step-exit-left', 'step-exit-right');
                 }
+            });
+
+            // Update dots (only 2 dots in HTML: dot 0 and dot 1)
+            [0, 1].forEach(i => {
+                const dot = document.querySelector('[data-dot="' + i + '"]');
+                if (!dot) return;
+                // Step 2 = confirmation, treat as "dot 1 still active"
+                const dotN = Math.min(n, 1);
+                dot.classList.toggle('bg-indigo-500', i <= dotN);
+                dot.classList.toggle('bg-slate-300',  i > dotN);
+                dot.style.transform = i === dotN ? 'scale(1.4)' : 'scale(1)';
             });
         }
 
-        function loginNext(fromStep) {
+        // Signup/login mode toggle
+        window._loginIsSignup = false;
+        function loginToggleSignup() {
+            window._loginIsSignup = !window._loginIsSignup;
+            const isSignup = window._loginIsSignup;
+            const wrap  = document.getElementById('login-confirm-pw-wrap');
+            const title = document.getElementById('login-step1-title');
+            const sub   = document.getElementById('login-step1-sub');
+            const btn   = document.getElementById('login-step1-btn');
+            const tog   = document.getElementById('login-toggle-btn');
+            if (wrap) {
+                if (isSignup) {
+                    wrap.classList.remove('hidden');
+                    requestAnimationFrame(() => { wrap.style.maxHeight = '80px'; wrap.style.opacity = '1'; });
+                } else {
+                    wrap.style.maxHeight = '0'; wrap.style.opacity = '0';
+                    setTimeout(() => wrap.classList.add('hidden'), 250);
+                }
+            }
+            if (title) title.textContent = isSignup ? 'Créer un compte' : 'Connexion';
+            if (sub)   sub.textContent   = isSignup ? 'Choisissez un email et un mot de passe.' : 'Entrez vos identifiants pour accéder à Splice.';
+            if (btn)   btn.textContent   = isSignup ? 'Créer mon compte →' : 'Se connecter →';
+            if (tog)   tog.textContent   = isSignup ? "J'ai déjà un compte" : 'Créer un compte';
+        }
+
+
+
+        async function loginNext(fromStep) {
             if (fromStep === 0) {
                 const p1 = document.getElementById('login-p1').value.trim();
-                const p2 = document.getElementById('login-p2').value.trim();
-                if (!p1 || !p2) {
-                    showToast('Entrez les deux prénoms');
-                    return;
-                }
-                // Update payer button labels immediately for step 2
-                const av1 = document.getElementById('login-payer-av-p1');
-                const av2 = document.getElementById('login-payer-av-p2');
-                const n1  = document.getElementById('login-payer-name-p1');
-                const n2  = document.getElementById('login-payer-name-p2');
-                if (av1) av1.textContent = p1[0].toUpperCase();
-                if (av2) av2.textContent = p2[0].toUpperCase();
-                if (n1)  n1.textContent  = p1;
-                if (n2)  n2.textContent  = p2;
+                if (!p1) { showToast('Entrez votre prénom'); return; }
+                window._loginDisplayName = p1; // carry name through to confirmation screen
                 loginShowStep(1);
             } else if (fromStep === 1) {
-                const url = document.getElementById('login-sb-url').value.trim();
-                const key = document.getElementById('login-sb-key').value.trim();
-                if (!url || !key) {
-                    showToast('URL et clé Supabase requis');
-                    return;
+                const email    = (document.getElementById('login-email')?.value || '').trim();
+                const password = (document.getElementById('login-password')?.value || '').trim();
+                const errEl    = document.getElementById('login-auth-error');
+                const isSignup = !!window._loginIsSignup;
+                if (!email || !password) { showToast('Email et mot de passe requis'); return; }
+                if (isSignup) {
+                    const confirm = (document.getElementById('login-confirm-pw')?.value || '').trim();
+                    if (confirm !== password) {
+                        if (errEl) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.classList.remove('hidden'); }
+                        return;
+                    }
                 }
-                if (!url.startsWith('https://')) {
-                    showToast("L'URL doit commencer par https://");
-                    return;
+                const btn = document.getElementById('login-step1-btn');
+                if (btn) { btn.disabled = true; btn.textContent = isSignup ? 'Création…' : 'Connexion…'; }
+                if (errEl) errEl.classList.add('hidden');
+                try {
+                    const _tmp = supabase.createClient('https://fzkyoiytuoazfgamfmde.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a3lvaXl0dW9hemZnYW1mbWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjIyNjEsImV4cCI6MjA5NDkzODI2MX0.ZADlx_r7M34OSkL-pgr4qD2pGof8rng8jw680r_6Oqc', { auth: { persistSession: false } });
+                    let data, error;
+                    if (isSignup) {
+                        const myName = document.getElementById('login-p1')?.value.trim() || email.split('@')[0];
+                        ({ data, error } = await _tmp.auth.signUp({
+                            email, password,
+                            options: { data: { name: myName } }
+                        }));
+                        if (!error && data?.user && !data?.session) {
+                            // Email confirmation required
+                            if (errEl) { errEl.className = 'text-xs text-emerald-600 mt-1'; errEl.textContent = '✓ Vérifiez votre email pour confirmer votre compte.'; errEl.classList.remove('hidden'); }
+                            if (btn) { btn.disabled = false; btn.textContent = 'Créer mon compte →'; }
+                            return;
+                        }
+                    } else {
+                        ({ data, error } = await _tmp.auth.signInWithPassword({ email, password }));
+                    }
+                    if (error || !data?.session) {
+                        if (errEl) { errEl.className = 'text-xs text-rose-500 hidden mt-1'; errEl.textContent = isSignup ? 'Erreur lors de la création du compte.' : 'Email ou mot de passe incorrect.'; errEl.classList.remove('hidden'); }
+                        if (btn) { btn.disabled = false; btn.textContent = isSignup ? 'Créer mon compte →' : 'Se connecter →'; }
+                        return;
+                    }
+                    window._loginSession = data.session;
+                    window._loginUser    = data.user;
+                    const uMeta = data.user.user_metadata || {};
+                    const meta  = data.user.app_metadata  || {};
+                    const name  = window._loginDisplayName || uMeta.name || meta.name || email.split('@')[0];
+                    const el1 = document.getElementById('login-confirm-avatar');
+                    const el2 = document.getElementById('login-confirm-title');
+                    const el3 = document.getElementById('login-confirm-sub');
+                    if (el1) el1.textContent = name[0].toUpperCase();
+                    if (el2) el2.textContent = (isSignup ? 'Compte créé ! ' : 'Bonjour ') + name + ' !';
+                    if (el3) el3.textContent = (isSignup ? 'Bienvenue sur Splice — ' : 'Connecté(e) en tant que ') + email;
+                    loginShowStep(2);
+                } catch(e) {
+                    if (errEl) { errEl.className = 'text-xs text-rose-500 hidden mt-1'; errEl.textContent = 'Erreur réseau. Vérifiez votre connexion.'; errEl.classList.remove('hidden'); }
+                    if (btn) { btn.disabled = false; btn.textContent = isSignup ? 'Créer mon compte →' : 'Se connecter →'; }
                 }
-                loginShowStep(2);
             }
         }
 
@@ -3622,74 +3831,72 @@
             loginShowStep(fromStep - 1);
         }
 
-        function loginSelectPayer(payer) {
-            _loginChosenPayer = payer;
-            const p1Name = document.getElementById('login-p1').value.trim() || 'Personne 1';
-            const p2Name = document.getElementById('login-p2').value.trim() || 'Personne 2';
-            const btn1 = document.getElementById('login-payer-p1');
-            const btn2 = document.getElementById('login-payer-p2');
-            if (payer === 'p1') {
-                btn1.className = 'py-5 rounded-2xl border-2 border-indigo-500 bg-indigo-600/20 text-indigo-600 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
-                btn2.className = 'py-5 rounded-2xl border-2 border-slate-200 bg-white text-slate-400 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
-            } else {
-                btn2.className = 'py-5 rounded-2xl border-2 border-violet-500 bg-violet-600/20 text-violet-600 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
-                btn1.className = 'py-5 rounded-2xl border-2 border-slate-200 bg-white text-slate-400 font-black text-base active:scale-95 transition-all flex flex-col items-center gap-2';
-            }
-        }
+        
 
         function loginFinish() {
-            const p1    = document.getElementById('login-p1').value.trim();
-            const p2    = document.getElementById('login-p2').value.trim();
-            const sbUrl = document.getElementById('login-sb-url').value.trim();
-            const sbKey = document.getElementById('login-sb-key').value.trim();
-
-            // Save config to localStorage — same keys initApp reads
+            const session = window._loginSession;
+            const user    = window._loginUser;
+            if (!session || !user) { showToast('Session expirée, recommencez'); loginShowStep(1); return; }
+            const meta  = user.app_metadata || {};
+            const uMeta = user.user_metadata || {};
+            const payer = meta.payer || 'p1';
+            const name  = uMeta.name || meta.name || user.email.split('@')[0];
             const existing = (() => { try { return JSON.parse(localStorage.getItem('us_tracker_config')) || {}; } catch(e) { return {}; } })();
+            // Phase 1: user types only their own name.
+            // Partner name comes from existing config (set on their device) or a placeholder.
+            const myName = window._loginDisplayName || document.getElementById('login-p1')?.value.trim() || name;
+            const p1Name = payer === 'p1' ? myName : (existing.p1Name || '…');
+            const p2Name = payer === 'p2' ? myName : (existing.p2Name || '…');
             const cfg = {
                 ...existing,
-                p1Name:  p1  || 'Alex',
-                p2Name:  p2  || 'Sam',
-                sbUrl:   sbUrl,
-                sbKey:   sbKey,
-                currency: existing.currency || '€',
+                p1Name, p2Name,
+                sbUrl:          'https://fzkyoiytuoazfgamfmde.supabase.co',
+                sbKey:          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a3lvaXl0dW9hemZnYW1mbWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjIyNjEsImV4cCI6MjA5NDkzODI2MX0.ZADlx_r7M34OSkL-pgr4qD2pGof8rng8jw680r_6Oqc',
+                currency:       existing.currency       || '€',
                 globalCurrency: existing.globalCurrency || '€',
-                projects: existing.projects || [{ id: 'Principal', name: 'Principal', icon: '' }],
-                activeProject: existing.activeProject || 'Principal',
+                projects:       existing.projects       || [{ id: 'Principal', name: 'Principal', icon: '' }],
+                activeProject:  existing.activeProject  || 'Principal',
             };
             localStorage.setItem('us_tracker_config', JSON.stringify(cfg));
-            localStorage.setItem('us_device_payer', _loginChosenPayer);
-
-            // Hide login screen with a fade
+            localStorage.setItem('us_device_payer', payer);
+            localStorage.setItem('us_sb_session', JSON.stringify(session));
             const screen = document.getElementById('login-screen');
-            if (screen) {
-                screen.style.transition = 'opacity 0.3s ease';
-                screen.style.opacity = '0';
-                setTimeout(() => screen.classList.add('hidden'), 320);
-            }
-
-            // Boot the app
+            if (screen) { screen.style.transition = 'opacity 0.3s ease'; screen.style.opacity = '0'; setTimeout(() => screen.classList.add('hidden'), 320); }
+            const _shell = document.getElementById('app-shell');
+            // Pre-hide elements so they're invisible when shell becomes visible.
+            // animateAppEntry() will remove this class after the splash screen is gone.
+            if (_shell) _shell.classList.add('app-launching');
+            if (_shell) _shell.style.visibility = 'visible';
+            // Signal that we want the launch animation to run after splash clears
+            window._pendingLaunchAnimation = true;
             initApp();
         }
 
         // Called instead of initApp() on every cold start.
         // Shows login screen on first launch (no sbUrl saved); otherwise boots normally.
         function bootApp() {
+            const _splash = document.getElementById('splash-screen');
+            const _hideSplash = () => {
+                if (!_splash) return;
+                _splash.style.transition = 'opacity 0.22s ease';
+                _splash.style.opacity = '0';
+                setTimeout(() => { if (_splash) _splash.style.display = 'none'; }, 250);
+            };
             try {
-                const saved = localStorage.getItem('us_tracker_config');
-                const cfg   = saved ? JSON.parse(saved) : null;
-                if (!cfg || !cfg.sbUrl || !cfg.sbKey) {
-                    // Pre-fill names if they exist
+                const hasSession = !!localStorage.getItem('us_sb_session');
+                if (!hasSession) {
+                    const cfg = (() => { try { return JSON.parse(localStorage.getItem('us_tracker_config')) || {}; } catch(e) { return {}; } })();
                     const p1El = document.getElementById('login-p1');
                     const p2El = document.getElementById('login-p2');
-                    if (p1El && cfg && cfg.p1Name) p1El.value = cfg.p1Name;
-                    if (p2El && cfg && cfg.p2Name) p2El.value = cfg.p2Name;
+                    if (p1El && cfg.p1Name) p1El.value = cfg.p1Name;
+                    if (p2El && cfg.p2Name) p2El.value = cfg.p2Name;
                     loginShowStep(0);
+                    const appShell = document.getElementById('app-shell');
+                    if (appShell) appShell.style.visibility = 'hidden';
                     const screen = document.getElementById('login-screen');
-                    if (screen) {
-                        screen.classList.remove('hidden');
-                        screen.style.opacity = '1';
-                    }
-                    return; // don't call initApp yet
+                    if (screen) { screen.classList.remove('hidden'); screen.style.opacity = '1'; }
+                    setTimeout(_hideSplash, 1200);
+                    return;
                 }
             } catch(e) {}
             initApp();
@@ -4187,7 +4394,13 @@
         
 
         function updateCurrencyUI() {
-            const cur = getActiveCurrency();
+            // When saisie is open, use the saisie project's currency
+            const _saisieProjId = state.currentSaisieProject || state.config.activeProject;
+            const _saisieProjCur = getProjectCurrency ? getProjectCurrency(_saisieProjId) : null;
+            const _sheetOpen = document.getElementById('saisie-sheet')?.classList.contains('sheet-open');
+            const cur = _sheetOpen
+                ? (window._txCurrency || _saisieProjCur || getActiveCurrency())
+                : getActiveCurrency();
             document.querySelectorAll('.currency-display').forEach(el => el.innerText = cur);
         }
 
@@ -4241,7 +4454,7 @@
             const cur = document.getElementById('config-currency');
 
             if (p1) p1.value = state.config.p1Name;
-            if (p2) p2.value = state.config.p2Name;
+            if (p2) p2.value = (state.config.p2Name && state.config.p2Name !== '…') ? state.config.p2Name : '';
             if (url) url.value = state.config.sbUrl || '';
             if (key) key.value = state.config.sbKey || '';
             if (cur) cur.value = state.config.globalCurrency || state.config.currency;
@@ -4392,7 +4605,10 @@
         function updateSplitSummaryRows() {
             const amountEl = document.getElementById('amount');
             const totalVal = amountEl ? parseFloat(amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')) : 0;
-            const cur = window._txCurrency || state.config.currency || '€';
+            // Use: entered currency → project currency → global home currency
+            const _splitProjId  = state.currentSaisieProject || state.config.activeProject;
+            const _splitProjCur = getProjectCurrency ? getProjectCurrency(_splitProjId) : null;
+            const cur = window._txCurrency || _splitProjCur || state.config.currency || '€';
             const p1Name = state.config.p1Name || 'P1';
             const p2Name = state.config.p2Name || 'P2';
             const payer = state.currentPayer;
@@ -4793,14 +5009,12 @@
         }
 
         // ── Per-transaction currency ────────────────────────────────
+        
         function setTxCurrency(val) {
-            window._txCurrency = val || null;
-            window._txFxRate   = null;
-            // Use the current saisie project's currency as the base (not global activeProject)
-            const _saisieProjObj = (state.config.projects || []).find(p =>
-                (p.id || p.name || p) === state.currentSaisieProject);
-            const globalCur = (_saisieProjObj && _saisieProjObj.currency) || getActiveCurrency();
-            const isForeign = val && val !== globalCur;
+            window.txCurrency = val || null;
+            window.txFxRate = null;
+            const currentProjectCurrency = getProjectCurrency(state.currentSaisieProject || state.config.activeProject);
+            const isForeign = val && val !== currentProjectCurrency;
             const sel     = document.getElementById('tx-currency-select');
             const fxNote  = document.getElementById('fx-rate-note');
             const fxText  = document.getElementById('fx-rate-note-text');
@@ -4808,51 +5022,59 @@
             const fxRow   = document.getElementById('fx-rate-input-row');
             const fxLbl   = document.getElementById('fx-rate-label');
             const fxToSym = document.getElementById('fx-rate-to-sym');
-            if (sel) { sel.value = val || ''; sel.classList.toggle('text-indigo-500', isForeign); sel.classList.toggle('text-slate-400', !isForeign); }
-            if (fxNote) fxNote.classList.toggle('hidden', !isForeign);
-            if (!isForeign) { if (fxRow) fxRow.classList.add('hidden'); updateSplitSummaryRows(); return; }
-            // Always show input immediately with clear 1 X = ? Y label
-            if (fxLbl)   fxLbl.textContent  = `1 ${val} =`;
-            if (fxToSym) fxToSym.textContent = globalCur;
-            if (fxText)  fxText.textContent  = `Chargement du taux…`;
-            if (fxInput) { fxInput.value = ''; fxInput.placeholder = '0.0000'; fxInput.classList.remove('hidden'); }
-            if (fxRow)   fxRow.classList.remove('hidden');
-            updateSplitSummaryRows();
-            // Symbol → ISO 4217
-            const _iso = {'€':'EUR','$':'USD','£':'GBP','CHF':'CHF','¥':'JPY','kr':'SEK','NOK':'NOK','DKK':'DKK','CAD':'CAD','AUD':'AUD'};
-            const fromISO = _iso[val] || val;
-            const toISO   = _iso[getActiveCurrency()] || getActiveCurrency();
-            if (fromISO === toISO) {
-                window._txFxRate = 1;
-                if (fxText)  fxText.textContent = `Même devise`;
-                if (fxInput) fxInput.value = '1.0000';
-                updateSplitSummaryRows(); return;
+            if (sel) {
+                sel.classList.toggle('text-indigo-500', isForeign);
+                sel.classList.toggle('text-slate-400', !isForeign);
             }
-            const _applyRate = (rate) => {
-                window._txFxRate = parseFloat(rate);
-                if (fxText)  fxText.textContent = `Taux du jour (ECB) — modifiable`;
-                if (fxInput) fxInput.value = parseFloat(rate).toFixed(4);
+            if (fxNote) fxNote.classList.toggle('hidden', !isForeign);
+            if (!isForeign) {
+                if (fxRow) fxRow.classList.add('hidden');
                 updateSplitSummaryRows();
-            };
-            const _tryFetch = (urls, i) => {
-                if (i >= urls.length) {
-                    if (fxText) fxText.textContent = `Taux non disponible en ligne — saisir manuellement`;
+                return;
+            }
+            if (fxLbl) fxLbl.textContent = `1 ${val} =`;
+            if (fxToSym) fxToSym.textContent = currentProjectCurrency;
+            if (fxText) fxText.textContent = 'Chargement du taux…';
+            if (fxInput) {
+                fxInput.value = '';
+                fxInput.placeholder = '0.0000';
+                fxInput.classList.remove('hidden');
+            }
+            if (fxRow) fxRow.classList.remove('hidden');
+            updateSplitSummaryRows();
+            const iso = { EUR: 'EUR', USD: 'USD', GBP: 'GBP', CHF: 'CHF', JPY: 'JPY', SEK: 'SEK', NOK: 'NOK', DKK: 'DKK', CAD: 'CAD', AUD: 'AUD' };
+            const fromISO = iso[(val || '').replace(/[^A-Z]/g, '').toUpperCase()] || getCurrencyCode(val);
+            const toISO   = iso[getCurrencyCode(currentProjectCurrency)] || getCurrencyCode(currentProjectCurrency);
+            if (fromISO === toISO) {
+                window.txFxRate = 1;
+                if (fxText) fxText.textContent = 'Même devise';
+                if (fxInput) fxInput.value = '1.0000';
+                updateSplitSummaryRows();
+                return;
+            }
+            const cached = getCachedFx(val, currentProjectCurrency);
+            if (cached) {
+                window.txFxRate = cached;
+                if (fxText) fxText.textContent = 'Taux enregistré';
+                if (fxInput) fxInput.value = Number(cached).toFixed(4);
+                updateSplitSummaryRows();
+                return;
+            }
+            fetchFxRate(val, currentProjectCurrency).then(rate => {
+                if (!rate) {
+                    if (fxText) fxText.textContent = 'Taux non disponible';
                     return;
                 }
-                fetch(urls[i])
-                    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-                    .then(data => {
-                        const rate = data?.rates?.[toISO] || data?.conversion_rates?.[toISO];
-                        if (rate) { _applyRate(rate); }
-                        else { _tryFetch(urls, i + 1); }
-                    })
-                    .catch(() => _tryFetch(urls, i + 1));
-            };
-            _tryFetch([
-                `https://api.frankfurter.app/latest?from=${fromISO}&to=${toISO}`,
-                `https://open.er-api.com/v6/latest/${fromISO}`
-            ], 0);
+                window.txFxRate = rate;
+                setCachedFx(val, currentProjectCurrency, rate);
+                if (fxText) fxText.textContent = 'Taux du jour';
+                if (fxInput) fxInput.value = Number(rate).toFixed(4);
+                updateSplitSummaryRows();
+            }).catch(() => {
+                if (fxText) fxText.textContent = 'Taux non disponible';
+            });
         }
+
         function resetTxCurrency() {
             window._txCurrency = null;
             window._txFxRate   = null;
@@ -4891,16 +5113,36 @@
                 else if (state.splitType === 'custom') { p1Pct = state.p1SplitPercent; p2Pct = 100 - state.p1SplitPercent; }
             }
 
+            // ── Canonical multi-currency fields ──────────────────────
+            const _projectId  = state.currentSaisieProject || state.config.activeProject;
+            const _projectCur = getProjectCurrency(_projectId);
+            const _homeCur    = getHomeCurrency();
+            const _enteredCur = window._txCurrency || _projectCur;
+            let   _fxRate     = parseFloat(window._txFxRate) || null;
+            const _sameCur    = getCurrencyCode(_enteredCur) === getCurrencyCode(_projectCur);
+            if (_sameCur) _fxRate = 1;
+            const _amtGroup   = _sameCur ? rawAmount
+                                : (_fxRate ? Math.round(rawAmount * _fxRate * 100) / 100 : rawAmount);
+            const _homeRate   = getCachedFx(_projectCur, _homeCur);
+            const _amtHome    = getCurrencyCode(_projectCur) === getCurrencyCode(_homeCur) ? _amtGroup
+                                : (_homeRate ? Math.round(_amtGroup * _homeRate * 100) / 100 : null);
+            // ─────────────────────────────────────────────────────────────
             const newExpense = {
                 id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
                 amount: rawAmount, payer: state.currentPayer, description: categoryDesc,
                 category: activeCategory, icon: activeIcon, p1SharePercent: p1Pct, p2SharePercent: p2Pct,
-                approved: true, isEditing: false, type: state.txType, project: state.currentSaisieProject || state.config.activeProject,
-                currency: window._txCurrency || getActiveCurrency(),
-                fxRate: window._txFxRate || null,
-                amountLocal: (window._txFxRate && window._txCurrency && window._txCurrency !== getActiveCurrency())
-                    ? Math.round(rawAmount * window._txFxRate * 100) / 100
-                    : rawAmount, created_at: new Date().toISOString()
+                approved: true, isEditing: false, type: state.txType,
+                project:           _projectId,
+                currency:          _enteredCur,
+                currency_original: _enteredCur,
+                amount_original:   rawAmount,
+                currency_group:    _projectCur,
+                amount_group:      _amtGroup,
+                project_currency:  _projectCur,
+                currency_home:     _homeCur,
+                amount_home:       _amtHome,
+                fxRate:            _fxRate,
+                amountLocal:       _amtGroup, created_at: new Date().toISOString()
             };
             // Attach receipt scan metadata if the user just came from the scanner
             if (window._pendingReceiptMeta) {
@@ -4974,40 +5216,54 @@
         }
 
         function attachSwipeToDismiss(contentEl, closeFn) {
-            const THRESHOLD = 110;
-            const TOP_ZONE  = 64;
-            let startY = 0, lastY = 0, active = false;
+            const THRESHOLD = 200;  // px drag to trigger dismiss
+            const TOP_ZONE  = 120;  // swipe-zone height from top of panel
+            let startY = 0, lastY = 0, minY = 0, startT = 0, active = false, cancelled = false;
 
-            // Remove stacked listeners from previous opens
             if (contentEl._swipeCleanup) { contentEl._swipeCleanup(); }
 
             const onStart = e => {
                 const fromTop = e.touches[0].clientY - contentEl.getBoundingClientRect().top;
                 if (fromTop > TOP_ZONE) return;
-                startY = lastY = e.touches[0].clientY;
+                startY = lastY = minY = e.touches[0].clientY;
+                startT = Date.now();
                 active = true;
-                contentEl.style.transition = 'none'; // instant — zero lag
+                cancelled = false;
+                contentEl.style.transition = 'none';
                 contentEl.style.transform  = 'translateY(0px)';
             };
             const onMove = e => {
                 if (!active) return;
-                lastY = e.touches[0].clientY;
-                const dy = Math.max(0, lastY - startY);
-                // Below threshold: 1:1 with finger. Above: rubber-band at 22%
+                const cy = e.touches[0].clientY;
+                if (cy < minY) minY = cy;
+                // If user scrolled UP >20px during this gesture → cancel dismiss intent
+                if (startY - minY > 20) { cancelled = true; }
+                lastY = cy;
+                if (cancelled) {
+                    // Snap back instantly if direction reversed
+                    contentEl.style.transform = 'translateY(0px)';
+                    return;
+                }
+                const dy = Math.max(0, cy - startY);
+                // 1:1 below threshold, rubber-band above
                 const t = dy <= THRESHOLD ? dy : THRESHOLD + (dy - THRESHOLD) * 0.22;
                 contentEl.style.transform = `translateY(${t}px)`;
             };
             const onEnd = () => {
                 if (!active) return;
                 active = false;
+                if (cancelled) {
+                    contentEl.style.transition = 'transform 0.32s cubic-bezier(0.34,1.4,0.64,1)';
+                    contentEl.style.transform  = 'translateY(0px)';
+                    return;
+                }
                 const dy = lastY - startY;
-                if (dy > THRESHOLD) {
-                    // Fast fly-off then close
-                    contentEl.style.transition = 'transform 0.2s cubic-bezier(0.4,0,1,1)';
+                const vel = dy / Math.max(Date.now() - startT, 1);
+                if (dy > THRESHOLD || (vel > 1.2 && dy > 140)) {
+                    contentEl.style.transition = 'transform 0.28s cubic-bezier(0.4,0,1,1)';
                     contentEl.style.transform  = 'translateY(120%)';
-                    setTimeout(closeFn, 195);
+                    setTimeout(closeFn, 270);
                 } else {
-                    // Springy snap-back
                     contentEl.style.transition = 'transform 0.32s cubic-bezier(0.34,1.4,0.64,1)';
                     contentEl.style.transform  = 'translateY(0px)';
                 }
@@ -5103,6 +5359,40 @@
             selectModalEditSplitType(tx.splitTypeLocal || defaultSplitType);
             updateModalEditParticipantRows();
 
+            // ── FX rate row ───────────────────────────────────────────────
+            (async () => {
+                const _fxRow  = document.getElementById('modal-edit-fx-row');
+                const _fxText = document.getElementById('modal-edit-fx-text');
+                if (!_fxRow || !_fxText) return;
+                const _txCur  = tx.currency_original || tx.currency;
+                const _projId = tx.project || state.config.activeProject || 'Principal';
+                const _grpCur = getProjectCurrency(_projId);
+                if (!_txCur || getCurrencyCode(_txCur) === getCurrencyCode(_grpCur)) {
+                    _fxRow.classList.add('hidden');
+                    return;
+                }
+                _fxRow.classList.remove('hidden');
+                // Use stored rate first, then fetch
+                let _rate = Number(tx.fx_rate ?? tx.fxRate ?? NaN);
+                if (!Number.isFinite(_rate) || _rate <= 0) {
+                    _rate = getCachedFx(_txCur, _grpCur);
+                }
+                if (!Number.isFinite(_rate) || _rate <= 0) {
+                    _fxText.textContent = 'Taux de change en cours de chargement…';
+                    try {
+                        _rate = await fetchFxRate(_txCur, _grpCur);
+                        if (_rate) setCachedFx(_txCur, _grpCur, _rate);
+                    } catch(e) {}
+                }
+                if (Number.isFinite(_rate) && _rate > 0) {
+                    const _rateDisp = _rate.toFixed(4);
+                    const _eqAmt   = (Number(tx.amount_original ?? tx.amount ?? 0) * _rate).toFixed(2).replace('.', ',');
+                    _fxText.innerHTML = `1 ${_txCur} = ${_rateDisp} ${_grpCur} &nbsp;·&nbsp; <strong>${(Number(tx.amount_original ?? tx.amount ?? 0)).toFixed(2).replace('.', ',')} ${_txCur} = ${_eqAmt} ${_grpCur}</strong>`;
+                } else {
+                    _fxText.textContent = `Taux ${_txCur}→${_grpCur} indisponible`;
+                }
+            })();
+
             modal.classList.remove('hidden');
             // Use inline style for transform — keeps full control away from Tailwind classes
             content.style.transition = 'none';
@@ -5133,23 +5423,51 @@
             setTimeout(() => openEditTxModal(), 40);
         }
 
+        function refreshModalEditFxRate() {
+            const tx = state.editingTransaction;
+            if (!tx) return;
+            const _txCur = tx.currency_original || tx.currency;
+            const _projId = tx.project || state.config.activeProject || 'Principal';
+            const _grpCur = getProjectCurrency(_projId);
+            if (!_txCur || !_grpCur) return;
+            const _fxText = document.getElementById('modal-edit-fx-text');
+            if (_fxText) _fxText.textContent = 'Actualisation…';
+            fetchFxRate(_txCur, _grpCur).then(r => {
+                if (!r) { if (_fxText) _fxText.textContent = 'Taux indisponible'; return; }
+                setCachedFx(_txCur, _grpCur, r);
+                tx.fx_rate = r; tx.fxRate = r;
+                const _rateDisp = r.toFixed(4);
+                const _eqAmt = (Number(tx.amount_original ?? tx.amount ?? 0) * r).toFixed(2).replace('.', ',');
+                if (_fxText) _fxText.innerHTML = `1 ${_txCur} = ${_rateDisp} ${_grpCur} &nbsp;·&nbsp; <strong>${(Number(tx.amount_original ?? tx.amount ?? 0)).toFixed(2).replace('.', ',')} ${_txCur} = ${_eqAmt} ${_grpCur}</strong>`;
+            }).catch(() => { if (_fxText) _fxText.textContent = 'Erreur réseau'; });
+        }
+
         function closeEditTxModal() {
-            const modal = document.getElementById('edit-tx-modal');
+            const modal   = document.getElementById('edit-tx-modal');
             const content = document.getElementById('edit-tx-modal-content');
-            // Fast blur removal — swap to no-blur instantly so it doesn't linger
-            modal.classList.remove('backdrop-blur-sm');
-            modal.style.transition = 'opacity 0.15s ease-out';
-            modal.classList.add('opacity-0');
-            content.style.transition = 'transform 0.22s cubic-bezier(0.32,0.72,0,1)';
+            if (!modal || !content) return;
+            // Clean up swipe listeners
+            if (content._swipeCleanup) content._swipeCleanup();
+            // Slide panel down
+            content.style.transition = 'transform 0.32s cubic-bezier(0.4,0,1,1)';
             content.style.transform  = 'translateY(110%)';
+            // Fade backdrop
+            modal.style.transition       = 'opacity 0.28s ease, background-color 0.28s ease';
+            modal.style.opacity          = '0';
+            modal.style.backgroundColor  = 'rgba(0,0,0,0)';
             setTimeout(() => {
                 modal.classList.add('hidden');
-                modal.classList.add('backdrop-blur-sm'); // restore for next open
+                modal.classList.add('opacity-0');
+                modal.classList.remove('backdrop-blur-sm');
                 modal.style.transition = '';
+                modal.style.opacity = '';
+                modal.style.backgroundColor = '';
                 content.style.transition = 'none';
                 content.style.transform  = 'translateY(110%)';
+                // Restore blur for next open
+                requestAnimationFrame(() => modal.classList.add('backdrop-blur-sm'));
                 state.editingTransaction = null;
-            }, 200);
+            }, 330);
         }
 
         function selectModalEditType(type, updateSplit = true) {
@@ -6017,12 +6335,25 @@
                 `;
             }).join('');
 
+            // Slide-up animation
             sheet.classList.remove('hidden');
+            sheet.style.pointerEvents = '';
+            const _panel = document.getElementById('project-picker-panel');
+            requestAnimationFrame(() => {
+                sheet.style.opacity = '1';
+                if (_panel) _panel.style.transform = 'translateY(0)';
+            });
         }
         function closeProjectPicker() {
             _projectPickerExpenseId = null;
             const sheet = document.getElementById('project-picker-sheet');
-            if (sheet) sheet.classList.add('hidden');
+            const _panel = document.getElementById('project-picker-panel');
+            if (!sheet) return;
+            // Animate out then hide
+            sheet.style.opacity = '0';
+            sheet.style.pointerEvents = 'none';
+            if (_panel) _panel.style.transform = 'translateY(100%)';
+            setTimeout(() => sheet.classList.add('hidden'), 320);
         }
         async function confirmProjectPick(projectId) {
             const id = _projectPickerExpenseId;
@@ -7096,48 +7427,50 @@
             if (_hst) { _hst.style.opacity = '0'; _hst.textContent = ''; }
             if (viewName === 'saisie') { openSaisieSheet(); return; }
             if (viewName === 'inbox') { requestBadgePermission(); }
-            // Clear multi-select when leaving history view
             if (typeof clearMultiSelect === 'function') { try { clearMultiSelect(); } catch(_e) {} }
 
-            ['view-accueil', 'view-groupes', 'view-analyse', 'view-activite', 'view-profile'].forEach(v => {
-                const el = document.getElementById(v); 
-                if(el) {
-                    el.classList.add('hidden');
-                    el.classList.remove('active-tab');
+            const FADE_MS = 220; // must match .tab-view transition duration
+            const views = ['view-accueil','view-groupes','view-analyse','view-activite','view-profile'];
+
+            // Step 1: fade out current active view
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                if (!el) return;
+                if (el.classList.contains('active-tab')) {
+                    el.classList.remove('active-tab'); // triggers CSS fade-out
+                    setTimeout(() => el.classList.add('hidden'), FADE_MS);
                 }
             });
-            ['nav-btn-accueil', 'nav-btn-groupes', 'nav-btn-activite', 'nav-btn-profile'].forEach(v => {
-                const el = document.getElementById(v);
-                if(el) el.classList.remove('active');
-            });
-            const tEl = document.getElementById(`view-${viewName}`); 
-            if(tEl) {
-                tEl.classList.remove('hidden');
-                setTimeout(() => {
-                    tEl.classList.add('active-tab');
-                }, 50);
-            }
-            // Reset scroll position
-            const scrollArea = document.getElementById('main-scroll-area');
-            if (scrollArea) scrollArea.scrollTo({ top: 0 });
-            // Balance strip only on Inbox
-            const strip = document.getElementById('balance-strip');
-            // balance strip removed
-            const tBtn = document.getElementById(`nav-btn-${viewName}`); 
-            if(tBtn) tBtn.classList.add('active');
-            // Hide the header project selector on Accueil — the projects strip handles switching there
+
+            // Step 2: render content (while old view fades out)
             setHeaderProjectSelectorVisible(viewName !== 'accueil');
-            if (viewName === 'analyse') { populateYearFilterOptions(); renderAnalyseTab(); }
-            if (viewName === 'groupes') { renderGroupesTab(); }
-            if (viewName === 'activite') { renderActivite(); }
-            if (viewName === 'profile') { try { renderProfile(); } catch(e) { console.error('[switchView] renderProfile failed:', e); } }
-            if (viewName === 'accueil') { window._inboxAnimated = false; window._inboxAnimating = false; try { renderAccueil(); } catch(e) { console.error('[switchView] Accueil render failed:', e); } }
-            // Hide the Accueil header pill on any non-Accueil tab
-            if (viewName !== 'accueil') {
-                setHeaderPillVisible(false);
-            }
-            // Refresh the global balance strip (shows on every tab except Accueil)
-            try { renderBalanceStrip(); } catch(e) { console.error('[switchView] strip render failed:', e); }
+            if (viewName !== 'accueil') setHeaderPillVisible(false);
+            if (viewName === 'analyse')  { try { populateYearFilterOptions(); renderAnalyseTab(); } catch(e) {} }
+            if (viewName === 'groupes')  { try { renderGroupesTab(); } catch(e) {} }
+            if (viewName === 'activite') { try { renderActivite(); } catch(e) {} }
+            if (viewName === 'profile')  { try { renderProfile(); } catch(e) {} }
+            if (viewName === 'accueil')  { window._inboxAnimated = false; window._inboxAnimating = false; try { renderAccueil(); } catch(e) {} }
+            try { renderBalanceStrip(); } catch(e) {}
+
+            // Step 3: after fade-out completes, show new view
+            setTimeout(() => {
+                const scrollArea = document.getElementById('main-scroll-area');
+                if (scrollArea) scrollArea.scrollTo({ top: 0, behavior: 'instant' });
+
+                const tEl = document.getElementById('view-' + viewName);
+                if (tEl) {
+                    tEl.classList.remove('hidden');
+                    // Force a reflow so the browser registers opacity:0 before we add active-tab
+                    tEl.offsetHeight;
+                    tEl.classList.add('active-tab'); // triggers CSS fade-in
+                }
+            }, FADE_MS);
+
+            // Nav button
+            ['nav-btn-accueil','nav-btn-groupes','nav-btn-activite','nav-btn-profile'].forEach(v => {
+                const el = document.getElementById(v);
+                if (el) el.classList.toggle('active', v === 'nav-btn-' + viewName);
+            });
         }
 
         // Smooth show/hide for the header's center-slot children. Both children share the
@@ -7219,8 +7552,31 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const diff = d2 - d1;
                 const b1 = diff > 0 ? `+${diff.toFixed(2)}` : diff < 0 ? `${diff.toFixed(2)}` : `0.00`;
                 const b2 = diff < 0 ? `+${Math.abs(diff).toFixed(2)}` : diff > 0 ? `-${diff.toFixed(2)}` : `0.00`;
+                // Pre-warm FX cache for hero card home-currency hint
+                (() => {
+                    const _ac = getActiveCurrency(), _hc = getHomeCurrency();
+                    if (getCurrencyCode(_ac) !== getCurrencyCode(_hc) && !getCachedFx(_ac, _hc)) {
+                        fetchFxRate(_ac, _hc).then(r => { if (r) { setCachedFx(_ac, _hc, r); try { updateUI(); } catch(e){} } }).catch(()=>{});
+                    }
+                })();
 
                 safeSetInnerText('dashboard-total', `${totalGroup.toFixed(2)} ${getActiveCurrency()}`);
+                (() => {
+                    const _dtEl = document.getElementById('dashboard-total');
+                    if (!_dtEl) return;
+                    let _dtSub = document.getElementById('dashboard-total-home');
+                    const _dtCur = getActiveCurrency(), _dtHCur = getHomeCurrency();
+                    const _dtRate = getCachedFx(_dtCur, _dtHCur);
+                    if (_dtRate && getCurrencyCode(_dtCur) !== getCurrencyCode(_dtHCur) && totalGroup > 0) {
+                        if (!_dtSub) {
+                            _dtSub = document.createElement('p');
+                            _dtSub.id = 'dashboard-total-home';
+                            _dtSub.className = 'text-[11px] text-slate-400 mt-0.5 tabular-nums';
+                            _dtEl.after(_dtSub);
+                        }
+                        _dtSub.textContent = `≈ ${(totalGroup * _dtRate).toFixed(2).replace('.',',')} ${_dtHCur}`;
+                    } else if (_dtSub) { _dtSub.textContent = ''; }
+                })();
                 safeSetInnerText('dash-name-p1', state.config.p1Name);
                 safeSetInnerText('dash-name-p2', state.config.p2Name);
                 
@@ -7246,14 +7602,21 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const iOwe = devicePayer === 'p1' ? diff < 0 : diff > 0;
                 const theyOwe = devicePayer === 'p1' ? diff > 0 : diff < 0;
                 const owedAmount = Math.abs(diff).toFixed(2);
+                // Dual-currency: group currency primary + home hint in brackets
+                const _heroCur     = getActiveCurrency();
+                const _heroHome    = getHomeCurrency();
+                const _heroRate    = getCachedFx(_heroCur, _heroHome);
+                const _heroHomeStr = (_heroRate && getCurrencyCode(_heroCur) !== getCurrencyCode(_heroHome))
+                    ? ` (≈ ${(Math.abs(diff) * _heroRate).toFixed(2).replace('.',',')} ${_heroHome})`
+                    : '';
                 if (Math.abs(diff) < 0.01) {
                     sDisp.innerText = "Tout est équilibré !"; sDisp.className = "text-xs font-bold text-indigo-600";
                     if(sBtn) sBtn.classList.add('hidden');
                 } else if (theyOwe) {
-                    sDisp.innerText = `${theirName} te doit ${owedAmount} ${getActiveCurrency()}`; sDisp.className = "text-xs font-bold text-emerald-600";
+                    sDisp.innerText = `${theirName} te doit ${owedAmount} ${_heroCur}${_heroHomeStr}`; sDisp.className = "text-xs font-bold text-emerald-600";
                     if(sBtn) sBtn.classList.remove('hidden');
                 } else {
-                    sDisp.innerText = `Tu dois ${owedAmount} ${getActiveCurrency()} à ${theirName}`; sDisp.className = "text-xs font-bold text-rose-500";
+                    sDisp.innerText = `Tu dois ${owedAmount} ${_heroCur}${_heroHomeStr} à ${theirName}`; sDisp.className = "text-xs font-bold text-rose-500";
                     if(sBtn) sBtn.classList.remove('hidden');
                 }
                 } // end if(sDisp)
@@ -9168,16 +9531,28 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const otherKey = me === 'p1' ? 'p2' : 'p1';
             const otherName = otherKey === 'p1' ? state.config.p1Name : state.config.p2Name;
             const projects = state.config.projects || ['Principal'];
+            const homeCur = getHomeCurrency();
             const rows = [];
             projects.forEach(p => {
-                const pid = (typeof p === 'string') ? p : (p.id || p.name);
+                const pid   = (typeof p === 'string') ? p : (p.id || p.name);
                 const pname = (typeof p === 'string') ? p : (p.name || p.id);
                 const picon = (typeof p === 'string') ? (pid === 'Principal' ? '🏡' : '📂') : (p.icon || '📂');
+                const projCur = getProjectCurrency(pid);
                 const { d1, d2 } = computeProjectBalance(pid);
-                // From "me"'s perspective: positive = other owes me
                 const net = me === 'p1' ? (d2 - d1) : (d1 - d2);
-                if (Math.abs(net) < 0.01) return; // skip balanced projects
-                rows.push({ projectId: pid, projectName: pname, projectIcon: picon, otherName, amount: net });
+                if (Math.abs(net) < 0.01) return;
+                // Convert to home currency for global total
+                const fxToHome = getCachedFx(projCur, homeCur);
+                const netHome = (fxToHome && getCurrencyCode(projCur) !== getCurrencyCode(homeCur))
+                    ? net * fxToHome : net;
+                rows.push({
+                    projectId: pid, projectName: pname, projectIcon: picon, otherName,
+                    amount: net,           // in project currency
+                    amountHome: netHome,   // in home currency
+                    projectCurrency: projCur,
+                    homeCurrency: homeCur,
+                    sameAsHome: getCurrencyCode(projCur) === getCurrencyCode(homeCur),
+                });
             });
             return rows;
         }
@@ -9185,9 +9560,20 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         function renderAccueilHero() {
             // Update hero card with balance info
             try {
+                // Pre-warm FX cache for all projects that differ from home currency
+                const _homePre = getHomeCurrency();
+                (state.config.projects || []).forEach(p => {
+                    const _pid = typeof p === 'string' ? p : (p.id || p.name);
+                    const _pc  = getProjectCurrency(_pid);
+                    if (getCurrencyCode(_pc) !== getCurrencyCode(_homePre) && !getCachedFx(_pc, _homePre)) {
+                        fetchFxRate(_pc, _homePre).then(r => {
+                            if (r) { setCachedFx(_pc, _homePre, r); try { renderAccueilHero(); } catch(e){} }
+                        }).catch(() => {});
+                    }
+                });
                 const rows = computePersonalBalances();
-                const total = rows.reduce((s, r) => s + r.amount, 0);
-                const cur = getActiveCurrency();
+                const total = rows.reduce((s, r) => s + r.amountHome, 0);
+                const cur = getHomeCurrency();
                 const hasExpenses = (state.expenses || []).some(e => e.approved !== false);
                 const amountEl = document.getElementById('accueil-hero-amount');
                 const labelEl = document.getElementById('accueil-hero-label');
@@ -9209,14 +9595,25 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     if (labelEl) labelEl.textContent = 'Les comptes sont équilibrés';
                     if (toggleBtn) toggleBtn.classList.add('hidden');
                 } else {
+                    // Global total in home currency (sum of all projects converted to home)
+                    const homeCur = getHomeCurrency();
+                    const globalTotal = rows.reduce((s, r) => s + r.amountHome, 0);
                     if (amountEl) {
-                        amountEl.textContent = `${Math.abs(total).toFixed(2).replace('.', ',')} ${cur}`;
+                        amountEl.textContent = `${Math.abs(globalTotal).toFixed(2).replace('.', ',')} ${homeCur}`;
                         amountEl.className = 'text-3xl font-black leading-none mb-1';
                     }
-                    if (labelEl) labelEl.textContent = total > 0 ? 'On te doit' : 'Tu dois';
+                    if (labelEl) labelEl.textContent = globalTotal > 0 ? 'On te doit' : 'Tu dois';
                     if (toggleBtn && rows.length > 0) toggleBtn.classList.remove('hidden');
                     if (detailsEl) {
-                        detailsEl.innerHTML = rows.slice(0, 5).map(r => `<div class="flex items-center justify-between text-sm"><span class="text-white/80">${r.projectIcon || ''} ${r.projectName || 'Principal'}</span><span class="font-bold ${r.amount > 0 ? '' : 'text-rose-300'}">${r.amount > 0 ? '+' : ''}${r.amount.toFixed(2).replace('.', ',')} ${cur}</span></div>`).join('');
+                        detailsEl.innerHTML = rows.slice(0, 5).map(r => {
+                            const sign = r.amount > 0 ? '+' : '';
+                            const projAmt = `${sign}${r.amount.toFixed(2).replace('.', ',')} ${r.projectCurrency}`;
+                            // Only show home hint if project currency differs from home
+                            const homeHint = !r.sameAsHome
+                                ? ` <span class="text-white/50 font-normal text-xs">(≈ ${(r.amount > 0 ? '+' : '')}${r.amountHome.toFixed(2).replace('.', ',')} ${r.homeCurrency})</span>`
+                                : '';
+                            return `<div class="flex items-center justify-between text-sm"><span class="text-white/80">${r.projectIcon || ''} ${r.projectName || 'Principal'}</span><span class="font-bold ${r.amount > 0 ? '' : 'text-rose-300'}">${projAmt}${homeHint}</span></div>`;
+                        }).join('');
                     }
                 }
             } catch(e) { console.error('[Hero]', e); }
@@ -9550,7 +9947,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                     <h3 class="font-semibold text-slate-900 truncate">${pname}</h3>
                                     <i class="fa-solid fa-chevron-right text-xs text-slate-400 shrink-0"></i>
                                 </div>
-                                <p class="text-xs text-slate-500">${ptype} · ${memberCount} membres${(typeof p==='object'&&(p.start_date||p.startDate))?' · 📅 '+new Date(p.start_date||p.startDate).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+((p.end_date||p.endDate)?' → '+new Date(p.end_date||p.endDate).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):''):''}${(typeof p==='object'&&(p.city||p.location))?' · 📍'+(p.city||p.location):''}</p>
+                                <p class="text-xs text-slate-500">${ptype} · ${memberCount} membres${(typeof p==='object'&&(p.start_date||p.startDate))?' · 📅 '+new Date(p.start_date||p.startDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+((p.end_date||p.endDate)?' → '+new Date(p.end_date||p.endDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):''):''}${(typeof p==='object'&&(p.city||p.location))?' · 📍'+(p.city||p.location):''}</p>
                             </div>
                         </div>
                         <div class="mt-4 flex items-end justify-between">
@@ -9748,13 +10145,30 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const isImbalanced = Math.abs(net) >= 0.01;
                 const projCur = getProjectCurrency(pid);
                 const _baseForBracket = _globalCur;
+                // Pre-warm FX cache for home hint in group cards
+                (() => {
+                    const _hc = getHomeCurrency();
+                    const _pc = getProjectCurrency(pid);
+                    if (getCurrencyCode(_pc) !== getCurrencyCode(_hc) && !getCachedFx(_pc, _hc)) {
+                        fetchFxRate(_pc, _hc).then(r => { if (r) { setCachedFx(_pc, _hc, r); try { renderView('groupes'); } catch(e) {} } }).catch(() => {});
+                    }
+                })();
                 const balanceLabel = !isImbalanced ? 'Tout est réglé' : (net > 0 ? 'On te doit' : 'Tu dois');
                 const balanceValue = isImbalanced ? (() => {
                     const v = Math.abs(net).toFixed(2).replace('.', ',');
-                    const base = _baseForBracket !== projCur
-                        ? ` <span class="text-slate-400 font-normal text-[0.8em]">(${_baseForBracket})</span>`
-                        : '';
-                    return `${v} ${projCur}${base}`;
+                    const _homeCurCard = getHomeCurrency();
+                    const _projCurCode = getCurrencyCode(projCur);
+                    const _homeCurCode = getCurrencyCode(_homeCurCard);
+                    if (_projCurCode !== _homeCurCode) {
+                        // Show home amount in brackets
+                        const _fxRate = getCachedFx(projCur, _homeCurCard);
+                        const _homeAmt = _fxRate ? (Math.abs(net) * _fxRate).toFixed(2).replace('.', ',') : null;
+                        const _hint = _homeAmt
+                            ? ` <span class="text-slate-400 font-normal text-[0.8em]">(${_homeAmt} ${_homeCurCard})</span>`
+                            : ` <span class="text-slate-400 font-normal text-[0.8em]">(${_homeCurCard})</span>`;
+                        return `${v} ${projCur}${_hint}`;
+                    }
+                    return `${v} ${projCur}`;
                 })() : '';
                 const balanceColor = !isImbalanced ? 'text-slate-500' : (net > 0 ? 'text-emerald-600' : 'text-rose-500');
                 const pending = state.expenses.filter(e =>
@@ -9774,7 +10188,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                     <h3 class="font-semibold text-slate-900 truncate">${pname}</h3>
                                     <div class="flex items-center gap-1 shrink-0"><button onclick="event.stopPropagation(); editGroupFromList('${safePid}')" class="size-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-500 active:scale-90 transition-all"><i class="fa-solid fa-pen text-[9px]"></i></button><i class="fa-solid fa-chevron-right text-xs text-slate-400"></i></div>
                                 </div>
-                                <p class="text-xs text-slate-500">${ptype} · ${memberCount} membres${(typeof p==='object'&&(p.start_date||p.startDate))?' · 📅 '+new Date(p.start_date||p.startDate).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+((p.end_date||p.endDate)?' → '+new Date(p.end_date||p.endDate).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):''):''}${(typeof p==='object'&&(p.city||p.location))?' · 📍'+(p.city||p.location):''}</p>
+                                <p class="text-xs text-slate-500">${ptype} · ${memberCount} membres${(typeof p==='object'&&(p.start_date||p.startDate))?' · 📅 '+new Date(p.start_date||p.startDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+((p.end_date||p.endDate)?' → '+new Date(p.end_date||p.endDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):''):''}${(typeof p==='object'&&(p.city||p.location))?' · 📍'+(p.city||p.location):''}</p>
                             </div>
                         </div>
                         <div class="mt-4 flex items-end justify-between">
@@ -9814,7 +10228,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         function renderProfile() {
             var me = getDevicePayer();
             var p1Name = state.config.p1Name || 'Toi';
-            var p2Name = state.config.p2Name || 'Partenaire';
+            var p2Name = (state.config.p2Name && state.config.p2Name !== '…') ? state.config.p2Name : 'Partenaire';
             var myName = me === 'p1' ? p1Name : p2Name;
             var otherName = me === 'p1' ? p2Name : p1Name;
             var currency = getActiveCurrency();
@@ -10182,7 +10596,14 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             state.currentSaisieProject = _gdpPanelOpen
                 ? window._gdpProjectId
                 : (state.config.activeProject || null);
-            sheet.classList.add('sheet-open');
+            // Clear any leftover inline transform from previous swipe-dismiss
+            if (sheet._swipeCleanup) { sheet._swipeCleanup(); sheet._swipeCleanup = null; }
+            sheet.style.transition = 'none';
+            sheet.style.transform  = '';
+            requestAnimationFrame(() => {
+                sheet.style.transition = '';
+                sheet.classList.add('sheet-open');
+            });
             resetTxCurrency(); // reset first, then rAF overrides with project currency
             requestAnimationFrame(() => {
                 // view-saisie is the scrollable inner div (sheet has overflow:hidden)
@@ -10211,27 +10632,45 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             });
             if (backdrop) backdrop.classList.add('sheet-open');
             haptic('light');
-            // Swipe-down to close
-            let _sy = 0;
-            const onTS = e => { _sy = e.touches[0].clientY; };
-            const onTE = e => {
-                if (e.changedTouches[0].clientY - _sy > 80) closeSaisieSheet();
-            };
-            sheet._swipeStart = onTS;
-            sheet._swipeEnd   = onTE;
-            sheet.addEventListener('touchstart', onTS, { passive: true });
-            sheet.addEventListener('touchend',   onTE, { passive: true });
+            // Unified swipe-to-dismiss (direction-aware rubber-band)
+            attachSwipeToDismiss(sheet, closeSaisieSheet);
         }
 
+        function resetSaisieForm() {
+            // Clear amount
+            const amtEl = document.getElementById('amount');
+            if (amtEl) { amtEl.value = ''; }
+            // Clear description
+            const descEl = document.getElementById('description');
+            if (descEl) { descEl.value = ''; }
+            // Reset description suggestions/state
+            try { handleDescriptionTyping(''); } catch(e) {}
+            // Reset split summary display
+            try { updateSplitSummaryRows(); } catch(e) {}
+            // Reset tx type to 'depense' if not already
+            try {
+                if (state.txType !== 'depense') {
+                    state.txType = 'depense';
+                    document.querySelectorAll('[data-tx-type]').forEach(b => {
+                        b.classList.toggle('active', b.dataset.txType === 'depense');
+                    });
+                }
+            } catch(e) {}
+            // Reset FX currency
+            try { resetTxCurrency(); } catch(e) {}
+        }
         function closeSaisieSheet() {
             state.currentSaisieProject = null; // reset group picker for next open
             const sheet    = document.getElementById('saisie-sheet');
             const backdrop = document.getElementById('saisie-backdrop');
             if (!sheet) return;
+            if (sheet._swipeCleanup) { sheet._swipeCleanup(); sheet._swipeCleanup = null; }
             sheet.classList.remove('sheet-open');
             if (backdrop) backdrop.classList.remove('sheet-open');
             if (sheet._swipeStart) sheet.removeEventListener('touchstart', sheet._swipeStart);
             if (sheet._swipeEnd)   sheet.removeEventListener('touchend',   sheet._swipeEnd);
+            // Clear form so next open starts fresh
+            try { resetSaisieForm(); } catch(e) {}
         }
         // ─────────────────────────────────────────────────────────
 
@@ -10838,8 +11277,19 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             renderGdpMemberList(proj);
             sheet.classList.remove('hidden');
             sheet.style.display = '';
-            // Trigger open animation
-            requestAnimationFrame(() => { sheet.classList.add('gss-open'); });
+            const _gssPanel = document.getElementById('gss-panel');
+            // Clear any leftover inline styles from previous close/swipe
+            if (_gssPanel) {
+                _gssPanel.style.transition = 'none';
+                _gssPanel.style.transform  = '';
+            }
+            // Let CSS transition handle open animation
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (_gssPanel) _gssPanel.style.transition = '';
+                sheet.classList.add('gss-open');
+            }));
+            // Attach rubber-band swipe-to-dismiss
+            if (_gssPanel) attachSwipeToDismiss(_gssPanel, closeGroupSettingsSheet);
         }
 
         function renderGdpMemberList(proj) {
@@ -10905,11 +11355,39 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             syncProjectToSupabase(proj);
         }
 
+        // Auto-format date input as DD/MM/YYYY while typing
+        function fmtDateInput(el) {
+            let v = el.value.replace(/\D/g, '').slice(0, 8);
+            if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+            if (v.length >= 6) v = v.slice(0,5) + '/' + v.slice(5);
+            el.value = v;
+        }
+
         function closeGroupSettingsSheet() {
             const sheet = document.getElementById('group-settings-sheet');
             if (!sheet) return;
-            sheet.classList.remove('gss-open');
-            setTimeout(() => { sheet.classList.add('hidden'); }, 460);
+            const _panel = document.getElementById('gss-panel');
+            // Clean up swipe listeners
+            if (_panel?._swipeCleanup) _panel._swipeCleanup();
+            // Drive slide-down purely via inline style — keep gss-open to avoid
+            // CSS competing with our inline animation
+            if (_panel) {
+                _panel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,1,1)';
+                _panel.style.transform  = 'translateY(110%)';
+            }
+            // Fade backdrop
+            sheet.style.transition = 'background-color 0.28s ease, backdrop-filter 0.28s ease';
+            sheet.style.backgroundColor = 'rgba(0,0,0,0)';
+            sheet.style.backdropFilter = 'blur(0px)';
+            // After animation: hide sheet and reset all inline styles
+            setTimeout(() => {
+                sheet.classList.remove('gss-open');
+                sheet.classList.add('hidden');
+                sheet.style.backgroundColor = '';
+                sheet.style.backdropFilter = '';
+                sheet.style.transition = '';
+                if (_panel) { _panel.style.transition = ''; _panel.style.transform = ''; }
+            }, 330);
         }
 
         function selectGdpType(type) {
@@ -11230,25 +11708,131 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
         }
 
         // Convert an expense amount to the group's currency using stored fxRate/amountLocal
-        function toGroupCurrency(exp, groupCur) {
-            const eCur = exp.currency || groupCur;
-            if (eCur === groupCur) return exp.amount || 0;
-            // amountLocal is already in group currency if fxRate was applied at save time
-            if (exp.amountLocal != null) return exp.amountLocal;
-            if (exp.fxRate) return (exp.amount || 0) * exp.fxRate;
-            // Fallback: use cached live rate fetched on panel open (e.g. Powens imports)
-            const _homeCur = state.config.globalCurrency || '€';
-            const _cachedKey = eCur + '_' + groupCur;          // e.g. '€_£'
-            const _reverseKey = groupCur + '_' + eCur;         // e.g. '£_€' stored as home→group
-            const _rates = window._gdpFxRates || {};
-            // Try: stored as homeCur→groupCur (how we cache it)
-            const _homeToGroup = _rates[_homeCur + '_' + groupCur];
-            if (_homeToGroup && eCur === _homeCur) return (exp.amount || 0) * _homeToGroup;
-            // Generic lookup
-            if (_rates[_cachedKey]) return (exp.amount || 0) * _rates[_cachedKey];
-            // No rate available — return raw amount
-            return exp.amount || 0;
+        
+        function getCurrencyCode(cur) {
+            if (!cur) return null;
+            const map = {'€':'EUR','£':'GBP','$':'USD','CHF':'CHF','¥':'JPY','kr':'SEK'};
+            return map[cur] || cur.toUpperCase();
         }
+
+        function getProjectCurrency(projectId) {
+            const p = (state.config.projects || []).find(x => (x.id || x.name || x) === projectId);
+            return (p && p.currency) || state.config.currency || state.config.globalCurrency || '€';
+        }
+
+        function getHomeCurrency() {
+            return state.config.homeCurrency || state.config.globalCurrency || state.config.currency || '€';
+        }
+
+        function fxPairKey(fromCur, toCur) {
+            return `${getCurrencyCode(fromCur)}_${getCurrencyCode(toCur)}`;
+        }
+
+        function getCachedFx(fromCur, toCur) {
+            const cache = window._gdpFxRates || {};
+            return cache[fxPairKey(fromCur, toCur)] ?? null;
+        }
+
+        function setCachedFx(fromCur, toCur, rate) {
+            window._gdpFxRates = window._gdpFxRates || {};
+            window._gdpFxRates[fxPairKey(fromCur, toCur)] = rate;
+        }
+
+        async function fetchFxRate(fromCur, toCur) {
+            const from = getCurrencyCode(fromCur);
+            const to = getCurrencyCode(toCur);
+            if (!from || !to || from === to) return 1;
+            const urls = [
+                `https://api.frankfurter.app/latest?from=${from}&to=${to}`,
+                `https://open.er-api.com/v6/latest/${from}`
+            ];
+            for (const url of urls) {
+                try {
+                    const r = await fetch(url);
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    const rate = data?.rates?.[to] ?? data?.conversion_rates?.[to];
+                    if (rate) return rate;
+                } catch (e) {}
+            }
+            return null;
+        }
+
+        async function normalizeExpenseFx(exp, projectCurrency, homeCurrency) {
+            const originalCurrency = exp.currency_original || exp.currency || projectCurrency;
+            const originalAmount = Number(exp.amount_original ?? exp.amount ?? 0);
+            const groupCurrency = projectCurrency;
+            let fxRate = Number(exp.fx_rate ?? exp.fxRate ?? NaN);
+            if (!Number.isFinite(fxRate) || fxRate <= 0) {
+                if (getCurrencyCode(originalCurrency) === getCurrencyCode(groupCurrency)) fxRate = 1;
+                else fxRate = await fetchFxRate(originalCurrency, groupCurrency);
+            }
+            const amountGroup = fxRate ? originalAmount * fxRate : originalAmount;
+            let amountHome = null;
+            const home = homeCurrency;
+            if (home) {
+                if (getCurrencyCode(groupCurrency) === getCurrencyCode(home)) amountHome = amountGroup;
+                else {
+                    let homeRate = getCachedFx(groupCurrency, home);
+                    if (!homeRate) homeRate = await fetchFxRate(groupCurrency, home);
+                    if (homeRate) amountHome = amountGroup * homeRate;
+                }
+            }
+            return {
+                ...exp,
+                amount_original: originalAmount,
+                currency_original: originalCurrency,
+                amount_group: amountGroup,
+                currency_group: groupCurrency,
+                fx_rate: fxRate,
+                amount_home: amountHome,
+                currency_home: home,
+            };
+        }
+
+        // ── formatExpenseAmt: dual-currency display for expense lists ──
+        function formatExpenseAmt(e, groupCur) {
+            const _hCur  = getHomeCurrency();
+            const _gCur  = groupCur;
+            const _oCur  = e.currency_original || e.currency || _gCur;
+            const _oAmt  = Number(e.amount_original ?? e.amount ?? 0);
+            const _gAmt  = Number(e.amount_group ?? e.amountLocal ?? (e.fxRate ? e.amount * e.fxRate : e.amount) ?? 0);
+            const _hAmt  = Number.isFinite(Number(e.amount_home)) ? Number(e.amount_home) : null;
+            const _gCode = getCurrencyCode(_gCur);
+            const _hCode = _hCur ? getCurrencyCode(_hCur) : null;
+            const _oCode = getCurrencyCode(_oCur);
+            const _fmtN  = v => Number(v).toFixed(2).replace('.', ',');
+            // Home-currency group → no brackets ever
+            if (_gCode === _hCode) return _fmtN(_gAmt) + ' ' + _gCur;
+            // Foreign-currency group → always show both currencies
+            const _hAmtFmt = _hAmt != null ? _fmtN(_hAmt)
+                : (() => { const _r = getCachedFx(_gCur, _hCur); return _r ? _fmtN(_gAmt * _r) : null; })();
+            const _hHint = _hAmtFmt
+                ? " <span class='text-[10px] font-normal text-slate-400'>(" + _hAmtFmt + " " + _hCur + ")</span>"
+                : '';
+            if (_oCode === _hCode) {
+                // Entered in home → home primary, group in brackets
+                return _fmtN(_oAmt) + ' ' + _oCur +
+                    " <span class='text-[10px] font-normal text-slate-400'>(" + _fmtN(_gAmt) + ' ' + _gCur + ")</span>";
+            }
+            // Entered in group or 3rd currency → group primary, home in brackets
+            return _fmtN(_gAmt) + ' ' + _gCur + _hHint;
+        }
+
+        function toGroupCurrency(exp, groupCur) {
+            const originalAmount = Number(exp.amount_original ?? exp.amount ?? 0);
+            const originalCurrency = exp.currency_original || exp.currency || groupCur;
+            const gc = groupCur || exp.currency_group || getProjectCurrency(exp.project);
+            if (getCurrencyCode(originalCurrency) === getCurrencyCode(gc)) {
+                return Number(exp.amount_group ?? originalAmount);
+            }
+            if (Number.isFinite(Number(exp.amount_group))) return Number(exp.amount_group);
+            if (Number.isFinite(Number(exp.fx_rate))) return originalAmount * Number(exp.fx_rate);
+            const cached = getCachedFx(originalCurrency, gc);
+            if (cached) return originalAmount * cached;
+            return originalAmount;
+        }
+
 
         function renderGroupOverview() {
             const pid = window._gdpProjectId;
@@ -11262,6 +11846,15 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const _rgoProj = (state.config.projects || []).find(p => (p.id || p.name || p) === pid);
             const currency = (_rgoProj && _rgoProj.currency) || getActiveCurrency();
             const me = getDevicePayer();
+            // Pre-warm FX cache so home-currency subtitles render immediately
+            (() => {
+                const _hc = getHomeCurrency();
+                if (getCurrencyCode(currency) !== getCurrencyCode(_hc)) {
+                    if (!getCachedFx(currency, _hc)) {
+                        fetchFxRate(currency, _hc).then(r => { if (r) { setCachedFx(currency, _hc, r); renderGroupOverview(projectId); } }).catch(()=>{});
+                    }
+                }
+            })();
 
             document.getElementById('gdp-icon').textContent = picon;
             document.getElementById('gdp-name').textContent = pname;
@@ -11272,7 +11865,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const typeParts = [];
             if (ptype && TYPE_LABELS[ptype]) typeParts.push(TYPE_LABELS[ptype]);
             if (_loc) typeParts.push(_loc);
-            if (_sd && _ed) { const fmt = d => new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); typeParts.push(fmt(_sd) + '–' + fmt(_ed)); }
+            if (_sd && _ed) { const fmt = d => new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}); typeParts.push(fmt(_sd) + '–' + fmt(_ed)); }
             document.getElementById('gdp-type-badge').textContent = typeParts.join(' · ');
 
             // Member avatar stack
@@ -11316,23 +11909,38 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             if (_stTotal) {
                 animateCounter(_stTotal, total, { fmt: v => Math.abs(v).toFixed(2).replace('.',','), suffix: ' ' + currency });
                 // Show home-currency equivalent below total if group currency differs
-                const _homeCur2 = state.config.globalCurrency || '€';
-                const _h2g2 = (window._gdpFxRates || {})[_homeCur2 + '_' + currency];
+                // Total home-currency subtitle
+                const _grpHomeCur = getHomeCurrency();
+                const _grpHomeRate = getCachedFx(currency, _grpHomeCur);
                 let _totalHomeEl = document.getElementById('gdp-stat-total-home');
-                if (currency !== _homeCur2 && _h2g2 && total > 0) {
-                    const _homeTotal = (total / _h2g2).toFixed(2).replace('.',',');
+                if (_grpHomeRate && getCurrencyCode(currency) !== getCurrencyCode(_grpHomeCur) && total > 0) {
+                    const _homeTotal = (total * _grpHomeRate).toFixed(2).replace('.',',');
                     if (!_totalHomeEl) {
                         _totalHomeEl = document.createElement('p');
                         _totalHomeEl.id = 'gdp-stat-total-home';
-                        _totalHomeEl.className = 'text-[11px] text-slate-400 mt-0.5';
-                        _stTotal.parentNode.appendChild(_totalHomeEl);
+                        _totalHomeEl.className = 'text-[11px] text-slate-400 mt-0.5 tabular-nums';
+                        _stTotal.after(_totalHomeEl);
                     }
-                    _totalHomeEl.textContent = `≈ ${_homeTotal} ${_homeCur2}`;
+                    _totalHomeEl.textContent = `≈ ${_homeTotal} ${_grpHomeCur}`;
                 } else if (_totalHomeEl) { _totalHomeEl.textContent = ''; }
             }
             if (_stOwed) {
                 animateCounter(_stOwed, Math.abs(net), { fmt: v => Math.abs(v).toFixed(2).replace('.',','), suffix: ' ' + currency });
                 _stOwed.className = 'mt-1 text-xl font-bold tabular-nums ' + (net > 0.01 ? 'text-emerald-600' : net < -0.01 ? 'text-rose-500' : 'text-slate-900');
+                // Home-currency subtitle under owed amount
+                const _owedHomeCur  = getHomeCurrency();
+                const _owedHomeRate = getCachedFx(currency, _owedHomeCur);
+                let _owedHomeEl = document.getElementById('gdp-stat-owed-home');
+                if (_owedHomeRate && getCurrencyCode(currency) !== getCurrencyCode(_owedHomeCur) && Math.abs(net) > 0.01) {
+                    const _owedHomeAmt = (Math.abs(net) * _owedHomeRate).toFixed(2).replace('.',',');
+                    if (!_owedHomeEl) {
+                        _owedHomeEl = document.createElement('p');
+                        _owedHomeEl.id = 'gdp-stat-owed-home';
+                        _owedHomeEl.className = 'text-[11px] text-slate-400 mt-0.5 tabular-nums';
+                        _stOwed.after(_owedHomeEl);
+                    }
+                    _owedHomeEl.textContent = `≈ ${_owedHomeAmt} ${_owedHomeCur}`;
+                } else if (_owedHomeEl) { _owedHomeEl.textContent = ''; }
             }
             if (_stOwedLbl) _stOwedLbl.textContent = net > 0.01 ? 'On te doit' : net < -0.01 ? 'Tu dois' : 'Solde';
 
@@ -11378,7 +11986,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                             <p class="text-sm font-semibold text-slate-900 truncate">${e.description||'Sans description'}</p>
                             <p class="text-xs text-slate-500">${new Date(e.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})} · <span class="${pColor} font-semibold">${pName}</span></p>
                         </div>
-                        <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${(e.amount||0).toFixed(2).replace('.',',')} ${e.currency || currency}${e.fxRate && e.amountLocal ? ` <span class='text-[10px] font-normal text-slate-400'>(${(e.amountLocal||0).toFixed(2)} ${currency})</span>` : ''}</span>
+                        <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${formatExpenseAmt(e, currency)}</span>
                     </div>`;}).join('');
         }
 
@@ -11469,31 +12077,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                 <p class="text-sm font-semibold text-slate-900 truncate">${e.description||'Sans description'}</p>
                                 <p class="text-xs text-slate-500">${new Date(e.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})} · ${typeLabel} · <span class="${payerColor} font-semibold">${payerName}</span></p>
                             </div>
-                            <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${(() => {
-                                        const _eCur   = e.currency || currency;
-                                        const _amt    = (e.amount||0).toFixed(2).replace('.',',');
-                                        const _homeCur = state.config.globalCurrency || '€';
-                                        const _rates   = window._gdpFxRates || {};
-                                        const _h2g     = _rates[_homeCur + '_' + currency]; // e.g. €→£ rate
-                                        if (_eCur !== currency) {
-                                            // Foreign (e.g. EUR) expense in GBP group → show GBP first, EUR in brackets
-                                            const _conv = e.amountLocal != null ? e.amountLocal
-                                                        : e.fxRate     ? (e.amount||0) * e.fxRate
-                                                        : _h2g && _eCur === _homeCur ? (e.amount||0) * _h2g
-                                                        : null;
-                                            if (_conv != null) {
-                                                return `${_conv.toFixed(2).replace('.',',')} ${currency} <span class='text-[10px] font-normal text-slate-400'>(${_amt} ${_eCur})</span>`;
-                                            }
-                                            return `${_amt} ${_eCur}`;
-                                        }
-                                        // Same currency as group (e.g. GBP in GBP group)
-                                        // Show home-currency equivalent in brackets if different
-                                        if (currency !== _homeCur && _h2g) {
-                                            const _homeAmt = ((e.amount||0) / _h2g).toFixed(2).replace('.',',');
-                                            return `${_amt} ${currency} <span class='text-[10px] font-normal text-slate-400'>(${_homeAmt} ${_homeCur})</span>`;
-                                        }
-                                        return `${_amt} ${_eCur}`;
-                                    })()}</span>
+                            <span class="text-sm font-bold text-slate-900 tabular-nums shrink-0">${formatExpenseAmt(e, currency)}</span>
                         </button>
                     </div>`;
                 }).join('');
@@ -11788,6 +12372,9 @@ function renderGroupAnalyse() {
                     lbl.textContent = p ? `${p.icon||'📂'} ${p.name||current}` : current;
                 }
             }
+            // Sync currency display after project selection
+            try { updateCurrencyUI(); } catch(e) {}
+            try { updateSplitSummaryRows(); } catch(e) {}
         }
 
         function toggleSaisieGroupDropdown() {
@@ -12039,6 +12626,113 @@ function renderGroupAnalyse() {
         }
 
 
+
+        // ── First-launch entry animation ──
+        function animateAppEntry() {
+            const shell  = document.getElementById('app-shell');
+            const header = document.getElementById('app-header');
+            const hero   = document.getElementById('accueil-hero');
+            const nav    = document.getElementById('app-nav');
+            const suggs  = document.getElementById('accueil-suggestions-list');
+
+            // Collect all cards now (before app-launching is removed)
+            const cards = suggs ? Array.from(suggs.children) : [];
+
+            // Step 1: Set animation delays and ADD all classes BEFORE removing
+            // app-launching. This ensures no frame where element is visible
+            // without an animation holding it at opacity:0.
+            const setAnim = (el, cls, delayMs) => {
+                if (!el) return;
+                el.style.animationDelay = delayMs + 'ms';
+                el.classList.add(cls);
+            };
+
+            setAnim(header, 'launch-header', 0);
+            setAnim(hero,   'launch-hero',   120);
+            setAnim(nav,    'launch-nav',     160);
+
+            // Base delay for cards: after hero is well established
+            const cardBaseDelay = 420;
+            cards.forEach((card, i) => setAnim(card, 'launch-card', cardBaseDelay + i * 110));
+
+            // Step 2: NOW remove app-launching — animation fill-mode:both holds
+            // elements at their from-state (opacity:0) during delay, so no flash.
+            if (shell) shell.classList.remove('app-launching');
+
+            // Step 3: Clean up animation classes after each animates out
+            const cleanup = (el, cls) => {
+                if (!el) return;
+                el.addEventListener('animationend', () => {
+                    el.classList.remove(cls);
+                    el.style.animationDelay = '';
+                }, { once: true });
+            };
+
+            cleanup(header, 'launch-header');
+            cleanup(hero,   'launch-hero');
+            cleanup(nav,    'launch-nav');
+            cards.forEach(card => cleanup(card, 'launch-card'));
+
+            // Step 4: Balance number roll — starts after hero animation is well underway
+            setTimeout(() => animateBalanceRoll(), cardBaseDelay + 80);
+        }
+        function animateBalanceRoll() {
+            const el = document.getElementById('accueil-hero-amount');
+            if (!el) return;
+
+            // Capture the fully rendered text before we start mutating it
+            const rawText = el.textContent || el.innerText || '';
+            if (!rawText.trim()) return;
+
+            // Robust number extraction: find the first run of digits (with sign, spaces, dots, commas)
+            // Works for: "124,50 €", "-12.30€", "€ 0,00", "1 234,50 €"
+            const numMatch = rawText.match(/([\-]?[\d][\d\s \.,]*)/);
+            if (!numMatch) return;
+
+            const numStr    = numMatch[1].replace(/[\s ]/g, '').replace(',', '.');
+            const target    = parseFloat(numStr);
+            if (isNaN(target) || Math.abs(target) < 0.005) return;
+
+            const numStart  = rawText.indexOf(numMatch[1]);
+            const prefix    = rawText.slice(0, numStart);
+            const suffix    = rawText.slice(numStart + numMatch[1].length);
+            const decimals  = (numStr.split('.')[1] || '').length;
+
+            // Fade in from opacity:0 (held by app-launching) using double-rAF
+            el.style.opacity = '0';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.style.transition = 'opacity 0.35s ease';
+                    el.style.opacity = '1';
+                });
+            });
+
+            const duration = 1200; // ms — slow and purposeful
+            const startTime = performance.now();
+            const easeOut = t => 1 - Math.pow(1 - t, 4); // quartic — fast start, long tail
+
+            function tick(now) {
+                const p   = Math.min((now - startTime) / duration, 1);
+                const val = target * easeOut(p);
+
+                // Format matching original locale
+                const formatted = Math.abs(val).toLocaleString('fr-FR', {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals,
+                });
+                el.textContent = prefix + (val < 0 ? '-' : '') + formatted + suffix;
+
+                if (p < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    el.textContent = rawText; // snap to exact original
+                    el.style.transition = '';
+                    el.style.opacity = '';
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
 </script>
 
     <!-- ═══ GROUP DETAIL PANEL ═══ -->
@@ -12233,12 +12927,17 @@ function renderGroupAnalyse() {
     </div>
 
 <!-- ═══ GROUP SETTINGS SHEET ═══ -->
-    <div id="group-settings-sheet" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm" onclick="if(event.target===this)closeGroupSettingsSheet()">
-        <div class="bg-white rounded-t-3xl w-full max-w-md p-5 space-y-4 shadow-2xl" style="padding-bottom:max(1.5rem,env(safe-area-inset-bottom))">
-            <div class="flex items-center justify-between mb-1">
+    <div id="group-settings-sheet" class="hidden fixed inset-x-0 bottom-0 top-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm" onclick="if(event.target===this)closeGroupSettingsSheet()">
+        <div id="gss-panel" class="bg-white rounded-t-3xl w-full min-w-0 shadow-2xl overflow-hidden flex flex-col" style="max-height:90vh;box-sizing:border-box">
+            <!-- Drag handle -->
+            <div class="flex justify-center pt-3 pb-1 shrink-0"><div class="w-10 h-1 bg-slate-300 rounded-full"></div></div>
+            <!-- Sticky header -->
+            <div class="flex items-center justify-between px-5 py-3 shrink-0 border-b border-slate-100">
                 <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider">Paramètres du groupe</h3>
                 <button type="button" onclick="event.stopPropagation();closeGroupSettingsSheet()" class="size-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 active:scale-90"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
+            <!-- Scrollable content -->
+            <div class="px-5 pb-5 space-y-4 min-w-0 overflow-x-hidden flex-1 overflow-y-auto" style="padding-bottom:max(2rem,env(safe-area-inset-bottom))">
 
             <!-- Name + icon -->
             <div>
@@ -12269,15 +12968,19 @@ function renderGroupAnalyse() {
                 </div>
             </div>
 
-            <!-- Date & Location -->
-            <div class="grid grid-cols-2 gap-3">
+            <!-- Date & Location — stacked vertically to avoid iOS date input overflow -->
+            <div class="space-y-3">
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Date début</label>
-                    <input type="date" id="gdp-edit-start-date" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm text-slate-700 focus:outline-none focus:border-indigo-400">
+                    <div class="relative w-full overflow-hidden rounded-xl" style="contain:layout">
+                        <input type="date" id="gdp-edit-start-date" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm text-slate-700 focus:outline-none focus:border-indigo-400" style="-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;max-width:100%;min-width:0">
+                    </div>
                 </div>
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Date fin</label>
-                    <input type="date" id="gdp-edit-end-date" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm text-slate-700 focus:outline-none focus:border-indigo-400">
+                    <div class="relative w-full overflow-hidden rounded-xl" style="contain:layout">
+                        <input type="date" id="gdp-edit-end-date" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm text-slate-700 focus:outline-none focus:border-indigo-400" style="-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;max-width:100%;min-width:0">
+                    </div>
                 </div>
             </div>
             <div>
@@ -12301,8 +13004,9 @@ function renderGroupAnalyse() {
             <button onclick="deleteCurrentGroup()" class="w-full py-2.5 rounded-2xl border-2 border-rose-200 text-rose-500 font-bold text-sm active:scale-[0.98] transition-transform">
                 <i class="fa-solid fa-trash-can mr-2"></i>Supprimer ce groupe
             </button>
-        </div>
-    </div>
+        </div><!-- /scrollable content -->
+    </div><!-- /gss-panel -->
+    </div><!-- /group-settings-sheet -->
 
 </body>
 </html>
