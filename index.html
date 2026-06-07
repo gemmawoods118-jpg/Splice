@@ -890,7 +890,7 @@
         /* fill-mode: both — holds from-state during delay, to-state after end */
         .launch-header { animation: launchFadeDown 0.6s  cubic-bezier(0.22,1,0.36,1) both; }
         .launch-hero   { animation: launchScaleUp  0.65s cubic-bezier(0.22,1,0.36,1) both; }
-        .launch-nav    { animation: launchSlideUp  0.6s  cubic-bezier(0.22,1,0.36,1) both; }
+        /* launch-nav handled by launchNavIn below */
         .launch-card   { animation: launchCardIn   0.6s  cubic-bezier(0.22,1,0.36,1) both; }
 
         
@@ -908,7 +908,7 @@
         }
         .app-launching #app-nav {
             opacity: 0 !important;
-            transform: translateY(20px) !important;
+            transform: translateX(-50%) translateY(20px) !important;
             transition: none !important;
         }
         .app-launching #accueil-suggestions-list > * {
@@ -922,7 +922,14 @@
 
         </style>
 </head>
-<body class="text-slate-800 antialiased flex justify-center min-h-screen bg-[#FAFAF9]" style="font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif; overscroll-behavior: none; overflow: hidden;">
+<body class="text-slat
+        @keyframes launchNavIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(24px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .launch-nav { animation: launchNavIn 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+
+        e-800 antialiased flex justify-center min-h-screen bg-[#FAFAF9]" style="font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif; overscroll-behavior: none; overflow: hidden;">
     <div id="status-bar-cover"></div>
 
     <!-- Splash Screen (Animation de bienvenue avec chargement progressif) -->
@@ -1078,8 +1085,7 @@
     </div>
 
     <div id="app-shell" class="w-full max-w-md bg-[#FAFAF9] flex flex-col justify-between shadow-2xl relative border-x border-slate-200/60" style="height: 100vh; height: 100dvh; overflow: hidden;">
-    <!-- Reveal the shell immediately — splash is already painted above, so this frame is safe -->
-    <script>document.getElementById('app-shell').style.visibility='visible';</script>
+    <!-- Shell revealed by splash timeout -->
         
         <!-- Header & Projects -->
         <!-- 3-column grid (1fr auto 1fr) gives perfect center alignment regardless of
@@ -3467,35 +3473,26 @@
             try { generateAndSetAppIcon(); } catch(e) { console.warn('[initApp] icon:', e); }
             try { initPullToRefresh(); } catch(e) { console.warn('[initApp] ptr:', e); }
 
-            // Primary splash dismiss at 2.1s
+            // Primary splash dismiss at 3s (normal boot only — login handled separately)
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
-                    splash.style.transition = 'opacity 0.22s ease';
+                    splash.style.transition = 'opacity 0.3s ease';
                     splash.style.opacity = '0';
                     setTimeout(() => {
                         splash.style.display = 'none';
-                        // If this is a fresh login, trigger the entry animation now
-                        if (window._pendingLaunchAnimation) {
-                            window._pendingLaunchAnimation = false;
-                            // Delay slightly so renderAccueilSuggestions() (200ms below) runs first
-                            setTimeout(() => {
-                                try { animateAppEntry(); } catch(e) { console.warn('[launch anim]', e); }
-                            }, 280);
-                        }
-                    }, 260);
+                        const _shell = document.getElementById('app-shell');
+                        if (_shell) _shell.style.visibility = 'visible';
+                        try { updateUI(); } catch(e) {}
+                        setTimeout(() => {
+                            window._inboxAnimated = false;
+                            window._inboxAnimating = false;
+                            try { renderAccueilSuggestions(); } catch(e) {}
+                        }, 200);
+                    }, 320);
                 }
-                // Defensive: re-render Accueil when the splash drops, in case earlier
-                // render attempts ran before fetchSupabaseExpenses populated state.
-                // First render without animation
-                try { updateUI(); } catch(e) {}
-                // Then trigger animation after splash fully gone
-                setTimeout(() => {
-                    window._inboxAnimated = false;
-                    window._inboxAnimating = false;
-                    try { renderAccueilSuggestions(); } catch(e) {}
-                }, 200);
             }, 3000);
+
             // Hard failsafe: force-hide at 3.5s no matter what
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
@@ -3861,15 +3858,29 @@
             localStorage.setItem('us_device_payer', payer);
             localStorage.setItem('us_sb_session', JSON.stringify(session));
             const screen = document.getElementById('login-screen');
-            if (screen) { screen.style.transition = 'opacity 0.3s ease'; screen.style.opacity = '0'; setTimeout(() => screen.classList.add('hidden'), 320); }
+            if (screen) {
+                screen.style.transition = 'opacity 0.35s ease';
+                screen.style.opacity = '0';
+                setTimeout(() => screen.classList.add('hidden'), 360);
+            }
+
+            // 1. Pre-hide animated elements BEFORE shell becomes visible (no flash)
             const _shell = document.getElementById('app-shell');
-            // Pre-hide elements so they're invisible when shell becomes visible.
-            // animateAppEntry() will remove this class after the splash screen is gone.
             if (_shell) _shell.classList.add('app-launching');
+
+            // 2. Make shell visible (content is hidden by app-launching CSS)
             if (_shell) _shell.style.visibility = 'visible';
-            // Signal that we want the launch animation to run after splash clears
-            window._pendingLaunchAnimation = true;
+
+            // 3. Boot the app — this synchronously renders accueil content
             initApp();
+
+            // 4. After 2 frames (browser has painted hidden content), animate in
+            //    500ms gives initApp time to call updateUI/renderAccueil synchronously
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                setTimeout(() => {
+                    try { animateAppEntry(); } catch(e) { console.warn('[entry anim]', e); }
+                }, 500);
+            }));
         }
 
         // Called instead of initApp() on every cold start.
