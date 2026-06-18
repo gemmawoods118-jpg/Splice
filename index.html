@@ -3660,9 +3660,11 @@
         async function syncPowensConnectionsFromServer() {
             if (!state.supabaseClient) return;
             try {
+                const _myPayer = getDevicePayer();
                 const { data: rows, error } = await state.supabaseClient
                     .from('powens_connections')
-                    .select('payer, powens_user_id, user_token, connection_id, bank_name, last_sync, expired');
+                    .select('payer, powens_user_id, user_token, connection_id, bank_name, last_sync, expired')
+                    .eq('payer', _myPayer); // only load THIS device's own bank connection
                 if (error || !rows || rows.length === 0) return;
                 const serverConns = rows.map(r => ({
                     payer: r.payer, powensUserId: r.powens_user_id, userToken: r.user_token,
@@ -13308,7 +13310,14 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 if (!_nameEl) return;
 
                 // 1. Name — always update immediately
-                const fn = (state.config && state.config.p1Name) ? state.config.p1Name : '';
+                // Use the current device's own name — handles p1, p2, and extra members
+                const fn = (typeof getMyName === 'function' ? getMyName() : null)
+                    || (() => {
+                        const _slot = localStorage.getItem('us_device_payer') || 'p1';
+                        if (_slot === 'p2') return (state.config && state.config.p2Name) || '';
+                        if (_slot === 'p1') return (state.config && state.config.p1Name) || '';
+                        return (state.config && state.config.memberNames && state.config.memberNames[_slot]) || '';
+                    })();
                 // Preserve wave-landed emoji if already in DOM
                 const _waveLanded = _nameEl.querySelector('.wave-landed');
                 _nameEl.innerHTML = fn
@@ -13327,12 +13336,27 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 let msg;
                 if (pending > 0) {
                     msg = pending > 1
-                        ? _p([`${pending} dépenses t’attendent — on s’en occupe ?`, `Du boulot : ${pending} à passer en revue.`, `${pending} dépenses partagées à valider.`])
-                        : _p([`Une dépense t’attend. Vite fait 👌`, `J’en ai repéré une — à toi de jouer.`, `Une dépense partagée à confirmer.`]);
+                        ? _p([
+                            `${pending} nouvelles dépenses à valider — ça prend 10 secondes 👆`,
+                            `${pending} dépenses repérées ! Glisse pour valider ou ignorer.`,
+                            `J'ai capté ${pending} dépenses pour toi — jette un œil 👀`,
+                            `${pending} transactions partagées t'attendent. Go !`,
+                          ])
+                        : _p([
+                            `J'ai repéré une dépense — glisse pour la valider 👌`,
+                            `Une transaction à confirmer. Rapide comme l'éclair ⚡`,
+                            `Une dépense partagée vient d'arriver — à toi de jouer !`,
+                            `Petit truc à valider, ça prend 2 secondes 😊`,
+                          ]);
                 } else if (!hasExp) {
-                    msg = _p([`Ajoutez votre première dépense partagée 🙌`, `Tout commence ici — ajoutez une dépense.`, `Prêt à partager vos premières dépenses ?`]);
+                    msg = _p([
+                        `Bienvenue ! Ajoute ta première dépense partagée 🙌`,
+                        `C'est parti ! Commence par ajouter une dépense ensemble.`,
+                        `Prêt·e à partager les comptes ? Ajoute ta première dépense ✨`,
+                        `Hello ! Appuie sur + pour ta première dépense partagée.`,
+                    ]);
                 } else {
-                    msg = _p([`Les comptes sont bons 🎉 Rien à faire.`, `Tout est carré — profites-en.`, `Équilibre parfait ✨`]);
+                    msg = _p([`Tout est à jour — les comptes sont nickel 🎉`, `Rien à faire pour l'instant. Profitez-en ! ☀️`, `Équilibre parfait — tu peux souffler ✨`, `Les comptes sont bons, tout roule 👍`, `Journée tranquille — aucune dépense en attente 🙌`]);
                 }
                 _greetStatusPicked = true;
                 window._greetMsg = msg;
