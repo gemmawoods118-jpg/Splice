@@ -5009,7 +5009,24 @@
                         ({ data, error } = await _tmp.auth.signInWithPassword({ email, password }));
                     }
                     if (error || !data?.session) {
-                        if (errEl) { errEl.className = 'text-xs text-rose-500 hidden mt-1'; errEl.textContent = isSignup ? 'Erreur lors de la création du compte.' : 'Email ou mot de passe incorrect.'; errEl.classList.remove('hidden'); }
+                        let errMsg = '';
+                        if (isSignup) {
+                            const code = error?.code || error?.message || '';
+                            if (code.includes('already') || code.includes('registered') || code.includes('duplicate')) {
+                                errMsg = 'Cet email est déjà utilisé. Essayez de vous connecter à la place.';
+                            } else if (code.includes('invalid') && code.includes('email')) {
+                                errMsg = 'Adresse email invalide.';
+                            } else if (code.includes('password')) {
+                                errMsg = 'Mot de passe trop faible (minimum 6 caractères).';
+                            } else if (code.includes('rate') || code.includes('limit')) {
+                                errMsg = 'Trop de tentatives, réessayez dans quelques minutes.';
+                            } else {
+                                errMsg = error?.message ? `Erreur : ${error.message}` : 'Erreur lors de la création du compte.';
+                            }
+                        } else {
+                            errMsg = 'Email ou mot de passe incorrect.';
+                        }
+                        if (errEl) { errEl.className = 'text-xs text-rose-500 mt-1'; errEl.textContent = errMsg; errEl.classList.remove('hidden'); }
                         if (btn) { btn.disabled = false; btn.textContent = isSignup ? 'Créer mon compte →' : 'Se connecter →'; }
                         return;
                     }
