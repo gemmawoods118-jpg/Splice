@@ -3801,11 +3801,22 @@
         }
 
         function loadPowensConnections() {
-            try { return JSON.parse(sessionStorage.getItem('us_powens') || '[]'); }
-            catch(e) { return []; }
+            try {
+                // sessionStorage clears on tab/app close — fall back to localStorage copy
+                const ss = sessionStorage.getItem('us_powens');
+                if (ss) return JSON.parse(ss);
+                const ls = localStorage.getItem('us_powens_persist');
+                if (ls) {
+                    // Restore into sessionStorage so the rest of the app works normally
+                    sessionStorage.setItem('us_powens', ls);
+                    return JSON.parse(ls);
+                }
+                return [];
+            } catch(e) { return []; }
         }
         function savePowensConnections(arr) {
             sessionStorage.setItem('us_powens', JSON.stringify(arr));
+            localStorage.setItem('us_powens_persist', JSON.stringify(arr)); // persist across sessions
             if (!state.supabaseClient) return;
             arr.forEach(conn => {
                 state.supabaseClient
@@ -5033,17 +5044,30 @@
             if (!session || !user) { showToast('Session expirée, recommencez'); loginShowStep(1); return; }
             const meta  = user.app_metadata || {};
             const uMeta = user.user_metadata || {};
-            const payer = meta.payer || 'p1';
+            const payer   = meta.payer   || null; // null = not yet assigned to a group slot
+            const groupId = meta.group_id || null;
             const name  = uMeta.name || meta.name || user.email.split('@')[0];
-            const existing = (() => { try { return JSON.parse(localStorage.getItem('us_tracker_config')) || {}; } catch(e) { return {}; } })();
-            // Phase 1: user types only their own name.
-            // Partner name comes from existing config (set on their device) or a placeholder.
             const myName = window._loginDisplayName || document.getElementById('login-p1')?.value.trim() || name;
+
+            // Only inherit existing localStorage config if this user belongs to the same group.
+            // A brand-new or unlinked account must start with a clean slate so they don't
+            // inherit another user's projects, groups, and expenses.
+            const rawExisting = (() => { try { return JSON.parse(localStorage.getItem('us_tracker_config')) || {}; } catch(e) { return {}; } })();
+            const existingGroupId = rawExisting.groupId || rawExisting.group_id || localStorage.getItem('us_group_id');
+            // Trust the JWT: if this user has a group_id in their token, they're a known member.
+            // Preserve config if: (a) group IDs match, OR (b) user has a JWT group_id and
+            // there's no conflicting existing group (fresh device for a known user).
+            const isSameGroup = groupId
+                ? (!existingGroupId || groupId === existingGroupId) // JWT group = no existing OR same group
+                : false; // no JWT group_id = truly new unlinked account → clean slate
+            const existing = isSameGroup ? rawExisting : {}; // fresh slate for new/unlinked users
+
+            // Build name slots
             const p1Name = payer === 'p1' ? myName : (existing.p1Name || '');
             const p2Name = payer === 'p2' ? myName : (existing.p2Name || '');
-            // For extra members (m2, m3...) store their name in memberNames map
             const memberNames = { ...(existing.memberNames || {}) };
             if (payer && payer !== 'p1' && payer !== 'p2' && myName) memberNames[payer] = myName;
+
             const cfg = {
                 ...existing,
                 p1Name, p2Name, memberNames,
@@ -5051,8 +5075,11 @@
                 sbKey:          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a3lvaXl0dW9hemZnYW1mbWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjIyNjEsImV4cCI6MjA5NDkzODI2MX0.ZADlx_r7M34OSkL-pgr4qD2pGof8rng8jw680r_6Oqc',
                 currency:       existing.currency       || '€',
                 globalCurrency: existing.globalCurrency || '€',
-                projects:       existing.projects       || [{ id: 'Principal', name: 'Principal', icon: '' }],
-                activeProject:  existing.activeProject  || 'Principal',
+                // New unlinked users get a clean project list — no inherited groups
+                projects:       isSameGroup ? (existing.projects || [{ id: 'Principal', name: 'Principal', icon: '' }])
+                                            : [{ id: 'Principal', name: 'Principal', icon: '' }],
+                activeProject:  isSameGroup ? (existing.activeProject || 'Principal') : 'Principal',
+                groupId:        groupId || existing.groupId || null,
             };
             localStorage.setItem('us_tracker_config', JSON.stringify(cfg));
             localStorage.setItem('us_device_payer', payer);
@@ -5126,8 +5153,10 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                     const cfg = (() => { try { return JSON.parse(localStorage.getItem('us_tracker_config')) || {}; } catch(e) { return {}; } })();
                     const p1El = document.getElementById('login-p1');
                     const p2El = document.getElementById('login-p2');
-                    if (p1El && cfg.p1Name) p1El.value = cfg.p1Name;
-                    if (p2El && cfg.p2Name) p2El.value = cfg.p2Name;
+                    // Do NOT pre-fill from existing config — a new user on this device
+                    // should type their own name, not see the previous user's name.
+                    if (p1El) p1El.value = '';
+                    if (p2El) p2El.value = '';
                     loginShowStep(0);
                     const appShell = document.getElementById('app-shell');
                     if (appShell) appShell.style.visibility = 'hidden';
