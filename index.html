@@ -6603,10 +6603,15 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             else { block.classList.add('hidden'); if(inputField) inputField.value = ''; }
         }
 
-        function syncCategoriesToSupabase() {
+        async function syncCategoriesToSupabase() {
             if (!state.supabaseClient || !navigator.onLine) return;
+            // Must be authenticated — anon users cannot write to categories (RLS)
+            const { data: { session } } = await state.supabaseClient.auth.getSession();
+            if (!session) return;
+            const groupId = state.config?.groupId || localStorage.getItem('us_group_id');
+            if (!groupId) return; // No group yet — nothing to sync
             const cats = (state.categories || []).map(c => ({
-                group_id: 'global',
+                group_id: groupId,
                 label:    c.label,
                 icon:     c.icon  || 'fa-tag',
                 color:    c.color || 'text-slate-600',
@@ -6632,7 +6637,8 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             saveConfig();
             // Sync to Supabase so partner sees the new category
             if (state.supabaseClient && navigator.onLine) {
-                var _groupId = state.groupId || (state.config && state.config.groupId) || 'default';
+                var _groupId = (state.config && state.config.groupId) || localStorage.getItem('us_group_id');
+                if (!_groupId) return; // No group_id — skip sync to avoid RLS error
                 state.supabaseClient.from('categories').upsert(
                     { group_id: _groupId, label: formattedName, icon: 'fa-tag', color: 'text-violet-600' },
                     { onConflict: 'group_id,label' }
