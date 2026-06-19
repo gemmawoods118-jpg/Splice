@@ -1485,7 +1485,8 @@
                                 <input type="text" inputmode="decimal" id="fx-rate-input"
                                     class="flex-1 min-w-0 bg-white border border-amber-300 rounded-lg py-1.5 px-2.5 text-amber-900 font-bold focus:outline-none focus:border-amber-500 text-sm tabular-nums"
                                     placeholder="0.0000"
-                                    oninput="window._txFxRate = parseFloat(this.value.replace(',','.')) || null; updateSplitSummaryRows();">
+                                    oninput="const _fxParsed = parseFloat(this.value.replace(',','.'));
+                            window._txFxRate = (_fxParsed > 0 && _fxParsed <= 100000) ? _fxParsed : null; updateSplitSummaryRows();">
                                 <span id="fx-rate-to-sym" class="font-black text-amber-800 shrink-0 text-sm">€</span>
                             </div>
                             <p class="text-amber-500 mt-1.5 leading-tight">Modifiable selon le taux de votre banque</p>
@@ -2510,6 +2511,15 @@
             toast.classList.remove('toast-exit');
             void toast.offsetWidth; // force reflow so animation restarts cleanly
             toast.classList.add('toast-enter');
+            // Adjust bottom: lower when a modal/sheet is open (nav bar is hidden)
+            const _modalOpen = document.getElementById('saisie-sheet')?.classList.contains('sheet-open')
+                || !document.getElementById('edit-tx-modal')?.classList.contains('hidden')
+                || !document.getElementById('new-group-sheet-modal')?.classList.contains('hidden')
+                || document.getElementById('suggestion-detail-view')?.style.display !== 'none'
+                    && !!document.getElementById('suggestion-detail-view');
+            toast.style.bottom = _modalOpen
+                ? 'max(24px, env(safe-area-inset-bottom))'
+                : 'max(100px, calc(80px + env(safe-area-inset-bottom)))';
             _toastTimer = setTimeout(() => {
                 toast.classList.remove('toast-enter');
                 toast.classList.add('toast-exit');
@@ -2532,6 +2542,59 @@
             if (member && member.payer) localStorage.setItem('us_device_payer', member.payer);
         }
         function clearGroupIdentity(pid) { localStorage.removeItem(_IDENTITY_KEY(pid)); }
+
+        function safeEval(expr) {
+            // Whitelist: digits, operators, parens, dots only — already enforced by caller
+            // Use recursive descent instead of new Function() for safety
+            try {
+                var tokens = expr.match(/\d+\.?\d*|[+\-*\/()]/g);
+                if (!tokens) return NaN;
+                var pos = 0;
+                function peek() { return tokens[pos]; }
+                function consume() { return tokens[pos++]; }
+                function parseExpr() {
+                    var left = parseTerm();
+                    while (peek() === '+' || peek() === '-') {
+                        var op = consume();
+                        var right = parseTerm();
+                        left = op === '+' ? left + right : left - right;
+                    }
+                    return left;
+                }
+                function parseTerm() {
+                    var left = parseFactor();
+                    while (peek() === '*' || peek() === '/') {
+                        var op = consume();
+                        var right = parseFactor();
+                        if (op === '/') { if (right === 0) return NaN; left = left / right; }
+                        else left = left * right;
+                    }
+                    return left;
+                }
+                function parseFactor() {
+                    if (peek() === '(') {
+                        consume();
+                        var val = parseExpr();
+                        consume(); // ')'
+                        return val;
+                    }
+                    if (peek() === '-') { consume(); return -parseFactor(); }
+                    return parseFloat(consume());
+                }
+                var result = parseExpr();
+                return isFinite(result) ? result : NaN;
+            } catch(e) { return NaN; }
+        }
+
+        function escHtml(s) {
+            if (s == null) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         function getDevicePayer() {
             // If the active project has a per-device identity (from invite flow), use its payer slot
@@ -2853,6 +2916,17 @@
                     }
                 } catch(_e) {}
                 try { await fetchSupabaseExpenses(); updateUI(); } catch(e) {}
+                // ── Seed group membership for RLS (deferred — must not block render/demo) ──
+                setTimeout(async () => {
+                    try {
+                        const _gid = state.config.groupId || localStorage.getItem('us_group_id');
+                        const _uid = (await state.supabaseClient.auth.getUser())?.data?.user?.id;
+                        if (_gid && _uid) {
+                            await state.supabaseClient.from('group_members')
+                                .upsert({ user_id: _uid, group_id: _gid }, { onConflict: 'user_id,group_id', ignoreDuplicates: true });
+                        }
+                    } catch(_e) { console.warn('[RLS] group_members seed failed:', _e?.message); }
+                }, 5000); // defer 5s — well after demo animation completes
             })();
         }
 
@@ -2876,7 +2950,8 @@
                             });
                             if (!error && data?.session) {
                                 session = data.session;
-                                localStorage.setItem('us_sb_session', JSON.stringify(data.session));
+                                /* TODO: migrate to in-memory / httpOnly cookie — localStorage session is XSS-vulnerable */
+            localStorage.setItem('us_sb_session', JSON.stringify(data.session));
                             }
                         } catch(_) {}
                     }
@@ -3406,7 +3481,9 @@
             if (!state.supabaseClient || !navigator.onLine) return;
             try { await flushPendingDeletes(); } catch(e) {}
             try {
-                const { data, error } = await state.supabaseClient.from('expenses').select('*').order('created_at', { ascending: false });
+                const { data, error } = await state.supabaseClient.from('expenses').select('*')
+                .eq('group_id', state.config.groupId || localStorage.getItem('us_group_id'))
+                .order('created_at', { ascending: false });
                 if (!error && data) {
                     // Also pull latest dismissed powens ids
                     try { fetchDismissedPowensIds(); } catch(e) {}
@@ -3424,7 +3501,8 @@
                         }
                     } catch(e) {}
                     try {
-                        const { data: projRows } = await state.supabaseClient.from('projects').select('*');
+                        const { data: projRows } = await state.supabaseClient.from('projects').select('*')
+                        .eq('group_id', state.config.groupId || localStorage.getItem('us_group_id'));
                         if (projRows && projRows.length > 0) {
                             // Also seed group_id from projects if still missing
                             if (!state.config.groupId) {
@@ -3696,7 +3774,7 @@
                     else if (!local[li].userToken && sc.userToken) { local[li] = sc; changed = true; }
                 }
                 if (changed) {
-                    localStorage.setItem('us_powens', JSON.stringify(local));
+                    sessionStorage.setItem('us_powens', JSON.stringify(local));
                     try { renderPowensSettings(); } catch(e) {}
                     showToast('✓ Compte bancaire restauré');
                     setTimeout(() => syncAllPowensAccounts(), 1000);
@@ -3705,11 +3783,11 @@
         }
 
         function loadPowensConnections() {
-            try { return JSON.parse(localStorage.getItem('us_powens') || '[]'); }
+            try { return JSON.parse(sessionStorage.getItem('us_powens') || '[]'); }
             catch(e) { return []; }
         }
         function savePowensConnections(arr) {
-            localStorage.setItem('us_powens', JSON.stringify(arr));
+            sessionStorage.setItem('us_powens', JSON.stringify(arr));
             if (!state.supabaseClient) return;
             arr.forEach(conn => {
                 state.supabaseClient
@@ -4168,39 +4246,55 @@
 
         // ===== INVITE LINK / JOIN FLOW =====
 
-        function getInviteUrl(pid) {
-            const base = window.location.origin + window.location.pathname;
-            return base + '?join=' + encodeURIComponent(pid);
-        }
+        // Token from the current invite URL — kept for the claim step
+        let _joinModalToken = null;
 
-        function copyInviteLink(pid) {
+        async function copyInviteLink(pid) {
             if (!pid) pid = window._gdpProjectId;
             if (!pid) return;
-            const url = getInviteUrl(pid);
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(() => {
-                    showToast('🔗 Lien copié !');
-                    haptic('success');
-                }).catch(() => { prompt('Copie ce lien :', url); });
-            } else {
-                prompt('Copie ce lien :', url);
+            if (!state.supabaseClient) { showToast('⚠️ Supabase non configuré'); return; }
+            const proj = (state.config.projects || []).find(p => (p.id || p.name || p) === pid);
+            const groupId = (typeof proj === 'object' && (proj.groupid || proj.group_id))
+                ? (proj.groupid || proj.group_id)
+                : (state.config.groupId || localStorage.getItem('us_group_id'));
+            if (!groupId) { showToast('⚠️ groupe_id introuvable'); return; }
+            showToast('⏳ Génération du lien…');
+            try {
+                const { data: token, error } = await state.supabaseClient
+                    .rpc('get_or_create_invite', { p_group_id: groupId });
+                if (error || !token) throw error || new Error('no token');
+                const url = window.location.origin + window.location.pathname + '?token=' + encodeURIComponent(token);
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url)
+                        .then(() => { showToast('🔗 Lien copié !'); haptic('success'); })
+                        .catch(() => { prompt('Copie ce lien :', url); });
+                } else {
+                    prompt('Copie ce lien :', url);
+                }
+            } catch(e) {
+                console.warn('copyInviteLink error', e);
+                showToast('⚠️ Impossible de générer le lien');
             }
         }
 
         let _joinModalProject = null;
         let _joinModalSelectedMember = null;
 
-        function openJoinModal(proj) {
+        function openJoinModal(proj, token) {
             _joinModalProject = proj;
+            _joinModalToken   = token || null;
             _joinModalSelectedMember = null;
-            const pid = typeof proj === 'object' ? (proj.id || proj.name) : proj;
             const iconEl = document.getElementById('join-modal-icon');
             const nameEl = document.getElementById('join-modal-name');
-            if (iconEl) iconEl.textContent = (typeof proj === 'object' ? proj.icon : '') || '👥';
             const _resolvedProj = typeof proj === 'object' ? proj
-                : (state.config.projects||[]).find(p => (p.id||p.name||p) === (typeof proj === 'object' ? proj.id : proj)) || {};
-            const _displayName = _resolvedProj.name || (typeof proj === 'object' ? proj.name : '');
-            if (nameEl) nameEl.textContent = _displayName || 'Groupe';
+                : (state.config.projects||[]).find(p => (p.id||p.name||p) === proj) || {};
+            if (iconEl) iconEl.textContent = _resolvedProj.icon || '👥';
+            if (nameEl) nameEl.textContent = _resolvedProj.name || 'Groupe';
+            // Show member picker, hide auth banner
+            const authBanner    = document.getElementById('join-auth-required');
+            const memberSection = document.getElementById('join-member-section');
+            if (authBanner)    authBanner.classList.add('hidden');
+            if (memberSection) memberSection.classList.remove('hidden');
             renderJoinMemberList(proj);
             const modal = document.getElementById('join-modal');
             const sheet = document.getElementById('join-modal-sheet');
@@ -4217,8 +4311,9 @@
             if (!sheet || !modal) return;
             sheet.style.transform = 'translateY(100%)';
             setTimeout(() => modal.classList.add('hidden'), 320);
-            _joinModalProject = null;
+            _joinModalProject        = null;
             _joinModalSelectedMember = null;
+            _joinModalToken          = null;
         }
 
         function renderJoinMemberList(proj) {
@@ -4231,19 +4326,19 @@
                 ['border-indigo-300 bg-indigo-50', 'text-indigo-700'],
                 ['border-violet-300 bg-violet-50', 'text-violet-700'],
                 ['border-emerald-300 bg-emerald-50', 'text-emerald-700'],
-                ['border-amber-300 bg-amber-50', 'text-amber-700'],
-                ['border-rose-300 bg-rose-50', 'text-rose-700'],
-                ['border-sky-300 bg-sky-50', 'text-sky-700'],
+                ['border-amber-300 bg-amber-50',   'text-amber-700'],
+                ['border-rose-300 bg-rose-50',     'text-rose-700'],
+                ['border-sky-300 bg-sky-50',       'text-sky-700'],
             ];
             list.innerHTML = members.map((m, i) => {
-                const name = typeof m === 'object' ? m.name : m;
-                const mid = (typeof m === 'object' && m.id) ? m.id : ('m_idx_' + i);
-                const [bg, txt] = colorPairs[i % colorPairs.length];
+                const name    = typeof m === 'object' ? m.name : m;
+                const mid     = (typeof m === 'object' && m.id) ? m.id : ('m_idx_' + i);
+                const [bg,txt]= colorPairs[i % colorPairs.length];
                 const initial = (name || '?').charAt(0).toUpperCase();
-                return `<button onclick="selectJoinMember('${mid.replace(/'/g,"\'")}')" data-member-id="${mid}"
+                return `<button onclick="selectJoinMember('${mid.replace(/'/g,"\\'")}')" data-member-id="${mid}"
                     class="join-member-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-700 font-semibold text-sm active:scale-95 transition-all">
                     <span class="size-9 rounded-xl ${bg} ${txt} border flex items-center justify-center text-sm font-black shrink-0">${initial}</span>
-                    <span class="flex-1 text-left">${name}</span>
+                    <span class="flex-1 text-left">${escHtml(name)}</span>
                     <i class="fa-solid fa-circle-check text-base text-slate-200 join-check-icon"></i>
                 </button>`;
             }).join('');
@@ -4257,9 +4352,9 @@
             document.querySelectorAll('.join-member-btn').forEach(btn => {
                 const isSelected = btn.dataset.memberId === memberId;
                 btn.classList.toggle('border-indigo-500', isSelected);
-                btn.classList.toggle('bg-indigo-50', isSelected);
+                btn.classList.toggle('bg-indigo-50',      isSelected);
                 btn.classList.toggle('border-slate-200', !isSelected);
-                btn.classList.toggle('bg-slate-50', !isSelected);
+                btn.classList.toggle('bg-slate-50',      !isSelected);
                 const icon = btn.querySelector('.join-check-icon');
                 if (icon) {
                     icon.classList.toggle('text-indigo-500', isSelected);
@@ -4270,17 +4365,38 @@
             if (btn) btn.disabled = false;
         }
 
-        function confirmJoinIdentity() {
+        async function confirmJoinIdentity() {
             if (!_joinModalProject || !_joinModalSelectedMember) return;
             const proj = _joinModalProject;
-            const pid = typeof proj === 'object' ? (proj.id || proj.name) : proj;
+            const pid  = typeof proj === 'object' ? (proj.id || proj.name) : proj;
             const members = (typeof proj === 'object' && Array.isArray(proj.members)) ? proj.members : [];
-            const member = members.find((m, i) => {
+            const member  = members.find((m, i) => {
                 const mid = (typeof m === 'object' && m.id) ? m.id : ('m_idx_' + i);
                 return mid === _joinModalSelectedMember;
             });
             if (!member) return;
-            const memberObj = typeof member === 'object' ? member : { name: member, payer: null, id: _joinModalSelectedMember };
+            const memberObj = typeof member === 'object'
+                ? member
+                : { name: member, payer: null, id: _joinModalSelectedMember };
+
+            const confirmBtn = document.getElementById('join-confirm-btn');
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '⏳ Rejoindre…'; }
+
+            // Record the claim on Supabase (token flow only)
+            if (_joinModalToken && state.supabaseClient) {
+                try {
+                    const payerSlot = memberObj.payer || _joinModalSelectedMember;
+                    const { error } = await state.supabaseClient
+                        .rpc('claim_invite', { p_token: _joinModalToken, p_payer_slot: payerSlot });
+                    if (error && !error.message.includes('slot_taken')) {
+                        console.warn('claim_invite error', error);
+                        showToast('⚠️ Erreur lors de la connexion au groupe');
+                        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Rejoindre'; }
+                        return;
+                    }
+                } catch(e) { console.warn('claim_invite exception', e); }
+            }
+
             setGroupIdentity(pid, memberObj);
             haptic('success');
             showToast('👋 Bienvenue, ' + (memberObj.name || 'toi') + ' !');
@@ -4294,60 +4410,124 @@
             state.config.activeProject = pid;
             saveConfig();
             try { switchView('groupes'); } catch(e) {}
-            setTimeout(() => {
-                try { openGroupDetailPanel(pid); } catch(e) {}
-            }, 300);
+            setTimeout(() => { try { openGroupDetailPanel(pid); } catch(e) {} }, 300);
         }
 
-        async function checkJoinParam() {
-            const params = new URLSearchParams(window.location.search);
-            const joinPid = params.get('join');
-            if (!joinPid) return;
-            // Clean the URL immediately
-            window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+        // Show the "login required" state in the join modal
+        function _showJoinAuthRequired(proj) {
+            const iconEl        = document.getElementById('join-modal-icon');
+            const nameEl        = document.getElementById('join-modal-name');
+            const authBanner    = document.getElementById('join-auth-required');
+            const memberSection = document.getElementById('join-member-section');
+            const modal         = document.getElementById('join-modal');
+            const sheet         = document.getElementById('join-modal-sheet');
+            const _rp = typeof proj === 'object' ? proj : {};
+            if (iconEl) iconEl.textContent = _rp.icon || '👥';
+            if (nameEl) nameEl.textContent = _rp.name || 'Groupe';
+            if (authBanner)    authBanner.classList.remove('hidden');
+            if (memberSection) memberSection.classList.add('hidden');
+            if (!modal || !sheet) return;
+            modal.classList.remove('hidden');
+            sheet.style.transform = 'translateY(100%)';
+            requestAnimationFrame(() => requestAnimationFrame(() => { sheet.style.transform = 'translateY(0)'; }));
+            haptic('light');
+        }
 
-            // If this device already chose an identity for this group, just navigate
-            const existing = getGroupIdentity(joinPid);
-            if (existing && existing.name) {
-                activateGroupAndNavigate(joinPid);
-                return;
-            }
+        // After login completes, resume a pending invite if one was saved
+        async function resumePendingInvite() {
+            const token = sessionStorage.getItem('splice_pending_token');
+            if (!token) return;
+            sessionStorage.removeItem('splice_pending_token');
+            await handleInviteToken(token);
+        }
 
-            // Try to find project locally first
-            let proj = (state.config.projects || []).find(p => (p.id || p) === joinPid);
+        async function handleInviteToken(token) {
+            if (!token || !state.supabaseClient) return;
+            const { data: invite, error: invErr } = await state.supabaseClient
+                .from('group_invites')
+                .select('group_id')
+                .eq('token', token)
+                .maybeSingle();
+            if (invErr || !invite) { showToast('⚠️ Lien invalide ou expiré'); return; }
+            const groupId = invite.group_id;
 
-            // If not found locally, fetch from Supabase (joiner's first visit)
-            if (!proj && state.supabaseClient) {
+            // Fetch project for this group
+            let proj = (state.config.projects || []).find(p =>
+                typeof p === 'object' && (p.groupid === groupId || p.group_id === groupId));
+            if (!proj) {
                 try {
                     const { data } = await state.supabaseClient
-                        .from('projects')
-                        .select('*')
-                        .eq('id', joinPid)
-                        .single();
+                        .from('projects').select('*').eq('groupid', groupId).maybeSingle();
                     if (data) {
                         proj = { ...data };
-                        // Normalise members from Supabase — could be plain strings or objects lacking id
                         if (!Array.isArray(proj.members)) proj.members = [];
                         proj.members = proj.members.map((m, i) => {
-                            if (typeof m === 'string') return { id: 'm_' + Math.random().toString(36).slice(2,10), name: m, payer: i===0?'p1':i===1?'p2':null };
-                            if (!m.id) return { ...m, id: 'm_' + Math.random().toString(36).slice(2,10) };
+                            if (typeof m === 'string') return { id: 'm_'+Math.random().toString(36).slice(2,10), name: m, payer: i===0?'p1':'p2' };
+                            if (!m.id) return { ...m, id: 'm_'+Math.random().toString(36).slice(2,10) };
                             return m;
                         });
-                        // Add to local config if not already present
-                        if (!(state.config.projects || []).find(p => (p.id || p) === joinPid)) {
+                        if (!(state.config.projects||[]).find(p=>typeof p==='object'&&(p.groupid===groupId||p.group_id===groupId))) {
                             if (!state.config.projects) state.config.projects = [];
                             state.config.projects.push(proj);
                             saveConfig();
                         }
                     }
-                } catch(e) { console.warn('checkJoinParam fetch error', e); }
+                } catch(e) { console.warn('handleInviteToken project fetch', e); }
             }
+            if (!proj) { showToast('⚠️ Groupe introuvable'); return; }
 
-            if (!proj || typeof proj === 'string') {
-                showToast('⚠️ Groupe introuvable ou hors ligne');
+            const pid = typeof proj === 'object' ? (proj.id || proj.name) : proj;
+            const existing = getGroupIdentity(pid);
+            if (existing && existing.name) { activateGroupAndNavigate(pid); return; }
+
+            // Check auth
+            const { data: { session } } = await state.supabaseClient.auth.getSession();
+            if (!session) {
+                _joinModalToken    = token;
+                _joinModalProject  = proj;
+                sessionStorage.setItem('splice_pending_token', token);
+                _showJoinAuthRequired(proj);
                 return;
             }
-            openJoinModal(proj);
+            openJoinModal(proj, token);
+        }
+
+        async function checkJoinParam() {
+            const params      = new URLSearchParams(window.location.search);
+            const token       = params.get('token');
+            const legacyPid   = params.get('join');
+            if (!token && !legacyPid) return;
+            window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+
+            if (token) { await handleInviteToken(token); return; }
+
+            // ── Legacy ?join=pid fallback ──
+            const joinPid  = legacyPid;
+            const existing = getGroupIdentity(joinPid);
+            if (existing && existing.name) { activateGroupAndNavigate(joinPid); return; }
+            let proj = (state.config.projects || []).find(p => (p.id || p) === joinPid);
+            if (!proj && state.supabaseClient) {
+                try {
+                    const { data } = await state.supabaseClient
+                        .from('projects').select('*').eq('id', joinPid).single();
+                    if (data) {
+                        proj = { ...data };
+                        if (!Array.isArray(proj.members)) proj.members = [];
+                        proj.members = proj.members.map((m, i) => {
+                            if (typeof m === 'string') return { id: 'm_'+Math.random().toString(36).slice(2,10), name: m, payer: i===0?'p1':'p2' };
+                            if (!m.id) return { ...m, id: 'm_'+Math.random().toString(36).slice(2,10) };
+                            return m;
+                        });
+                        if (!(state.config.projects||[]).find(p=>(p.id||p)===joinPid)) {
+                            if (!state.config.projects) state.config.projects = [];
+                            state.config.projects.push(proj);
+                            saveConfig();
+                        }
+                    }
+                } catch(e) { console.warn('checkJoinParam legacy fetch error', e); }
+            }
+            if (!proj || typeof proj === 'string') { showToast('⚠️ Groupe introuvable ou hors ligne'); return; }
+            openJoinModal(proj, null);
         }
 
         // ===== END INVITE LINK / JOIN FLOW =====
@@ -4877,6 +5057,8 @@
             const _av = document.getElementById('view-accueil');
             if (_av) { _av.classList.remove('hidden'); _av.classList.add('active-tab'); }
             initApp();
+            // Resume any pending invite from before login
+            setTimeout(() => { try { resumePendingInvite(); } catch(e) {} }, 1200);
 
             // 4. After 2 frames (browser has painted hidden content), animate in
             //    500ms gives initApp time to call updateUI/renderAccueil synchronously
@@ -4906,6 +5088,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             if (id) delete window.__mockConfidenceOverrides[id]; else window.__mockConfidenceOverrides = {};
         };
             window._bootTime = Date.now(); // for card animation sequencing
+            window._demoQueued = false;            // reset demo so it fires on every cold open
             window._heroAnimDone = false;  // set true when hero animationend fires
             window._heroAnimDoneCallbacks = [];
             window._charAnimDone = false;  // set true when char-in animationend fires
@@ -4969,8 +5152,10 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                 let val = el.value.replace(/,/g, '.').replace(/[^0-9+\-*/().]/g, '');
                 val = val.replace(/[+\-*/]$/, ''); // retire le dernier opérateur si inutile
                 if(val) {
-                    let result = new Function('return ' + val)();
-                    if(!isNaN(result) && result > 0) {
+                    let result = safeEval(val);
+                    if (result < 0) { showToast('Le montant ne peut pas être négatif.'); el.value = ''; return; }
+                    if (result > 999999.99) { showToast('Montant trop élevé (max 999 999 €).'); el.value = ''; return; }
+                    if(!isNaN(result) && result > 0 && result <= 999999.99) {
                         el.value = parseFloat(result).toFixed(2).replace('.', ',');
                         if (el.id === 'amount') syncCustomSplitUI();
                         if (el.id === 'modal-edit-amount') onModalEditAmountInput(el.value);
@@ -5106,8 +5291,8 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                 const col = _getColor(i, 'bgLight') + ' ' + _getColor(i, 'text');
                 const initial = m.name.charAt(0).toUpperCase();
                 return `<div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    <span class="size-7 rounded-lg ${col} flex items-center justify-center text-xs font-black shrink-0">${initial}</span>
-                    <span class="flex-1 text-sm text-slate-700 font-medium">${m.name}</span>
+                    <span class="size-7 rounded-lg ${col} flex items-center justify-center text-xs font-black shrink-0">${escHtml(initial)}</span>
+                    <span class="flex-1 text-sm text-slate-700 font-medium">${escHtml(m.name)}</span>
                     <button type="button" onclick="removeNewGroupMember('${m.id}')" class="size-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 active:scale-90 transition-all shrink-0"><i class="fa-solid fa-xmark text-[10px]"></i></button>
                 </div>`;
             }).join('');
@@ -5767,8 +5952,8 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                 const _builtInCats = ['Courses','Resto & Café','Factures & Loyer','Loisirs & Sorties','Shopping','Transport','Sport','Autre'];
                 const _isCustomCat = !_builtInCats.includes(cat.label);
                 btn.innerHTML = `
-                    <span class="text-base text-slate-400"><i class="fa-solid ${cat.icon}"></i></span>
-                    <span class="text-xs font-bold leading-tight flex-1">${cat.label}</span>
+                    <span class="text-base text-slate-400"><i class="fa-solid ${/^fa-[\w-]+$/.test(cat.icon) ? cat.icon : 'fa-tag'}"></i></span>
+                    <span class="text-xs font-bold leading-tight flex-1">${escHtml(cat.label)}</span>
                    
                 `;
                 grid.appendChild(btn);
@@ -5799,7 +5984,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                 pill.type = 'button';
                 pill.onclick = () => selectHistoryCategoryFilter(cat.label, pill);
                 pill.className = "history-filter-pill flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-200 bg-slate-50 text-slate-400 hover:text-slate-900 hover:border-slate-200";
-                pill.innerHTML = `<i class="fa-solid ${cat.icon} mr-1 opacity-70"></i> ${cat.label}`;
+                pill.innerHTML = `<i class="fa-solid ${/^fa-[\w-]+$/.test(cat.icon) ? cat.icon : "fa-tag"} mr-1 opacity-70"></i> ${escHtml(cat.label)}`;
                 container.appendChild(pill);
             });
         }
@@ -5956,7 +6141,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             if (!state.currentPayer || !members.find(m=>m.slot===state.currentPayer))
                 state.currentPayer = members[0].slot;
             sel.innerHTML = members.map(m =>
-                `<option value="${m.slot}"${state.currentPayer===m.slot?' selected':''}>${m.name}</option>`
+                `<option value="${escHtml(m.slot)}"${state.currentPayer===m.slot?' selected':''}>${escHtml(m.name)}</option>`
             ).join('');
         }
 
@@ -6708,7 +6893,8 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             
             evaluateMath(amtIn);
             const rawAmount = parseFloat(amtIn.value.replace(/,/g, '.'));
-            if (!rawAmount || isNaN(rawAmount)) { showToast("Montant invalide."); return; }
+            if (!rawAmount || isNaN(rawAmount) || rawAmount <= 0) { showToast("Montant invalide."); return; }
+            if (rawAmount > 999999.99) { showToast("Montant trop élevé (max 999 999 €)."); return; }
 
             let categoryDesc = (descIn && descIn.value.trim()) || state.selectedCategory;
             let activeCategory = state.selectedCategory; let activeIcon = state.selectedIcon;
@@ -7046,7 +7232,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             const payerSel = document.getElementById('modal-edit-payer-select');
             if (payerSel) {
                 const curVal = payerSel.value;
-                payerSel.innerHTML = members.map(m=>`<option value="${m.id}"${tx.payer===m.id?' selected':''}>${m.name}</option>`).join('');
+                payerSel.innerHTML = members.map(m=>`<option value="${escHtml(m.id)}"${tx.payer===m.id?' selected':''}>${escHtml(m.name)}</option>`).join('');
                 if (!payerSel.value && curVal) payerSel.value = curVal;
             }
             // Render rows
@@ -7144,7 +7330,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                     recvSection.classList.remove('hidden');
                     if (!tx.receiver) tx.receiver = members.find(m => m.id !== tx.payer)?.id || members[0]?.id;
                     recvCont.innerHTML = members.map(m =>
-                        `<option value="${m.id}"${tx.receiver === m.id ? ' selected' : ''}>${m.name}</option>`
+                        `<option value="${escHtml(m.id)}"${tx.receiver === m.id ? ' selected' : ''}>${escHtml(m.name)}</option>`
                     ).join('');
                 } else {
                     recvSection.classList.add('hidden');
@@ -7202,7 +7388,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                     const pname = getProjectDisplayName(p);
                     const picon = (typeof p === 'string') ? '' : (p.icon || '');
                     const sel   = pid === (tx.project || 'Principal') ? ' selected' : '';
-                    return `<option value="${pid}"${sel}>${picon} ${pname}</option>`;
+                    return `<option value="${escHtml(pid)}"${sel}>${escHtml(picon)} ${escHtml(pname)}</option>`;
                 }).join('');
             }
 
@@ -7247,7 +7433,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                 if (_sel) {
                     const _members = _getEditModalMembers();
                     _sel.innerHTML = _members.map(m =>
-                        `<option value="${m.id}"${tx.payer===m.id?' selected':''}>${m.name}</option>`
+                        `<option value="${escHtml(m.id)}"${tx.payer===m.id?' selected':''}>${escHtml(m.name)}</option>`
                     ).join('');
                 }
             })();
@@ -7712,7 +7898,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                     renderModalCategorySelector(); // Redessine les focus
                 };
                 btn.className = `flex-shrink-0 min-w-[76px] px-3 h-10 rounded-xl flex flex-col items-center justify-center border text-xs gap-0.5 transition-all ${active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600' : 'border-slate-200 text-slate-400 bg-white hover:text-slate-900'}`;
-                btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${c.icon}"></i></span> <span class="text-[9px] font-black whitespace-nowrap">${c.label}</span>`;
+                btn.innerHTML = `<span class="text-xs"><i class="fa-solid ${/^fa-[\w-]+$/.test(c.icon) ? c.icon : "fa-tag"}"></i></span> <span class="text-[9px] font-black whitespace-nowrap">${escHtml(c.label)}</span>`;
                 grid.appendChild(btn);
             });
 
@@ -7754,6 +7940,9 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             haptic('success');
             const tx = state.editingTransaction;
             if (!tx) return;
+            const _amtRaw = parseFloat((document.getElementById('modal-edit-amount')?.value || '0').replace(/,/g,'.')) || 0;
+            if (_amtRaw <= 0 || isNaN(_amtRaw)) { showToast('Montant invalide.'); return; }
+            if (_amtRaw > 999999.99) { showToast('Montant trop élevé (max 999 999 €).'); return; }
 
             const dateVal = document.getElementById('modal-edit-date').value;
             if (dateVal) {
@@ -8849,7 +9038,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                         <button onclick="toggleReceiptItem('${item.id}')" class="w-7 h-7 rounded-md shrink-0 flex items-center justify-center transition-all ${item.selected ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200'}" aria-label="Toggle">
                             ${item.selected ? '<i class="fa-solid fa-check text-[10px]"></i>' : ''}
                         </button>
-                        <input type="text" value="${item.name.replace(/"/g, '&quot;')}" onchange="updateReceiptItem('${item.id}', 'name', this.value)" class="flex-1 min-w-0 bg-transparent text-sm text-slate-700 focus:outline-none border-b border-transparent focus:border-slate-200 py-1">
+                        <input type="text" value="${escHtml(item.name)}" onchange="updateReceiptItem('${item.id}', 'name', this.value)" class="flex-1 min-w-0 bg-transparent text-sm text-slate-700 focus:outline-none border-b border-transparent focus:border-slate-200 py-1">
                         <input type="text" inputmode="decimal" value="${item.price.toFixed(2).replace('.', ',')}" onchange="updateReceiptItem('${item.id}', 'price', this.value)" class="w-16 bg-transparent text-sm font-bold text-slate-700 text-right focus:outline-none border-b border-transparent focus:border-slate-200 py-1">
                         <button onclick="removeReceiptItem('${item.id}')" class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-rose-500 shrink-0" aria-label="Supprimer">
                             <i class="fa-solid fa-xmark text-xs"></i>
@@ -9118,8 +9307,13 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             const ids = JSON.parse(localStorage.getItem(key) || '[]');
             if (ids.length === 0) return;
             const remaining = [];
+            const myGroupId = state.config.groupId || localStorage.getItem('us_group_id');
             for (const id of ids) {
                 try {
+                    // Verify ownership before deleting — prevent arbitrary cross-group deletes
+                    const { data: owned } = await state.supabaseClient
+                        .from('expenses').select('id').eq('id', id).eq('group_id', myGroupId).maybeSingle();
+                    if (!owned) { console.warn('[flushPendingDeletes] skipping unowned id:', id); continue; }
                     const { error } = await state.supabaseClient.from('expenses').delete().eq('id', id);
                     if (error) { remaining.push(id); }
                 } catch(e) { remaining.push(id); }
@@ -9977,10 +10171,10 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                         </div>
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-baseline justify-between gap-2">
-                                                <h3 class="font-semibold text-slate-900 truncate">${exp.description || 'Sans description'}</h3>
+                                                <h3 class="font-semibold text-slate-900 truncate">${escHtml(exp.description || 'Sans description')}</h3>
                                                 <span class="text-lg font-black text-slate-900 tabular-nums shrink-0">${isRevenu ? '+' : ''}${(exp.amount||0).toFixed(2).replace('.',',')} ${exp.currency || getProjectCurrency(exp.project || state.config.activeProject) || getActiveCurrency() || '€'}</span>
                                             </div>
-                                            <p class="text-xs text-slate-500 mt-0.5">${_inboxDateStr || ''}${_inboxDateStr && payerName ? ' · ' : ''}${payerName ? payerName : ''}</p>
+                                            <p class="text-xs text-slate-500 mt-0.5">${_inboxDateStr || ''}${_inboxDateStr && payerName ? ' · ' : ''}${escHtml(payerName || '')}</p>
                                             <div class="mt-2.5 flex items-center justify-between gap-2 flex-wrap">
                                                 <div class="text-xs flex items-center gap-1 min-w-0">
                                                     <span class="text-slate-400 text-[10px]">→</span>
@@ -12153,7 +12347,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                 </button>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-baseline justify-between gap-2">
-                                        <p class="font-semibold text-slate-800 leading-snug truncate">${exp.description || 'Sans description'}</p>
+                                        <p class="font-semibold text-slate-800 leading-snug truncate">${escHtml(exp.description || 'Sans description')}</p>
                                         <span class="font-black tabular-nums shrink-0 text-[15px] leading-snug" style="color:${amtColor}">${isRevenu ? '+' : ''}${amt} ${cur}</span>
                                     </div>
                                     <p class="text-xs text-slate-400 mt-0.5">${dateStr}</p>
@@ -12987,6 +13181,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const { data, error } = await state.supabaseClient
                     .from('activity_log')
                     .select('*')
+                    .eq('group_id', state.config.groupId || localStorage.getItem('us_group_id'))
                     .order('created_at', { ascending: false })
                     .limit(200);
                 if (!error && data) {
@@ -13117,11 +13312,11 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
 
             // Natural-language sentence builder
             const buildSentence = (ev) => {
-                const who = '<span class="font-black text-slate-800">' + actorName(ev.payer || ev.actor) + '</span>';
+                const who = '<span class="font-black text-slate-800">' + escHtml(actorName(ev.payer || ev.actor)) + '</span>';
                 const amt = ev.amount ? ' <span class="font-black text-slate-800">' + fmtAmt(ev.amount, ev.currency) + '</span>' : '';
                 const proj = ev.project && ev.project.name && ev.project.name !== 'Principal'
-                    ? ' dans ' + ev.project.icon + ' <span class="font-semibold">' + ev.project.name + '</span>' : '';
-                const subj = ev.subject ? ' \u00ab\u00a0<span class="italic text-slate-600">' + ev.subject + '\u00a0\u00bb</span>' : '';
+                    ? ' dans ' + escHtml(ev.project.icon) + ' <span class="font-semibold">' + escHtml(ev.project.name) + '</span>' : '';
+                const subj = ev.subject ? ' \u00ab\u00a0<span class="italic text-slate-600">' + escHtml(ev.subject) + '\u00a0\u00bb</span>' : '';
 
                 switch(ev.action) {
                     case 'expense_added':
@@ -13131,11 +13326,11 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     case 'expense_deleted':
                         return who + ' a supprim\u00e9' + subj + (amt ? ' de' + amt : '') + proj;
                     case 'project_created':
-                        return who + ' a cr\u00e9\u00e9 le groupe ' + (ev.project?.icon||'') + ' <span class="font-black text-violet-600">' + (ev.subject||'') + '</span>';
+                        return who + ' a cr\u00e9\u00e9 le groupe ' + (ev.project?.icon||'') + ' <span class="font-black text-violet-600">' + escHtml(ev.subject||'') + '</span>';
                     case 'project_archived':
-                        return who + ' a archiv\u00e9 ' + (ev.project?.icon||'') + ' <span class="font-semibold">' + (ev.subject||'') + '</span>';
+                        return who + ' a archiv\u00e9 ' + (ev.project?.icon||'') + ' <span class="font-semibold">' + escHtml(ev.subject||'') + '</span>';
                     case 'project_unarchived':
-                        return who + ' a restaur\u00e9 ' + (ev.project?.icon||'') + ' <span class="font-semibold">' + (ev.subject||'') + '</span>';
+                        return who + ' a restaur\u00e9 ' + (ev.project?.icon||'') + ' <span class="font-semibold">' + escHtml(ev.subject||'') + '</span>';
                     case 'balance_settled':
                         return who + ' a r\u00e9gl\u00e9 le solde' + (amt ? ' \u2014' + amt : '') + proj;
                     case 'confirmed':
@@ -13920,7 +14115,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     <div class="mx-auto size-11 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center border border-slate-100">
                         <i class="fa-solid ${catIcon} ${isRevenu ? 'text-emerald-500' : 'text-indigo-500'} text-xl"></i>
                     </div>
-                    <h1 class="mt-2 text-base font-bold text-slate-900">${exp.description || 'Sans description'}</h1>
+                    <h1 class="mt-2 text-base font-bold text-slate-900">${escHtml(exp.description || 'Sans description')}</h1>
                     <p class="text-sm text-slate-500 mt-1">${dateStr}${timeStr ? ' · ' + timeStr : ''} · ${catName}</p>
                     <p class="mt-1.5 text-2xl font-bold tabular-nums text-slate-900">${isRevenu ? '+' : ''}${(exp.amount||0).toFixed(2).replace('.',',')} ${currency}</p>
                     <div class="mt-3 flex justify-center">
@@ -14464,7 +14659,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const gi = getGroupIdentity(pid);
                 const current = (gi && gi.payer) ? gi.payer : getDevicePayer();
                 sel.innerHTML = members.map(m =>
-                    `<option value="${m.slot}" ${m.slot === current ? 'selected' : ''}>${m.name}</option>`
+                    `<option value="${escHtml(m.slot)}" ${m.slot === current ? 'selected' : ''}>${escHtml(m.name)}</option>`
                 ).join('');
                 const section = document.getElementById('gdp-identity-section');
                 if (section) section.style.display = '';
@@ -14533,7 +14728,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 return `<div class="flex items-center justify-between gap-2 bg-slate-50 rounded-xl px-3 py-2.5">
                     <div class="flex items-center gap-2.5">
                         <div class="size-8 rounded-full ${color} flex items-center justify-center text-xs font-bold">${initial}</div>
-                        <input type="text" value="${name}" onchange="renameGdpMember(${i},this.value)" onblur="renameGdpMember(${i},this.value)" class="text-sm font-semibold text-slate-800 bg-transparent border-b border-transparent focus:border-indigo-400 focus:outline-none w-full min-w-0 transition-colors">
+                        <input type="text" value="${escHtml(name)}" onchange="renameGdpMember(${i},this.value)" onblur="renameGdpMember(${i},this.value)" class="text-sm font-semibold text-slate-800 bg-transparent border-b border-transparent focus:border-indigo-400 focus:outline-none w-full min-w-0 transition-colors">
                         ${_isMoi ? '<span class="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-2 py-0.5 ml-1">moi</span>' : ''}
                     </div>
                     <div class="flex items-center gap-1.5">${payerBadge}${removBtn}</div>
@@ -17163,15 +17358,27 @@ function renderGroupAnalyse() {
                     <p id="join-modal-name" class="text-sm font-bold text-indigo-600 mt-0.5"></p>
                 </div>
             </div>
-            <p class="text-sm text-slate-400 mt-1 mb-4">Sélectionne ton prénom</p>
-            <!-- Member chips -->
-            <div id="join-member-list" class="space-y-2 mb-5"></div>
-            <!-- Confirm -->
-            <button id="join-confirm-btn" disabled onclick="confirmJoinIdentity()"
-                class="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-sm font-bold shadow-sm
-                       active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none">
-                Rejoindre
-            </button>
+            <!-- Auth-required banner (shown when user has no session) -->
+            <div id="join-auth-required" class="hidden mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                <p class="text-sm font-black text-amber-900 mb-1">🔐 Compte requis</p>
+                <p class="text-xs text-amber-700 mb-3">Pour rejoindre ce groupe tu dois d'abord créer un compte Splice. Ton lien d'invitation sera mémorisé.</p>
+                <button onclick="closeJoinModal(); loginShowStep(0);"
+                    class="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold active:scale-[0.98] transition-transform shadow-sm shadow-indigo-200">
+                    Créer un compte / Se connecter
+                </button>
+            </div>
+            <!-- Member picker (hidden when auth required) -->
+            <div id="join-member-section">
+                <p class="text-sm text-slate-400 mt-3 mb-4">Sélectionne ton prénom</p>
+                <!-- Member chips -->
+                <div id="join-member-list" class="space-y-2 mb-5"></div>
+                <!-- Confirm -->
+                <button id="join-confirm-btn" disabled onclick="confirmJoinIdentity()"
+                    class="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-sm font-bold shadow-sm
+                           active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none">
+                    Rejoindre
+                </button>
+            </div>
         </div>
     </div>
     <!-- ===== END JOIN MODAL ===== -->
