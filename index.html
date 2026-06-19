@@ -2695,11 +2695,13 @@
         // Sync a single project object to Supabase (members, name, icon, etc.)
 
         function archiveProject(pid) {
+            console.log('[Archive] archiveProject called, pid:', pid);
             const proj = (state.config.projects||[]).find(p=>(p.id||p)===pid);
-            if (!proj || typeof proj !== 'object') return;
+            if (!proj || typeof proj !== 'object') { console.warn('[Archive] project not found:', pid); return; }
             proj.archived = true;
             proj.archived_at = new Date().toISOString();
             localStorage.setItem('us_tracker_config', JSON.stringify(state.config));
+            console.log('[Archive] saved to localStorage, calling syncProjectToSupabase...');
             syncProjectToSupabase(proj);
             if (state.config.activeProject === pid) {
                 const next = (state.config.projects||[]).find(p=>(p.id||p)!==pid && !p.archived);
@@ -2727,7 +2729,10 @@
         }
 
         function syncProjectToSupabase(proj) {
-            if (!state.supabaseClient || !proj || typeof proj !== 'object') return;
+            if (!state.supabaseClient || !proj || typeof proj !== 'object') {
+                console.warn('[syncProject] ⚠️ aborted — supabaseClient:', !!state.supabaseClient, 'proj:', !!proj);
+                return;
+            }
             const pid = proj.id || proj.name;
             if (!pid) return;
             const _tm = {voyage:'trip',coloc:'home',couple:'couple',evenement:'event',pro:'other',trip:'trip',home:'home',event:'event',subscriptions:'subscriptions',other:'other'};
@@ -2754,11 +2759,12 @@
                 archived_at: proj.archived_at || null,
                 updated_at: new Date().toISOString(),
             };
+            console.log('[syncProject] sending to Supabase, row:', JSON.stringify({id: row.id, archived: row.archived, archived_at: row.archived_at, group_id: row.group_id}));
             state.supabaseClient.from('projects')
                 .upsert(row, { onConflict: 'id' })
                 .then(({ error }) => {
-                    if (error) console.error('[syncProject] Supabase error:', JSON.stringify(error));
-                    else console.log('[syncProject] OK:', pid);
+                    if (error) console.error('[syncProject] ❌ Supabase error:', JSON.stringify(error));
+                    else console.log('[syncProject] ✅ OK:', pid, '— archived:', row.archived);
                 });
         }
 
@@ -3438,7 +3444,7 @@
                                     const nameExists = state.config.projects.find(p => (p.name || p) === row.name);
                                     if (nameExists) return;
                                     if (!state.config.projects.some(p => (p.id||p.name||p) === row.id)) {
-                        state.config.projects.push({ id: row.id, name: row.name, icon: row.icon || '', currency: row.currency || '€', type: (()=>{ const _rm={trip:'voyage',home:'coloc',couple:'couple',event:'evenement',subscriptions:'pro',other:'pro'}; return row.type ? (_rm[row.type]||row.type) : null; })(), city: row.city || null, location: row.city || null, start_date: row.start_date || null, startDate: row.start_date || null, end_date: row.end_date || null, endDate: row.end_date || null, members: row.members || [], color: row.color || null, country: row.country || null });
+                        state.config.projects.push({ id: row.id, name: row.name, icon: row.icon || '', currency: row.currency || '€', type: (()=>{ const _rm={trip:'voyage',home:'coloc',couple:'couple',event:'evenement',subscriptions:'pro',other:'pro'}; return row.type ? (_rm[row.type]||row.type) : null; })(), city: row.city || null, location: row.city || null, start_date: row.start_date || null, startDate: row.start_date || null, end_date: row.end_date || null, endDate: row.end_date || null, members: row.members || [], color: row.color || null, country: row.country || null, archived: row.archived || false, archived_at: row.archived_at || null });
                        }
                                     projChanged = true;
                                 }
@@ -3463,6 +3469,9 @@
                                     if (row.members)  exists.members  = row.members;
                                     if (row.color)    exists.color    = row.color;
                                     if (row.country)  exists.country  = row.country;
+                                    // Sync archived state from Supabase — server wins
+                                    exists.archived    = row.archived    || false;
+                                    exists.archived_at = row.archived_at || null;
                                     projChanged = true;
                                 }
                             });
