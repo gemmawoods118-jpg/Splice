@@ -2937,8 +2937,26 @@
             if (typeof supabase === 'undefined') { state.supabaseClient = null; handleNetworkChange(); return; }
             try {
                 state.supabaseClient = supabase.createClient(SUPA_URL, SUPA_KEY, {
-                    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
+                    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
                 });
+                // Handle email verification / magic-link callback:
+                // Supabase sends the user back with #access_token=... in the URL fragment.
+                // detectSessionInUrl:true makes the JS client auto-exchange it into a real session.
+                // We also clean the URL so the tokens don't linger in browser history.
+                if (window.location.hash && window.location.hash.includes('access_token')) {
+                    try {
+                        // Give the Supabase client a moment to process the hash
+                        await new Promise(r => setTimeout(r, 100));
+                    } catch(_) {}
+                    window.history.replaceState({}, '', window.location.origin + window.location.pathname + window.location.search);
+                }
+                if (window.location.hash && window.location.hash.includes('error=')) {
+                    // e.g. #error=access_denied&error_description=...
+                    const errParams = new URLSearchParams(window.location.hash.slice(1));
+                    const errDesc = errParams.get('error_description') || 'Lien invalide';
+                    showToast('⚠️ ' + decodeURIComponent(errDesc.replace(/\+/g,' ')));
+                    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+                }
                 let { data: { session } } = await state.supabaseClient.auth.getSession();
                 if (!session) {
                     const raw = localStorage.getItem('us_sb_session');
@@ -4968,7 +4986,7 @@
                         const myName = document.getElementById('login-p1')?.value.trim() || email.split('@')[0];
                         ({ data, error } = await _tmp.auth.signUp({
                             email, password,
-                            options: { data: { name: myName } }
+                            options: { data: { name: myName }, emailRedirectTo: 'https://gemmawoods118-jpg.github.io/Splice/' }
                         }));
                         if (!error && data?.user && !data?.session) {
                             // Email confirmation required
@@ -12571,39 +12589,46 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             const bgI = wrapper.querySelector('.swipe-bg-ignore');
             const demo = bubble.cloneNode(true);
             demo.setAttribute('aria-hidden', 'true');
-            demo.style.position = 'absolute';
-            demo.style.left = '0';
-            demo.style.right = '0';
-            demo.style.top = '0';
-            demo.style.zIndex = '9999';
-            demo.style.pointerEvents = 'none';
-            demo.style.willChange = 'transform, opacity';
-            demo.style.boxShadow = getComputedStyle(bubble).boxShadow;
-            demo.style.opacity = '1';
-            demo.style.transition = 'transform 280ms cubic-bezier(0.22,1,0.36,1)';
+            demo.style.cssText += [
+                'position:absolute', 'left:0', 'right:0', 'top:0',
+                'z-index:9999', 'pointer-events:none',
+                'will-change:transform,opacity',
+                'box-shadow:' + getComputedStyle(bubble).boxShadow,
+                'opacity:0',
+                'transition:transform 280ms cubic-bezier(0.22,1,0.36,1)'
+            ].join(';') + ';';
             wrapper.style.position = 'relative';
             wrapper.appendChild(demo);
-            const origBubbleOpacity = bubble.style.opacity;
-            bubble.style.opacity = '0';
-            // seq: [position, hold_ms] pairs
-            const seq = [[0,400], [-90,700], [0,350], [90,700], [0,400]];
-            let i = 0;
-            const finish = () => {
-                demo.remove();
-                bubble.style.opacity = origBubbleOpacity || '';
-                if (bgV) bgV.style.opacity = '0';
-                if (bgI) bgI.style.opacity = '0';
-                localStorage.setItem('inboxSwipeDemoSeen', '1');
-            };
-            const tick = () => {
-                if (i >= seq.length) { finish(); return; }
-                const [x, hold] = seq[i++];
-                demo.style.transform = `translateX(${x}px)`;
-                if (bgV) bgV.style.opacity = x > 0 ? String(Math.min(x / 90, 1)) : '0';
-                if (bgI) bgI.style.opacity = x < 0 ? String(Math.min(-x / 90, 1)) : '0';
-                setTimeout(tick, hold);
-            };
-            tick();
+            const origBubbleOpacity = bubble.style.opacity || '';
+            // Double rAF: ensures clone is painted by browser before we hide the real card
+            // This eliminates the 1-frame flash where both are invisible
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                demo.style.opacity = '1';
+                bubble.style.opacity = '0';
+                // seq: [translateX_px, hold_ms]
+                const seq = [[0,400], [-90,700], [0,350], [90,700], [0,400]];
+                let i = 0;
+                const finish = () => {
+                    // Restore real card BEFORE removing clone to avoid invisible-frame gap
+                    bubble.style.opacity = origBubbleOpacity;
+                    if (bgV) bgV.style.opacity = '0';
+                    if (bgI) bgI.style.opacity = '0';
+                    // Fade clone out, then remove
+                    demo.style.transition = 'opacity 180ms ease';
+                    demo.style.opacity = '0';
+                    setTimeout(() => demo.remove(), 200);
+                    localStorage.setItem('inboxSwipeDemoSeen', '1');
+                };
+                const tick = () => {
+                    if (i >= seq.length) { finish(); return; }
+                    const [x, hold] = seq[i++];
+                    demo.style.transform = 'translateX(' + x + 'px)';
+                    if (bgV) bgV.style.opacity = x > 0 ? String(Math.min(x / 90, 1)) : '0';
+                    if (bgI) bgI.style.opacity = x < 0 ? String(Math.min(-x / 90, 1)) : '0';
+                    setTimeout(tick, hold);
+                };
+                tick();
+            }));
         }
         function openAccueilProjectEdit(pid) {
             const proj = state.config.projects.find(p => (p.id || p) === pid);
