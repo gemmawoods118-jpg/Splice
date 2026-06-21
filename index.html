@@ -458,25 +458,26 @@
             box-shadow: 0 2px 6px rgba(244, 63, 94, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.9);
         }
         /* Inbox multiselect: selected card ring */
-        .inbox-item-selected {
-            border-color: rgba(99, 102, 241, 0.6) !important;
+        .swipe-card { position: relative; }
+        .inbox-item-selected > .swipe-card {
+            box-shadow: 0 0 0 2.5px rgba(99, 102, 241, 0.5) !important;
             background: rgba(99, 102, 241, 0.07) !important;
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
         }
-        .inbox-item-selected::after {
+        .inbox-item-selected > .swipe-card::after {
             content: '✓';
             position: absolute;
-            top: 10px; left: 10px;
-            width: 20px; height: 20px;
+            top: 8px; left: 8px;
+            width: 22px; height: 22px;
             background: rgb(99,102,241);
             color: white;
             border-radius: 50%;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 900;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 5;
+            z-index: 50;
+            pointer-events: none;
         }
 [id^="inbox-item-"] { position: relative; }
         [id^="inbox-item-"] * { user-select: none; -webkit-user-select: none; }
@@ -1374,7 +1375,6 @@
                             <span class="text-base font-bold text-slate-800" id="inbox-header-label">Inbox</span>
                             <span id="accueil-suggestions-count" class="text-[10px] bg-rose-500/10 text-rose-500 font-bold px-2 py-0.5 rounded-full">0</span>
                         </div>
-                        <button id="accueil-show-all-btn" onclick="expandAccueilSuggestions()" class="text-[11px] text-indigo-500 font-bold hover:text-indigo-700 transition-colors">Voir tout →</button>
                     </div>
                     <div id="accueil-suggestions-list" class="space-y-3"></div>
                 </section>
@@ -3849,8 +3849,7 @@
         // One-time cleanup: remove the flood of unapproved Powens transactions older than today
         // that were imported during the first 90-day sync. Runs once, flagged in localStorage.
         function cleanupOldPowensInboxFlood() {
-            if (localStorage.getItem('us_powens_flood_cleaned')) return;
-            const today = new Date().toISOString().split('T')[0];
+            // Always runs — cleans up stale items every session
             const before = state.expenses.length;
             const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
             state.expenses = state.expenses.filter(exp => {
@@ -4230,7 +4229,7 @@
                             approved: false, // → lands in Inbox for review
                             type: tx.type || 'depense',
                             project: state.config.activeProject,
-                            created_at: tx.date + 'T12:00:00.000Z',
+                            created_at: (tx.date > new Date().toISOString().split('T')[0] ? new Date().toISOString().split('T')[0] : tx.date) + 'T12:00:00.000Z',
                             group_id: state.config.groupId || localStorage.getItem('us_group_id') || null,
                             // Flag fuzzy dupes — shown as a warning in the Inbox row
                             _fuzzyDupe: isFuzzyDupe
@@ -5161,6 +5160,8 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             if (id) delete window.__mockConfidenceOverrides[id]; else window.__mockConfidenceOverrides = {};
         };
             window._bootTime = Date.now(); // for card animation sequencing
+            // One-time deferred re-render to apply threshold after initial paint
+            setTimeout(() => { window._suggListFingerprint = null; renderAccueilSuggestions(); }, 100);
             window._demoQueued = false;            // reset demo so it fires on every cold open
             window._heroAnimDone = false;  // set true when hero animationend fires
             window._heroAnimDoneCallbacks = [];
@@ -8401,7 +8402,9 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
         }
 
         function scoreExpense(expense, merchantMemory, projectId, allExpenses) {
-            const raw = (expense.description || '').toLowerCase().trim();
+            const raw = (expense.description || '').toLowerCase().trim()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')  // strip accents
+                .replace(/ /g, ' ');                           // non-breaking space → space
             const merchant = normalizeMerchant(expense.description);
             let score = 0;
             const rules = [];
@@ -8622,7 +8625,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                                 ${reasoningHint}
                             </div>
                         </div>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-md border ${pillColor} text-[10px] font-black tabular-nums shrink-0">${s.confidence >= 75 ? 'Très probable' : s.confidence >= 40 ? 'À vérifier' : 'Peu probable'}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md border ${pillColor} text-[10px] font-black tabular-nums shrink-0">${s.confidence >= 50 ? 'Très probable' : s.confidence >= 40 ? 'À vérifier' : 'Peu probable'}</span>
                     </div>
                 `;
             }).join('');
@@ -8690,7 +8693,7 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
                 e.approved === false &&
                 (!e.payer || e.payer === me)
             );
-            const toValidate = candidates.filter(e => getScoreForExpense(e).confidence >= 75);
+            const toValidate = candidates.filter(e => getScoreForExpense(e).confidence >= 50);
             if (toValidate.length === 0) return;
             haptic('success');
 
@@ -9309,8 +9312,11 @@ window.__mockConfidenceOverrides = window.__mockConfidenceOverrides || {};
             else showToast('✓ Transaction validée');
 
             // Inbox is global → check global pending count for the "all done" overlay
-            const remaining = state.expenses.filter(e => e.approved === false);
-            if (remaining.length === 0) showSuccessOverlay("Tout est validé !");
+            const remaining = state.expenses.filter(e => e.approved === false && e.payer === getDevicePayer());
+            if (remaining.length === 0) {
+                const _paxWins = ['🎉 Inbox vide !', '✨ Tout est à jour !', '🏆 Nickel, tout est traité !', '🧘 Calme plat !'];
+                showSuccessOverlay(_paxWins[Math.floor(Math.random() * _paxWins.length)]);
+            }
 
             updateUI();
 
@@ -10220,7 +10226,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                 : tier === 'medium'
                                     ? 'bg-amber-500/15 text-amber-600 border-amber-500/30'
                                     : 'bg-rose-500/15 text-rose-500 border-rose-500/30';
-                            const confLabel = confidence >= 75 ? 'Très probable' : confidence >= 40 ? 'À vérifier' : 'Peu probable';
+                            const confLabel = confidence >= 50 ? 'Très probable' : confidence >= 30 ? 'À vérifier' : 'Peu probable';
                             const confidencePill = `<span class="inline-flex items-center px-1.5 py-0.5 rounded-md border ${pillColor} text-[9px] font-black shrink-0">${confLabel}</span>`;
                             // Project chip — tappable, opens the project picker. Shows current project.
                             // If the engine suggests a different project with meaningfully higher score, surface a hint.
@@ -10262,8 +10268,8 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                                                     <span class="font-semibold text-slate-900 truncate">${projectMeta.icon} ${projectMeta.name}</span>
                                                     ${hasBetterSuggestion ? `<span class="text-[9px] text-amber-600 font-medium shrink-0">→ ${mp.suggestedProjectIcon} ${mp.suggestedProjectName}</span>` : ''}
                                                 </div>
-                                                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0 ${confidence >= 90 ? 'bg-emerald-500/15 text-emerald-600' : confidence >= 75 ? 'bg-indigo-500/15 text-indigo-600' : 'bg-amber-500/15 text-amber-600'}">
-                                                    <span class="size-1.5 rounded-full bg-current"></span>${confidence >= 75 ? 'Très probable' : confidence >= 40 ? 'À vérifier' : 'Peu probable'}
+                                                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0 ${confidence >= 90 ? 'bg-emerald-500/15 text-emerald-600' : confidence >= 50 ? 'bg-indigo-500/15 text-indigo-600' : 'bg-amber-500/15 text-amber-600'}">
+                                                    <span class="size-1.5 rounded-full bg-current"></span>${confidence >= 50 ? 'Très probable' : confidence >= 30 ? 'À vérifier' : 'Peu probable'}
                                                 </span>
                                             </div>
                                             ${reasoning && reasoning.label && reasoning.label !== 'Non classé' ? `<div class="mt-2 flex flex-wrap gap-1.5"><span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">${reasoning.label}</span>${exp._fuzzyDupe ? '<span class="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-600"><i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i>Doublon possible</span>' : ''}</div>` : (exp._fuzzyDupe ? `<div class="mt-2 flex flex-wrap gap-1.5"><span class="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-600"><i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i>Doublon possible</span></div>` : '')}
@@ -11122,10 +11128,20 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             // Update visual ring on inbox cards
             document.querySelectorAll('[id^="inbox-item-"]').forEach(el => {
                 const id = el.id.replace('inbox-item-', '');
+                const card = el.querySelector('.swipe-card');
                 if (state.inboxSelectedIds.has(id)) {
                     el.classList.add('inbox-item-selected');
+                    if (card) {
+                        card.style.boxShadow = '0 0 0 2.5px rgba(99,102,241,0.5)';
+                        card.style.background = 'rgba(99,102,241,0.07)';
+                        card.style.position = 'relative';
+                    }
                 } else {
                     el.classList.remove('inbox-item-selected');
+                    if (card) {
+                        card.style.boxShadow = '';
+                        card.style.background = '';
+                    }
                 }
             });
         }
@@ -12319,6 +12335,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 window._suggListFingerprint = _fingerprint;
                 return;
             }
+            if (window._inboxDemoPlaying) return;
             if (_fingerprint === window._suggListFingerprint && _hasCards) return;
             window._suggListFingerprint = _fingerprint;
 
@@ -12349,13 +12366,14 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const reasoning = dbg && dbg.reasoning ? dbg.reasoning : s.reasoning;
                 return { exp, confidence, reasoning };
             }).sort((a,b) => b.confidence - a.confidence);
-            const CONFIDENT_THRESHOLD = 75;
-            const allVisible = window._accueilShowAll ? scored : scored.slice(0, 5);
+            const CONFIDENT_THRESHOLD = 50; // lowered: merchant_override_match alone scores 45, +group_type = 53
+            const allVisible = window._accueilWidgetShowAll ? scored : scored.slice(0, 5);
             const probables  = allVisible.filter(s => s.confidence >= CONFIDENT_THRESHOLD);
             const averifier  = allVisible.filter(s => s.confidence <  CONFIDENT_THRESHOLD);
 
+            // "Voir plus" button injected at bottom of list after cards render
             const showMoreBtn = document.getElementById('accueil-show-all-btn');
-            if (showMoreBtn) showMoreBtn.classList.toggle('hidden', scored.length <= 5);
+            if (showMoreBtn) showMoreBtn.classList.add('hidden'); // keep top btn hidden always
 
             const renderCard = ({ exp, confidence, reasoning }) => {
                 const m = (typeof scanCategory === 'function') ? scanCategory(exp.description) : { icon: 'fa-asterisk', label: 'Autre' };
@@ -12375,7 +12393,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 const isRevenu = (exp.amount||0) < 0;
                 const amt = Math.abs(exp.amount||0).toFixed(2).replace('.',',');
                 const dateStr = (() => { const _d = new Date(exp.date || exp.created_at || exp.createdat || exp.createdAt || exp.created || ''); return isNaN(_d.getTime()) ? '' : _d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); })();
-                const isProbable = confidence >= 75;
+                const isProbable = confidence >= 50;
 
                 // Bubble colours
                 const bubbleBg     = isProbable
@@ -12386,7 +12404,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     ? '0 4px 18px rgba(99,102,241,0.11),0 1px 4px rgba(0,0,0,0.05)'
                     : '0 4px 18px rgba(245,158,11,0.11),0 1px 4px rgba(0,0,0,0.05)';
                 const amtColor     = isRevenu ? '#10b981' : (isProbable ? '#4f46e5' : '#d97706');
-                const confLabel    = confidence >= 90 ? 'Très probable' : confidence >= 75 ? 'Probable' : confidence >= 40 ? 'À vérifier' : 'Peu probable';
+                const confLabel    = confidence >= 90 ? 'Très probable' : confidence >= 50 ? 'Probable' : confidence >= 30 ? 'À vérifier' : 'Peu probable';
                 const confBg       = isProbable ? 'rgba(99,102,241,0.1)' : 'rgba(245,158,11,0.12)';
                 const confColor    = isProbable ? '#4f46e5' : '#b45309';
                 const confirmBg    = isProbable ? 'linear-gradient(135deg,#4f46e5,#7c3aed)' : 'linear-gradient(135deg,#f59e0b,#f97316)';
@@ -12394,15 +12412,20 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
 
                 // Reasons (top 2 matching rules)
                 const ruleLabels = {
-                    merchant_override_match: 'Marchand associé',
-                    category_keyword_strong: 'Catégorie correspondante',
-                    category_tagged_manual:  'Catégorie identifiée',
-                    merchant_accepted_here:  'Marchand déjà validé',
-                    merchant_seen_before:    'Marchand connu',
-                    description_similarity:  'Description similaire',
-                    recent_common_merchant:  'Fréquent ici',
-                    date_pattern_match:      'Habitude de date',
-                    fallback:                'Suggestion automatique',
+                    merchant_override_match:         'Marchand associé',
+                    category_keyword_strong:         'Catégorie correspondante',
+                    category_tagged_manual:          'Catégorie identifiée',
+                    merchant_accepted_here:          'Marchand déjà validé',
+                    merchant_seen_before:            'Marchand connu',
+                    merchant_seen_approved:          'Marchand déjà approuvé',
+                    merchant_accepted_other_project: 'Vu dans un autre groupe',
+                    merchant_ignored_here:           'Souvent ignoré ici',
+                    group_type_category_match:       'Correspond au type de groupe',
+                    description_similarity:          'Description similaire',
+                    recent_common_merchant:          'Fréquent ici',
+                    date_pattern_match:              'Habitude de date',
+                    date_overlap:                    'Dans la période du groupe',
+                    fallback:                        'Suggestion automatique',
                 };
                 const topRules = (reasoning && reasoning.rules || [])
                     .filter(r => r.delta > 0)
@@ -12413,13 +12436,13 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     ? topRules.map(r => '<span style="display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:500;background:rgba(0,0,0,0.04);color:#64748b">' + r + '</span>').join('')
                     : '';
 
-                return `<div class="relative" data-exp-id="${exp.id}" style="opacity:0;transform:translateY(64px)">
+                return `<div class="relative" id="inbox-item-${exp.id}" data-exp-id="${exp.id}" style="opacity:0;transform:translateY(64px)" >
                     <div class="swipe-bg-validate absolute inset-0 rounded-2xl bg-emerald-500/15 flex items-center justify-start pl-5 pointer-events-none" style="opacity:0"><i class="fa-solid fa-check text-emerald-500 text-xl"></i></div>
                     <div class="swipe-bg-ignore absolute inset-0 rounded-2xl bg-rose-500/15 flex items-center justify-end pr-5 pointer-events-none" style="opacity:0"><i class="fa-solid fa-xmark text-rose-400 text-xl"></i></div>
 
                     <div class="swipe-card inbox-bubble-card" style="will-change:transform">
                         <!-- Chat bubble -->
-                        <div class="rounded-2xl rounded-tl-sm px-4 py-3 cursor-pointer" style="${bubbleBg};border:1px solid ${bubbleBorder};box-shadow:${bubbleShadow}" onclick="if(!event.target.closest('button')&&!event.target.closest('.cat-icon-btn')&&!event.target.closest('.proj-chip-btn')){const _ap=(state.expenses||[]).filter(e=>e.approved===false&&(!e.payer||e.payer===getDevicePayer())).map(e=>e.id);const _si=Math.max(0,_ap.indexOf('${exp.id}'));openSuggestionDetail([..._ap.slice(_si),..._ap.slice(0,_si)]);}">
+                        <div class="rounded-2xl rounded-tl-sm px-4 py-3 cursor-pointer" style="${bubbleBg};border:1px solid ${bubbleBorder};box-shadow:${bubbleShadow}" onclick="if(!event.target.closest('button')&&!event.target.closest('.cat-icon-btn')&&!event.target.closest('.proj-chip-btn')){if(state.inboxSelectedIds?.size>0){toggleInboxSelect(\'${exp.id}\');return;}const _ap=(state.expenses||[]).filter(e=>e.approved===false&&(!e.payer||e.payer===getDevicePayer())).map(e=>e.id);const _si=Math.max(0,_ap.indexOf('${exp.id}'));openSuggestionDetail([..._ap.slice(_si),..._ap.slice(0,_si)]);}">
 
                             <!-- Row 1: category icon + merchant + amount -->
                             <div class="flex items-start gap-2.5">
@@ -12467,7 +12490,41 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                 </div>`;
                 groupedHTML += (probables.length > 0 ? divider : '') + averifier.map(renderCard).join('');
             }
+            // Split into first 5 and the rest — render all, hide the overflow
+            const firstFive   = scored.slice(0, 5);
+            const overflow    = scored.slice(5);
+            const firstHTML   = (firstFive.filter(s => s.confidence >= CONFIDENT_THRESHOLD).map(renderCard).join(''))
+                              + (firstFive.filter(s => s.confidence < CONFIDENT_THRESHOLD).length > 0
+                                  ? `<div class="flex items-center gap-3 py-1"><div class="h-px flex-1 bg-slate-200"></div><span class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-amber-400 inline-block"></span>À vérifier</span><div class="h-px flex-1 bg-slate-200"></div></div>`
+                                  + firstFive.filter(s => s.confidence < CONFIDENT_THRESHOLD).map(renderCard).join('')
+                                  : '');
+            let overflowHTML  = '';
+            if (overflow.length > 0) {
+                overflowHTML = overflow.map(renderCard).join('');
+                groupedHTML = firstHTML
+                    + `<div id="inbox-overflow" class="${window._accueilWidgetShowAll ? '' : 'hidden'}">${overflowHTML}</div>`
+                    + `<button id="accueil-inline-show-more"
+                        onclick="var el=document.getElementById('inbox-overflow');var btn=this;window._accueilWidgetShowAll=!window._accueilWidgetShowAll;el.classList.toggle('hidden',!window._accueilWidgetShowAll);btn.textContent=window._accueilWidgetShowAll?'↑ Voir moins':'↓ Voir ${overflow.length} de plus';"
+                        class="text-[13px] font-bold text-indigo-500 hover:text-indigo-700 mt-3 block w-full text-center">
+                        ${window._accueilWidgetShowAll ? '↑ Voir moins' : '↓ Voir ' + overflow.length + ' de plus'}
+                       </button>`;
+            }
             list.innerHTML = groupedHTML;
+            // Attach long-press multiselect listeners after DOM settles
+            setTimeout(() => {
+                list.querySelectorAll('[data-exp-id]').forEach(wrapper => {
+                    const expId = wrapper.dataset.expId;
+                    if (!expId || wrapper._msListenerAttached) return;
+                    wrapper._msListenerAttached = true;
+                    let _lpt = null;
+                    wrapper.addEventListener('touchstart', () => {
+                        _lpt = setTimeout(() => { toggleInboxSelect(expId); try { haptic('medium'); } catch(e){} }, 500);
+                    }, { passive: true });
+                    wrapper.addEventListener('touchend',   () => { clearTimeout(_lpt); }, { passive: true });
+                    wrapper.addEventListener('touchmove',  () => { clearTimeout(_lpt); }, { passive: true });
+                    wrapper.addEventListener('touchcancel',() => { clearTimeout(_lpt); }, { passive: true });
+                });
+            }, 0);
             scheduleCardAnimation(); // animate cards after renders settle
             // Fire demo once hero anim done, with extra delay for cards to land
             if (!window._demoQueued) {
@@ -12649,6 +12706,9 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
             if (!wrapper) return;
             const bubble = wrapper.querySelector('.rounded-2xl.rounded-tl-sm');
             if (!bubble) return;
+            // Mark as seen immediately so re-renders during animation don't restart it
+            localStorage.setItem('inboxSwipeDemoSeen', '1');
+            window._inboxDemoPlaying = true;
             const bgV = wrapper.querySelector('.swipe-bg-validate');
             const bgI = wrapper.querySelector('.swipe-bg-ignore');
             const demo = bubble.cloneNode(true);
@@ -12680,8 +12740,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     // Fade clone out, then remove
                     demo.style.transition = 'opacity 180ms ease';
                     demo.style.opacity = '0';
-                    setTimeout(() => demo.remove(), 200);
-                    localStorage.setItem('inboxSwipeDemoSeen', '1');
+                    setTimeout(() => { demo.remove(); window._inboxDemoPlaying = false; }, 200);
                 };
                 const tick = () => {
                     if (i >= seq.length) { finish(); return; }
@@ -14209,7 +14268,7 @@ function setHeaderProjectSelectorVisible(visible) { /* no-op */ }
                     <p class="mt-1.5 text-2xl font-bold tabular-nums text-slate-900">${isRevenu ? '+' : ''}${(exp.amount||0).toFixed(2).replace('.',',')} ${currency}</p>
                     <div class="mt-3 flex justify-center">
                         <span class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${confColor}">
-                            <span class="size-2 rounded-full ${dotColor}"></span>${conf >= 90 ? 'Très probable' : conf >= 75 ? 'Très probable' : conf >= 40 ? 'À vérifier' : 'Peu probable'}
+                            <span class="size-2 rounded-full ${dotColor}"></span>${conf >= 90 ? 'Très probable' : conf >= 50 ? 'Très probable' : conf >= 40 ? 'À vérifier' : 'Peu probable'}
                         </span>
                     </div>
                     <button onclick="openEditFromInbox('${exp.id}')" class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm active:bg-slate-50 active:scale-[0.98] transition-all">
