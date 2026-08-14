@@ -13,6 +13,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
     <meta name="apple-mobile-web-app-title" content="Splice">
+
+    <!-- Static icon files — iOS "Add to Home Screen" needs a real file reference
+         here at parse time; it does not reliably pick up icons injected later by
+         JavaScript (e.g. canvas-generated data: URIs). -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="manifest" href="manifest.json">
     
     <title>Splice</title>
     <!-- Tailwind CSS pour un design moderne -->
